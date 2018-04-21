@@ -1,2 +1,1 @@
-# studynote
-けんきうメモ
+# studynote けんきうメモ
