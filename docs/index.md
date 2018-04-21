@@ -1,5 +1,6 @@
+---
 layout: math
-
+---
 # title
 
 テスト
