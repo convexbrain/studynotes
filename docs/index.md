@@ -1,8 +1,9 @@
 ---
 layout: ext
 ---
-# title
+# 凸最適化
 
-テスト
+* [主双対内点法](PrimalDualIPM)
+* [QCQP](QCQP)
+* [SOCP](SOCP)
 
-$$ y = \sum x $$
