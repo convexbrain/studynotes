@@ -108,7 +108,7 @@ $$
     * $$ r_{\rm cent} = -{\bf diag}(\lambda) f(x) - (1/t) {\bf 1} $$ ： 中心残差
     * $$ r_{\rm pri} = Ax - b $$ ： 双対残差
 1. バックトラッキングラインサーチで $$ x, \lambda, \nu $$ を更新
-  * $$ s^{\max} = \sup \{ s \in [0, 1] \ \| \ \lambda + s \Delta \lambda \succeq 0 \} $$ を求めて $$ s = 0.99 s^{\max} $$ をセット
+  * $$ s^{\max} = \sup \{ s \in [0, 1] \ \mid \ \lambda + s \Delta \lambda \succeq 0 \} $$ を求めて $$ s = 0.99 s^{\max} $$ をセット
   * $$ x^+       = x       + s \Delta x_{\rm pd},       \
        \lambda^+ = \lambda + s \Delta \lambda_{\rm pd}, \
        \nu^+     = \nu     + s \Delta \nu_{\rm pd}      $$ として
@@ -154,8 +154,8 @@ $$ s $$ の初期値は $$ z \in {\cal D} $$ の初期値から $$ s > \max f_i(
 
 ## 例
 
-* [QCQP](QCQP.md)
-* [SOCP](SOCP.md)
+* [QCQP](QCQP)
+* [SOCP](SOCP)
 
 [ソースコード](https://github.com/convexbrain/Totsu/tree/master/solver/)
 と

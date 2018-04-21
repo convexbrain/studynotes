@@ -17,12 +17,12 @@ $$
 \end{array}
 $$
 
-* $$ f \in {\bf R}^n $$
-* $$ G_i \in {\bf R}^{n_i \times n}, \ h_i \in {\bf R}^{n_i}, \ c_i \in {\bf R}^n, \ d_i \in {\bf R} $$
-* $$ A \in {\bf R}^{p \times n}, \ b \in {\bf R}^p $$
-  * $$ {\bf rank} \ A = p < n $$
+* $$ f \in {\bf R}^n $$　
+* $$ G_i \in {\bf R}^{n_i \times n}, \ h_i \in {\bf R}^{n_i}, \ c_i \in {\bf R}^n, \ d_i \in {\bf R} $$　
+* $$ A \in {\bf R}^{p \times n}, \ b \in {\bf R}^p $$　
+  * $$ {\bf rank} \ A = p < n $$　
 
-次で示すように、[QCQP](QCQP.md)を特殊ケースとして含むことがわかります。
+次で示すように、[QCQP](QCQP)を特殊ケースとして含むことがわかります。
 したがって、二次計画問題(QP)、最小二乗問題(LS)、線形計画問題(LP)も特殊ケースとして含みます。
 
 ### SOCPで二次目的関数
@@ -59,7 +59,7 @@ $$c, d$$ を決める必要がありそうです（自信なし・・・SVDす�
 理屈上はQCQPなどがSOCPの特殊ケースであるとはいえ、
 実用上SOCPソルバで解こうとして変換するのは面倒だったり無駄が多かったりしそうです。
 
-## （cone programmingでない）[主双対内点法](PrimalDualIPM.md)の適用
+## （cone programmingでない）[主双対内点法](PrimalDualIPM)の適用
 
 ### 制約の変形
 
@@ -98,7 +98,7 @@ $$
 とします。
 任意の $$x$$ の初期値に対して $$ s_i > ||G_i x + h_i||_2 + \epsilon_{\rm bd} $$ となるように
 $$ s $$ の初期値を決めることにより、
-[Phase I via infeasible start](PrimalDualIPM.md)と同様に実行可能でない点から開始することができます。
+[Phase I via infeasible start](PrimalDualIPM)と同様に実行可能でない点から開始することができます。
 
 ### 目的関数・制約関数とその導関数
 
@@ -150,4 +150,4 @@ $$
 
 ## ソースコード
 
-[主双対内点法](PrimalDualIPM.md)参照
+[主双対内点法](PrimalDualIPM)参照

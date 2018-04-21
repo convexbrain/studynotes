@@ -17,15 +17,15 @@ $$
 \end{array}
 $$
 
-* $$ P_i \in {\bf S}_+^n, \ q_i \in {\bf R}^n, \ r_i \in {\bf R}, \quad i = 0, 1, \ldots, m $$
+* $$ P_i \in {\bf S}_+^n, \ q_i \in {\bf R}^n, \ r_i \in {\bf R}, \quad i = 0, 1, \ldots, m $$　
   * $$ {\bf S}_+^n $$ ： $$ n \times n $$ 半正定値対称行列の集合
   * $$ r_0 $$ は目的関数の定数オフセットなので意味のあるパラメータではない
-* $$ A \in {\bf R}^{p \times n}, \ b \in {\bf R}^p $$
-  * $$ {\bf rank} \ A = p < n $$
+* $$ A \in {\bf R}^{p \times n}, \ b \in {\bf R}^p $$　
+  * $$ {\bf rank} \ A = p < n $$　
 
 （線形不等式制約つきの）二次計画問題(QP)、最小二乗問題(LS)、線形計画問題(LP)を特殊ケースとして含みます。
 
-## [主双対内点法](PrimalDualIPM.md)の適用
+## [主双対内点法](PrimalDualIPM)の適用
 
 以下のように書けます。
 
@@ -38,7 +38,7 @@ $$
 \qquad i = 0, 1, \ldots, m
 $$
 
-### [Phase I via infeasible start](PrimalDualIPM.md)の適用
+### [Phase I via infeasible start](PrimalDualIPM)の適用
 
 変数を $$ z \in {\bf R}^n, s \in {\bf R} $$ として、同値な最適化問題
 
@@ -60,16 +60,16 @@ $$ x \leftarrow (z \ \ s)^T $$ と置き換えると、
 * $$ P_0 \leftarrow \left[ \matrix{ P_0 & 0 \\
                                     0   & 0 } \right ], \quad
      P_i \leftarrow \left[ \matrix{ P_i & 0 \\
-                                    0   & 0 } \right ] $$
+                                    0   & 0 } \right ] $$　
 * $$ q_0 \leftarrow \left[ \matrix{ q_i \\
                                     0   } \right ], \quad
      q_i \leftarrow \left[ \matrix{ q_i \\
-                                    -1  } \right ] $$
+                                    -1  } \right ] $$　
 * $$ A \leftarrow \left[ \matrix{ A & 0 \\
-                                  0 & 1 } \right ] $$
+                                  0 & 1 } \right ] $$　
 * $$ b \leftarrow \left[ \matrix{ b \\
-                                  0 } \right ] $$
+                                  0 } \right ] $$　
 
 ## ソースコード
 
-[主双対内点法](PrimalDualIPM.md)参照
+[主双対内点法](PrimalDualIPM)参照
