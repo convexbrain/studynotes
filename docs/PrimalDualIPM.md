@@ -38,7 +38,7 @@ $$
 \end{array}
 $$
 
-* $$ \lambda \in {\bf R}^m, \ \nu \in {\bf R}^p $$
+* $$ \lambda \in {\bf R}^m, \ \nu \in {\bf R}^p $$　
 * $$ {\cal D} $$ ： $$ f_0, \ldots, f_m $$ の定義域の共通部分の集合
 * $$ f(x) = (f_1(x) \ \cdots \ f_m(x))^T $$ のベクトルとして、ラグランジアン $$ L(x, \lambda, \nu) = f_0(x) + \lambda^T f(x) + \nu^T (Ax - b) $$
 
@@ -64,7 +64,7 @@ $$
 ### 初期値
 
 * $$ x \in {\cal D} $$ ： $$ f(x) \prec 0 $$ を満たす点。$$ Ax=b $$ である必要はありません。
-* $$ \lambda \succ 0 $$
+* $$ \lambda \succ 0 $$　
 
 $$ \nu $$ には初期値として満たすべき条件はありません。
 
@@ -108,7 +108,7 @@ $$
     * $$ r_{\rm cent} = -{\bf diag}(\lambda) f(x) - (1/t) {\bf 1} $$ ： 中心残差
     * $$ r_{\rm pri} = Ax - b $$ ： 双対残差
 1. バックトラッキングラインサーチで $$ x, \lambda, \nu $$ を更新
-  * $$ s^{\max} = \sup \{ s \in [0, 1] \ | \ \lambda + s \Delta \lambda \succeq 0 \} $$ を求めて $$ s = 0.99 s^{\max} $$ をセット
+  * $$ s^{\max} = \sup \{ s \in [0, 1] \ \| \ \lambda + s \Delta \lambda \succeq 0 \} $$ を求めて $$ s = 0.99 s^{\max} $$ をセット
   * $$ x^+       = x       + s \Delta x_{\rm pd},       \
        \lambda^+ = \lambda + s \Delta \lambda_{\rm pd}, \
        \nu^+     = \nu     + s \Delta \nu_{\rm pd}      $$ として
@@ -120,7 +120,7 @@ $$
       $$ r_t(x, \lambda, \nu) = \left[ \array{
       r_{\rm dual} \\ r_{\rm cent} \\ r_{\rm pri}
       } \right] $$
-  * $$ x := x^+, \ \lambda := \lambda^+, \ \nu := \nu^+ $$
+  * $$ x := x^+, \ \lambda := \lambda^+, \ \nu := \nu^+ $$　
 1. 終了判定 $$ ||r_{\rm dual}||_2 \le \epsilon_{\rm feas}, \
     ||r_{\rm pri}||_2 \le \epsilon_{\rm feas}, \
     {\hat \eta} \le \epsilon $$ を満たすまで繰り返し
@@ -157,6 +157,6 @@ $$ s $$ の初期値は $$ z \in {\cal D} $$ の初期値から $$ s > \max f_i(
 * [QCQP](QCQP.md)
 * [SOCP](SOCP.md)
 
-ソースコード： https://github.com/convexbrain/Totsu/tree/master/solver/
-
-ドキュメント： http://convexbrain.github.io/Totsu/PrimalDualIPM/html/
+[ソースコード](https://github.com/convexbrain/Totsu/tree/master/solver/)
+と
+[ドキュメント](http://convexbrain.github.io/Totsu/PrimalDualIPM/html/)
