@@ -1,2 +1,2 @@
 
-GitHub Pages URL: https://convexbrain.github.io/studynote/
+GitHub Pages URL: https://convexbrain.github.io/studynotes/
