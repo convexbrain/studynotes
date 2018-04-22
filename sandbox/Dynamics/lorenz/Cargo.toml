@@ -1,0 +1,9 @@
+[package]
+name = "lorenz"
+version = "0.1.0"
+authors = ["convexbrain <convexbrain@gmail.com>"]
+
+[dependencies]
+piston_window = "*"
+image = "*"
+runge_kutta = {path = "../runge_kutta"}
