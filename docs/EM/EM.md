@@ -41,9 +41,11 @@ $$ {\partial\over\partial\theta} p(X|\theta)=0 $$ または
 $$ {\partial\over\partial\theta} \ln p(X|\theta)=0 $$
 とすれば（少なくとも極大値は）解析的に求まりそうな気がします。
 しかし今は隠れ変数 $$Y$$ があるので、尤度は $$p(X,Y|\theta)$$ を $$Y$$で積分して周辺化したものになります。
+
 $$
 p(X|\theta)=\int_{\Omega_Y}p(X,Y|\theta)dY
 $$
+
 こうなると、極値条件から $$\theta$$ を $$X$$ だけで書き下すのは難しくなるっぽいので、
 反復的に $$\theta_0,\theta_1,\ldots,\theta_t,\ldots$$ と徐々に
 解に近づけていくことを考えたくなります。
@@ -56,30 +58,40 @@ EMアルゴリズムはこの反復計算法を与えます。
 かなり天下り的ですが対数尤度を変形していきます。
 
 まずベイズの定理により
+
 $$ \ln p(X|\theta) = \ln p(X,Y|\theta) - \ln p(Y|X,\theta) $$
+
 です。
 次に、確率変数 $$Y$$ について任意の確率密度関数を $$q(Y)$$ とします。
 確率分布なので
+
 $$\int_{\Omega_Y} q(Y)dY=1$$
+
 なのと、
 $$\ln p(X|\theta)$$ は $$Y$$ に関係ないことから、
+
 $$
 \ln p(X|\theta) = \ln p(X|\theta) \int_{\Omega_Y} q(Y) dY
                 = \int_{\Omega_Y} q(Y) \ln p(X|\theta) dY
 $$
+
 とできます。
 一方で
+
 $$
 \ln p(X|\theta)
 = \ln p(X,Y|\theta) - \ln q(Y)  + \ln q(Y) - \ln p(Y|X,\theta)
 = \ln{p(X,Y|\theta) \over q(Y)} + \ln{q(Y) \over p(Y|X,\theta)}
 $$
+
 なので、合わせて
+
 $$
 \ln p(X|\theta)
  = \int_{\Omega_Y} q(Y) \ln{p(X,Y|\theta) \over q(Y)} dY +
    \int_{\Omega_Y} q(Y) \ln{q(Y) \over p(Y|X,\theta)} dY
 $$
+
 と導くことができます。
 第2項は $$q(Y)$$ から $$p(Y|X,\theta)$$ の（確率変数 $$Y$$ についての）カルバック・ライブラー情報量として知られているものになっています。
 これを $$KL(q \parallel p_{|X,\theta})$$ と書くことにします。
@@ -103,22 +115,28 @@ EMはEステップとMステップという2段階から成っています。
 ### Expectation Step
 
 先の対数尤度の分解表現において、$$q(Y)$$ は正規化されていればなんでもよかったので、$$q(Y) = p(Y|X,\theta^t)$$ とします。
+
 $$
 \ln p(X|\theta)
  = \int_{\Omega_Y} p(Y|X,\theta^t) \ln{p(X,Y|\theta) \over p(Y|X,\theta^t)} dY +
    KL(p_{|X,\theta^t} \parallel p_{|X,\theta})
 $$
+
 第1項を $$L(\theta, \theta^t)$$ と置きます。
 また、
+
 $$
 L(\theta, \theta^t)
  = \int_{\Omega_Y} p(Y|X,\theta^t) \ln p(X,Y|\theta) dY -
    \int_{\Omega_Y} p(Y|X,\theta^t) \ln p(Y|X,\theta^t) dY
 $$
+
 で、第1項を
+
 $$
 Q(\theta, \theta^t) = \int_{\Omega_Y} p(Y|X,\theta^t) \ln p(X,Y|\theta) dY
 $$
+
 と置きます。
 
 Eステップはこの $$Q(\theta, \theta^t)$$ の導出ということになります。
@@ -127,16 +145,20 @@ $$Q(\theta, \theta^t)$$ は、完全データの対数尤度 $$\ln p(X,Y|\theta)
 ### Maximization Step
 
 Mステップではその名の通り、
+
 $$
 L(\theta, \theta^t)
  = Q(\theta, \theta^t) -
    \int_{\Omega_Y} p(Y|X,\theta^t) \ln p(Y|X,\theta^t) dY
 $$
+
 を $$\theta$$ について最大化して、そのときの $$\theta$$ を $$\theta_{t+1}$$ とします。
 ここで $$ L(\theta, \theta^t)=\cdots $$ の第2項は $$\theta$$ に関係ないので、結局
+
 $$
 \theta^{t+1} = \arg\max_\theta Q(\theta, \theta^t)
 $$
+
 と等価です。
 
 最大化は結局（多くの場合） $${\partial\over\partial\theta}Q=0$$ とやるわけで、$$Q$$ の極値を解析的に求めるのって無理そうじゃん・・・って思われますがそうでもありません。
@@ -154,6 +176,7 @@ $$p(X,Y|\theta)$$ がガウシアンとかなら
 ### 対数尤度の単調増加
 
 パラメータ $$\theta_t$$ での対数尤度は、同一の確率分布どうしのカルバック・ライブラー情報量はゼロになるので、
+
 $$
 \begin{array}{ll}
 \ln p(X|\theta^t)
@@ -162,21 +185,28 @@ $$
 &= L(\theta^t, \theta^t)
 \end{array}
 $$
+
 となります。
 一方パラメータ $$\theta_{t+1}$$ での対数尤度は
+
 $$
 \ln p(X|\theta^{t+1})
  = L(\theta^{t+1}, \theta^t) +
    KL(p_{|X,\theta^t} \parallel p_{|X,\theta^{t+1}})
 $$
+
 となります。
 
 Mステップの定義から明らかに
+
 $$L(\theta^{t+1}, \theta^t) \ge L(\theta^t, \theta^t)$$
+
 で、異なる確率分布間のカルバック・ライブラー情報量は正ですから、
+
 $$
 \ln p(X|\theta^{t+1}) \ge \ln p(X|\theta^t)
 $$
+
 が必ず成立します。
 
 ## 適用例

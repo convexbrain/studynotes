@@ -6,6 +6,7 @@ layout: ext
 ## 問題再掲
 
 [ハードマージンSVM](SVM) の学習問題は
+
 $$
 \text{ find } \alpha \text{ s.t. }
 \begin{array}{ll}
@@ -15,6 +16,7 @@ $$
 & \sum_i \alpha_i y_i = 0, \alpha_i \ge 0 \, (i=1,\ldots,l)
 \end{array}
 $$
+
 でした（記述量削減のため $$K_{i,j}=K(x_i,x_j)$$ とします）。
 が、結局 $$\alpha$$ をどうやって求めるのかという（実装上の）問題が依然として残っています。
 最急降下法や共役勾配法など一般の非線形最適化手法を用いてもいいのですが、この問題（特に制約条件）の形に特化した方法としてJohn Plattさん考案のSMO（Sequential Minimal Optimization）アルゴリズムというものがあります。
@@ -30,6 +32,7 @@ $$
 
 $$\alpha_m \rightarrow \alpha_m+\delta_m, \ \alpha_n \rightarrow \alpha_n+\delta_n$$ のように置き換えるとします。
 このとき、最大化する目的関数から $$\delta_m, \delta_n$$ の項だけ抜き出したものを $$O(\delta_m, \delta_n)$$ とすると、
+
 $$
 \begin{array}{ll}
 O(\delta_m, \delta_n) =
@@ -39,8 +42,10 @@ O(\delta_m, \delta_n) =
 & -{ \delta_m^2K_{m,m} + 2\delta_m\delta_ny_my_nK_{m,n} + \delta_n^2K_{n,n} \over 2 }
 \end{array}
 $$
+
 と計算できます。
 制約条件からは
+
 $$
 \begin{array}{ll}
 \delta_my_m+\delta_ny_n=0 \\
@@ -48,11 +53,13 @@ $$
 \alpha_n+\delta_n \ge 0
 \end{array}
 $$
+
 となります。
 
 ### $$y_n=y_m$$ のとき
 
 $$\delta_n=-\delta_m$$ なので、
+
 $$
 \begin{array}{ll}
 O =
@@ -62,8 +69,10 @@ O =
         \right) \delta_m
 \end{array}
 $$
+
 となります。
 $${\partial\over\partial\delta_m}O=0$$ として、
+
 $$
 \begin{array}{ll}
 \delta_m
@@ -77,6 +86,7 @@ $$
       \over K_{m,m} - 2K_{m,n} + K_{n,n} }
 \end{array}
 $$
+
 が得られます。
 また、更新結果 $$\alpha_m+\delta_m$$ は $$ [0,\alpha_m+\alpha_n] $$ の範囲でクリップする必要があります。
 クリップした更新値を $$\alpha_m^+$$ と置いて、
@@ -102,9 +112,11 @@ PlattのSMOコードを見ても、乱数を使ってたりしています。
 2変数の場合の解析的な解では、 $$b$$ は相殺されているのでなくても計算できますが、2変数を選択するためにKKT条件を見るときは必要になってきます。
 反復途中ではまだサポートベクトルが決まってないので、[SVM](SVM) のところに書いてある方法でバイアスを求めても上手くいきません。
 代わりに
+
 $$
 b = - {\max_{i|y_i=-1} wx_i + \min_{i|y_i=+1} wx_i \over 2}
 $$
+
 とすると良いようです。
 
 ## サンプルコード
