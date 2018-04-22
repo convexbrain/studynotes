@@ -1,6 +1,9 @@
-((jsmath))
+---
+layout: ext
+---
+# TVについての補足
 
-!!! 式変形
+## 式変形
 
 関数 \(\phi(x)\) の、厳密な定義によるTotal Variation
 \[
@@ -16,12 +19,14 @@
   {\partial\over\partial x_2}(\phi g_2)
 \)
 であり、積分してグリーンの公式を適用すると
-\[\eqalign{
+$$
+\begin{array}{ll}
 \int\int\left({\partial\over\partial x_1}(\phi g_1)
              +{\partial\over\partial x_2}(\phi g_2)\right)dx_1dx_2
 &=\oint(\phi g_1dx_2-\phi g_2dx_1) \\
 &=\oint\phi g\cdot dn
-}\]
+\end{array}
+$$
 となります。
 周回積分は、\(x\) 平面上で関数（画像）\(\phi\) が定義されている領域の境界線上で取ります。
 \(dn=(dx_2,-dx_1)\) はその境界線の線素を直角に回転させたものです。
@@ -42,7 +47,7 @@
 \]
 が成り立ちます。
 
-!!! 式評価
+## 式評価
 
 先の式変形により、
 \[
@@ -64,6 +69,6 @@
   \max_{g^2\le1}\int\phi \ \nabla\cdot g \ dx
 = \int|\nabla\phi|dx
 \]
-となり、[[最初のTVの定義|Total Variation#p1]]に戻りました。
+となり、[Total Variation](TV) の最初の定義に戻りました。
 
 厳密な証明はどうやら難しそうなので、まだ見ることすらしていません！

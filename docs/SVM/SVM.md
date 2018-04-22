@@ -1,19 +1,22 @@
-((jsmath))
+---
+layout: ext
+---
+# SVM
 
-!!! 問題定義
+## 問題定義
 
 \(l\) 個の入力ベクトル \( x_i \ (i=1,\ldots,l) \) と、各 \( x_i \) が属するクラス \( y_i \in \{-1,+1\} \) が学習データセットとして与えられたときに、これを正しくクラス分類する超曲面 \( f(x)=0 \) を求めることを考えます。
 
-<<{svm_01.jpg}
+![](svm_01.jpg)
 
 もう少し具体的に書くと、
 \[ y_i f(x_i) > 0 \]
 となる \( f \) を求めることと同値です。
 また実際は、 \( f \) はいくつかの変数でパラメタライズしてあって、結局はそのパラメータをどうにかして決める問題になります。
 
-!!! ハードマージンSVM
+## ハードマージンSVM
 
-!! 不等式制約つき凸関数最小化問題への帰着
+### 不等式制約つき凸関数最小化問題への帰着
 
 \( y_i=+1 \) のデータ群と \( y_i=-1 \) のデータ群がきれいに分割されていて、超平面
 \[ f(x)=wx+b=0 \]
@@ -35,16 +38,20 @@
 という等価な表現に置き換えておきます。
 
 まとめると、
-\[
+$$
 w,b \text{ s.t. }
-\cases{ \text{ minimize }   \frac 12 w^2 \\
-        \text{ subject to } y_i f(x_i) = y_i(wx_i+b) \ge 1 \ (i=1,\ldots,l)}
-\]
+\begin{array}{ll}
+\text{ minimize }
+& \frac 12 w^2 \\
+\text{ subject to }
+& y_i f(x_i) = y_i(wx_i+b) \ge 1 \ (i=1,\ldots,l)
+\end{array}
+$$
 を見つける問題になります。これを主問題と呼んでおきましょう。
 
-!! 双対問題
+### 双対問題
 
-さて[[双対定理]]によると、上記のような、凸関数からなる不等式制約つき最小化問題の最適値については、以下の双対問題の最適値と同じになるようです（自信なし、ちょっと調査不足・・・）。
+さて双対定理によると、上記のような、凸関数からなる不等式制約つき最小化問題の最適値については、以下の双対問題の最適値と同じになるようです（自信なし、ちょっと調査不足・・・）。
 \[
 \max_{\alpha} \{ \min_{w,b} \{ L \} \ | \ \alpha_i \ge 0 \ (i=1,\ldots,l) \}
 \]
@@ -70,23 +77,26 @@ w = \sum_i \alpha_i y_i x_i, \ \sum_i \alpha_i y_i = 0
 \]
 となります。
 よって双対問題は
-\[
+$$
 \alpha \text{ s.t. }
-\cases{ \text{ maximize } \sum_i\alpha_i - \frac12\sum_{i,j} \alpha_i\alpha_jy_iy_jx_ix_j \\
-        \text{ subject to } \sum_i \alpha_i y_i = 0, \
-                            \alpha_i \ge 0 \ (i=1,\ldots,l) }
-\]
+\begin{array}{ll}
+\text{ maximize }
+& \sum_i\alpha_i - \frac12\sum_{i,j} \alpha_i\alpha_jy_iy_jx_ix_j \\
+\text{ subject to }
+& \sum_i \alpha_i y_i = 0, \alpha_i \ge 0 \, (i=1,\ldots,l)
+\end{array}
+$$
 を見つける問題です。
 この双対問題を解くこと＝ハードマージンSVMの学習です。
 
-!! サポートベクトル
+### サポートベクトル
 
 \(\alpha\) がどうにかして求まれば、 \( w=\sum_i\alpha_iy_ix_i \) なので、
 \[
 f(x)=\sum_i\alpha_iy_ix_ix+b
 \]
 となります。
-バイアス \(b\) は双対問題に表れていないので、主問題の制約 \( |wx^*+b|=1 \) を用いるしかありませんが、そもそもどの \(x_i\) が \(x^*\) か自明ではないように思えます。しかし実は[[Karush-Kuhn-Tucker条件|KKT条件]]（特に相補性条件）によると、
+バイアス \(b\) は双対問題に表れていないので、主問題の制約 \( |wx^*+b|=1 \) を用いるしかありませんが、そもそもどの \(x_i\) が \(x^*\) か自明ではないように思えます。しかし実はKarush-Kuhn-Tucker条件（特に相補性条件）によると、
 \[
 \alpha_i(1-y_i(wx_i+b))=0
 \]
@@ -106,9 +116,9 @@ f(x)=\sum_s\alpha_sy_sx_sx+b
 このデータ点 \(x_s\) をサポートベクトルと呼びます。
 分離超平面はサポートベクトルの重み付け和で表されていて、ラグランジュ乗数 \(\alpha\) はその重みに対応しています。
 
-<<{svm_02.jpg}
+![](svm_02.jpg)
 
-!! カーネルトリック
+### カーネルトリック
 
 ここまで線形な分離面だけを考えてきましたが、 \(x\) を非線形な写像 \(\phi\) でより高次な特徴空間に持っていって \(\phi(x)\) にしてから線形分離すれば、元の \(x\) 空間では非線形な分離面を得ることができます。
 
@@ -117,12 +127,15 @@ f(x)=\sum_s\alpha_sy_sx_sx+b
 \(\phi(x_i)\phi(x_j)\) を \(K(x_i,x_j)\) と置き、カーネルと呼びます。
 
 カーネルを適用すると、双対問題は
-\[
+$$
 \text{ find } \alpha \text{ s.t. }
-\cases{ \text{ maximize } \sum_i\alpha_i - \frac12\sum_{i,j} \alpha_i\alpha_jy_iy_jK(x_i,x_j) \\
-        \text{ subject to } \sum_i \alpha_i y_i = 0, \
-                            \alpha_i \ge 0 \ (i=1,\ldots,l) }
-\]
+\begin{array}{ll}
+\text{ maximize }
+& \sum_i\alpha_i - \frac12\sum_{i,j} \alpha_i\alpha_jy_iy_jK(x_i,x_j) \\
+\text{ subject to }
+& \sum_i \alpha_i y_i = 0, \alpha_i \ge 0 \, (i=1,\ldots,l)
+\end{array}
+$$
 となり、分離超曲面は
 \[
 f(x)=\sum_i\alpha_iy_iK(x_i,x)+b=0
@@ -132,18 +145,17 @@ f(x)=\sum_i\alpha_iy_iK(x_i,x)+b=0
 カーネルさえ与えれば、陽に写像 \(\phi\) を定義したり計算したりする必要はありません。
 なので、可算無限次元の特徴空間（ \(\in\) ヒルベルト空間）における分離でも、有限時間内で実行できることになります。
 一方、カーネルは元は内積なので、どんな関数でもカーネルとして使っていいわけではなく、当然内積としての性質を持ったものでなくてはなりません。
-いくつかの[[条件|カーネルの条件]]を満たす関数である必要があります。
+いくつかの条件を満たす関数である必要があります。
 例としては多項式カーネル \((x_ix_j+c)^d\) やガウシアンカーネル \(\exp\left(-{(x_i-x_j)^2\over\sigma^2}\right)\) があります。
 
-!!! SMOアルゴリズム
+## SMOアルゴリズム
 
-[[SMOアルゴリズム]]にて。
+[SMOアルゴリズム](SMO) にて。
 
-!!! ソフトマージンSVM
+## ソフトマージンSVM
 
-[[ソフトマージンSVM]]にて。
+[ソフトマージンSVM](SoftMarginSVM) にて。
 
-!!! SVMによる回帰
+## SVMによる回帰
 
-[[SVMによる回帰]]にて。
-
+[SVMによる回帰](SVMRegression) にて。

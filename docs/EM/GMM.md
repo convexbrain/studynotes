@@ -1,6 +1,9 @@
-((jsmath))
+---
+layout: ext
+---
+# Gaussian Mixture Model
 
-!!! 定義
+## 定義
 
 Gaussian Mixture Model（混合正規分布モデル）は以下のようなデータ生成モデルです。
 
@@ -27,7 +30,7 @@ Gaussian Mixture Model（混合正規分布モデル）は以下のようなデ�
 からなり、これを学習用の観測データ \(X=(x_1,\ldots,x_N)\) から推定することを考えます。
 推定にはEMアルゴリズムを使います。
 
-!!! 完全データの確率分布
+## 完全データの確率分布
 
 EMを適用するには \(p(X,Y|\theta)\) がわかっていればOKです。
 
@@ -51,9 +54,9 @@ p(x_n,y_n|\theta)
 p(X,Y|\theta)=\prod_n\prod_k (\phi_k N(x_n|\mu_k,S_k))^{y_{nk}}
 \]
 
-!!! Eステップ
+## Eステップ
 
-[[EMアルゴリズム#p5.1]]より
+[EMアルゴリズム](EM)より
 \[
 Q(\theta, \theta^t) = \sum_{Y\in\Omega_Y} P(Y|X,\theta^t) \ln p(X,Y|\theta)
 \]
@@ -88,18 +91,20 @@ P(y_{nk}=1|x_n,\theta^t)
 =p(x_n,y_{nk}=1|\theta^t)/\sum_i p(x_n,y_{ni}=1|\theta^t)
 \)
 が成り立つので、結局
-\[\eqalign{
+$$
+\begin{array}{ll}
 Q(\theta, \theta^t) &= \sum_n\sum_k
 (\ln\phi_k+\ln N(x_n|\mu_k,S_k))
 E(y_{nk}) \\
 E(y_{nk}) &=
 {\phi_k N(x_n|\mu_k^t,S_k^t) \over \sum_i \phi_i^t N(x_n|\mu_i^t,S_i^t)}
-}\]
+\end{array}
+$$
 となります。
 
-!!! Mステップ
+## Mステップ
 
-[[EMアルゴリズム#p5.2]]と制約条件より
+[EMアルゴリズム](EM)と制約条件より
 \[
 \max_\theta Q(\theta, \theta^t)
 \text{ under } \sum_k\phi_k=1
@@ -115,22 +120,22 @@ L(\theta,\lambda)=Q(\theta, \theta^t)+\lambda\left(1-\sum_k\phi_k\right)
 \(\phi_i\) についての極値条件から、
 \[
 {\partial\over\partial\phi_i}L=\sum_n\frac1{\phi_i}E(y_{ni})-\lambda=0
-\ \rightarrow \
+\ \rightarrow \,
 \phi_i=\frac1{\lambda}\sum_nE(y_{ni})
 \]
 これを制約条件に代入しなおして \(\lambda\) を消去して、
 \[
 \sum_k\phi_k=1
-\ \rightarrow \
+\ \rightarrow \,
 \lambda=\sum_n\sum_kE(y_{nk})=N
-\ \rightarrow \
+\ \rightarrow \,
 \phi_i={\sum_nE(y_{ni}) \over N}
 \]
 
 \(\mu_i\) についての極値条件から、
 \[
 {\partial\over\partial\mu_i}L=\sum_nS_i^{-1}(x_n-\mu_i)E(y_{ni})=0
-\ \rightarrow \
+\ \rightarrow \,
 \mu_i={\sum_n x_nE(y_{ni}) \over \sum_nE(y_{ni})}
 \]
 
@@ -139,7 +144,7 @@ L(\theta,\lambda)=Q(\theta, \theta^t)+\lambda\left(1-\sum_k\phi_k\right)
 {\partial\over\partial S_i^{-1}}L=\sum_n \left(
 \frac12 S_i -\frac12 (x_n-\mu_i)(x_n-\mu_i)^T
 \right)E(y_{ni})=0
-\ \rightarrow \
+\ \rightarrow \,
 S_i = { \sum_n (x_n-\mu_i)(x_n-\mu_i)^T E(y_{ni}) \over
         \sum_n E(y_{ni}) }
 \]
@@ -147,24 +152,28 @@ S_i = { \sum_n (x_n-\mu_i)(x_n-\mu_i)^T E(y_{ni}) \over
 ここで \(\ln N(x_n|\mu_k,S_k)\) のパラメータによる偏微分は、教科書みるなりググったりWikipedia先生に聞いてみたりしてください。
 
 更新式をまとめると、
-\[\eqalign{
+$$
+\begin{array}{ll}
 \phi_i^{t+1} &= {\sum_nE(y_{ni}) \over N}  \\
 \mu_i^{t+1} &= {\sum_n x_nE(y_{ni}) \over \sum_nE(y_{ni})}  \\
 S_i^{t+1} &= { \sum_n (x_n-\mu_i^{t+1})(x_n-\mu_i^{t+1})^T E(y_{ni}) \over \sum_n E(y_{ni}) }
-}\]
+\end{array}
+$$
 となります。
 
-!!! 収束判定
+## 収束判定
 
 \(\ln p(X|\theta)\) をチェックして、増分が適当に小さくなるまで更新を続けます。
-\[\eqalign{
-\ln p(X|\theta)=&\ln \prod_n p(x_n|\theta) \\
-=&\sum_n \ln \sum_k p(x_n,y_{nk}=1|\theta) \\
-=&\sum_n \ln \sum_k p(y_{nk}=1|\theta) p(x_n|y_{nk}=1,\theta) \\
-=&\sum_n \ln \sum_k \phi_k N(x_n|\mu_k, S_k) \\
-}\]
+$$
+\begin{array}{ll}
+\ln p(X|\theta)&=\ln \prod_n p(x_n|\theta) \\
+&=\sum_n \ln \sum_k p(x_n,y_{nk}=1|\theta) \\
+&=\sum_n \ln \sum_k p(y_{nk}=1|\theta) p(x_n|y_{nk}=1,\theta) \\
+&=\sum_n \ln \sum_k \phi_k N(x_n|\mu_k, S_k) \\
+\end{array}
+$$
 で計算できます。
 
-!!! クラスタリング例
+## クラスタリング例
 
-[[GMM-Clustering]]にて。
+[GMMクラスタリング](GMMClustering) にて。

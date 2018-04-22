@@ -1,41 +1,44 @@
-((jsmath))
+---
+layout: ext
+---
+# TV最小化アルゴリズム
 
-!!! もう少し厳密な定義
+## もう少し厳密な定義
 
 \(u\) のTotal Variationは正式には
 \[
 \int|\nabla u|dx = \max_{g^2\le1}\int u \ \nabla\cdot g \ dx
 \]
-となるそうです（[[TVについての補足]]参照）。
+となるそうです（ [TVについての補足](TVSupp) 参照）。
 \(g=g(x)=(g_1(x_1,x_2),g_2(x_1,x_2))\) は、2次元平面上に定義され、2次元縦ベクトルを値として持つ関数です。
 \(g^2\le1\) の制約があるので、半径1の円盤内のベクトルになります。
 
 左辺に比べて、右辺は微分不可能な \(u\) にも適用できるので、より一般的な定義を与えていることが分かります。
 ただし、別に以下で \(u\) が微分不可能でもOKじゃないと困るというよりも、目的関数に絶対値や偏微分が含まれていないのが扱いやすいだけかなと思います。
 
-!!! 問題の再掲と変形
+## 問題の再掲と変形
 
 さて本題のTV最小化問題は、
 \[
 \min_u \left(
-  \left( \max_{g^2\le1}\int u \ \nabla\cdot g \ dx \right)
-  + \frac1{2\lambda}\int(u-u_0)^2dx
+  \left( \max_{g^2\le1}\int u \ \nabla\cdot g \ dx \right) +
+  \frac1{2\lambda}\int(u-u_0)^2dx
 \right)
 \]
 となります。
 最小化目的関数の第2項は \(g\) に関係ないので、
 \[
 \min_u \max_{g^2\le1} \left(
-   \int u \ \nabla\cdot g \ dx
-   + \frac1{2\lambda}\int(u-u_0)^2dx
+   \int u \ \nabla\cdot g \ dx +
+   \frac1{2\lambda}\int(u-u_0)^2dx
 \right)
 \]
 としても一緒です。
 さらに、ここで \(\min\) と \(\max\) を入れ替えてもいいらしいです。
 \[
 \max_{g^2\le1} \min_u \left(
-  \int u \ \nabla\cdot g \ dx
-  + \frac1{2\lambda}\int(u-u_0)^2dx
+  \int u \ \nabla\cdot g \ dx +
+  \frac1{2\lambda}\int(u-u_0)^2dx
 \right)
 \]
 おそらくミニマックス定理によるものと思われます。
@@ -66,7 +69,7 @@ u=u_0 - \lambda\nabla\cdot g
 この \(\min_u E\) を改めて \(-F(g)\) とおき \(\max_{g^2\le1}(-F)=\min_{g^2\le1}F\) を考えます。
 （\(g\) が求まれば \(u=u_0 - \lambda\nabla\cdot g\) で問題の \(u\) が出ます。）
 
-!!! 最適性条件
+## 最適性条件
 
 制約条件 \(g(x)^2\le1\) を後の計算の便宜上 \(\frac\lambda2(g(x)^2-1)\le0\) とし、これに対するラグランジュ乗数を \(\alpha(x)\)（これも関数！）とします。
 
@@ -75,7 +78,7 @@ u=u_0 - \lambda\nabla\cdot g
 L(g,\alpha)=F(g)+\int\alpha\frac\lambda2(g^2-1)dx
 \]
 
-[[KKT条件]]から、\(\min_{g^2\le1}F\) の最適性条件は以下のようになります：
+KKT条件から、\(\min_{g^2\le1}F\) の最適性条件は以下のようになります：
 
 * \(g\) の変分 \(\delta g\) に対する \(L\) の変分 \(\delta L=0\)
 * \(g^2\le1,\ \alpha \ge0\)
@@ -87,7 +90,7 @@ L(g,\alpha)=F(g)+\int\alpha\frac\lambda2(g^2-1)dx
 +\lambda\int(\nabla\cdot g)(\nabla\cdot\delta g)dx
 +\lambda\int\alpha \ \delta g\cdot g \ dx
 \]
-ここで、[[TVについての補足]]から
+ここで、[TVについての補足](TVSupp) から
 \(
 \int\phi \ \nabla\cdot\delta g \ dx = -\int \delta g\cdot\nabla\phi dx
 \)
@@ -103,22 +106,27 @@ L(g,\alpha)=F(g)+\int\alpha\frac\lambda2(g^2-1)dx
 \(H_\lambda(g)=\nabla(\nabla\cdot g - u_0/\lambda)\) とおくと、
 \(H_\lambda(g)=\alpha g\) です。
 両辺絶対値とってKKT条件に注意すると、
-\[
-|H_\lambda(g)|=\alpha|g| = \cases{
-0 \ (g^2<1)\\
-\alpha \ (g^2=1)}
-\]
+$$
+|H_\lambda(g)|=\alpha|g| = \left\{
+\begin{array}{ll}
+0 \ (g^2<1) \\
+\alpha \ (g^2=1)
+\end{array}
+\right.
+$$
 したがっていずれにせよ \(\alpha=|H_\lambda(g)|\) とできます。
 結局最適性条件は
-\[\cases{
+$$
+\begin{array}{ll}
 H_\lambda(g)-|H_\lambda(g)|g=0   \\
 g^2\le1
-}\]
+\end{array}
+$$
 とまとめられます。
 
-!!! 半陰（semi-implicit）最急降下法
+## 半陰（semi-implicit）最急降下法
 
-上記最適性条件を満たす \(g\) を求めるために、[[ラグランジアンに対する最急降下法]]を踏まえ、汎関数 \(L(g,\alpha)\) に対する最急降下法を考えます。
+上記最適性条件を満たす \(g\) を求めるために、ラグランジアンに対する最急降下法を踏まえ、汎関数 \(L(g,\alpha)\) に対する最急降下法を考えます。
 
 \(g(x)\) がある点 \(x_o\) だけにおいて変化すると考えます。
 すると変分 \(\delta g\) は、ディラックのデルタ関数を用いて
