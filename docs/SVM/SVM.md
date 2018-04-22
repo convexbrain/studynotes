@@ -63,7 +63,7 @@ L = \frac 12 w^2 + \sum_i \alpha_i (1 - y_i(wx_i+b))
 \( \alpha \) はラグランジュ乗数です。
 
 \( \min_{w,b} \{ L \} \) における \( w,b \) には制約がないので、
-\( {\partial L \over \partial w}=0, \ {\partial L \over \partial b}=0 \) として極値をとります。
+\( { \partial L \over \partial w } =0, \  { \partial L \over \partial b } =0 \) として極値をとります。
 \(L(w,b)\) は凸なので極値は最小値ですから。
 すると
 \[
