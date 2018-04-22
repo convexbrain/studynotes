@@ -57,7 +57,7 @@ $$
 
 と書けることが分かります。
 
-各 $$ (x_n,y_n) $$ はi.i.d.なので、単に $$p(x_n,y_n|\theta)$$ を全てのnについて掛ければ $$p(X,Y|\theta)$$ になります：
+各 $$ (x_n,y_n) $$ はi.i.d.なので、単に $$p(x_n,y_n\mid\theta)$$ を全てのnについて掛ければ $$p(X,Y\mid\theta)$$ になります：
 
 $$
 p(X,Y|\theta)=\prod_n\prod_k (\phi_k N(x_n|\mu_k,S_k))^{y_{nk}}
@@ -195,7 +195,7 @@ $$
 
 ## 収束判定
 
-$$\ln p(X|\theta)$$ をチェックして、増分が適当に小さくなるまで更新を続けます。
+$$\ln p(X\mid\theta)$$ をチェックして、増分が適当に小さくなるまで更新を続けます。
 
 $$
 \begin{array}{ll}

@@ -29,11 +29,11 @@ $$\phi_k N(x_n|\mu_k, S_k)$$ が使いまわせて効率がいいので。
 
 ![](emgm_0.png)
 
-学習後、$$k=\arg\max_k p(y_k=1|x,\theta)$$ によりクラスタリングした結果です↓
+学習後、$$k=\arg\max_k p(y_k=1 \mid x,\theta)$$ によりクラスタリングした結果です↓
 
 ![](emgm_1.png)
 
-各正規分布のパラメータがどう推定されているかを見るために、$$N(x|\mu_k, S_k) \ (k=\arg\max_k p(y_k=1|x,\theta))$$ をグラフにしてみました↓
+各正規分布のパラメータがどう推定されているかを見るために、$$N(x \mid \mu_k, S_k) \ (k=\arg\max_k p(y_k=1 \mid x,\theta))$$ をグラフにしてみました↓
 
 ![](emgm_2.png)
 
