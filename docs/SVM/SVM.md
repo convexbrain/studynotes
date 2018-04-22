@@ -72,7 +72,7 @@ w = \sum_i \alpha_i y_i x_i, \ \sum_i \alpha_i y_i = 0
 したがって
 \[
 \min_{w,b} \{ L \}
-= L |_{{\partial L \over \partial w}=0, \ {\partial L \over \partial b}=0}
+= L |_{ { \partial L \over \partial w } =0, \  { \partial L \over \partial b } =0 }
 = \sum_i\alpha_i - \frac12\sum_{i,j}\alpha_i\alpha_jy_iy_jx_ix_j
 \]
 となります。
