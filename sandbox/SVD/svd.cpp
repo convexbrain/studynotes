@@ -33,34 +33,34 @@ private:
 	ostream *m_pDout;
 
 public:
-	OSJ_SVD(ostream *out) {
-		if (out == NULL) m_pDout = &m_nullout;
-		else m_pDout = out;
-	}
-
-	void decomp(MatrixXd_IN G)
+	OSJ_SVD(MatrixXd_IN G, ostream *out = NULL) :
+		m_tr(false), m_pDout(out)
 	{
-		if ((G.rows() == 0) || (G.cols() == 0)) {
-			return;
-		}
+		if (out == NULL) m_pDout = &m_nullout;
 
 		if (G.rows() < G.cols()) {
 			m_tr = true;
 			m_U = G.transpose();
 		}
 		else {
-			m_tr = false;
 			m_U = G;
 		}
 
+		m_S = VectorXd(m_U.cols());
+		m_S.setZero();
+
+		m_V = MatrixXd(m_U.cols(), m_U.cols());
+		m_V.setIdentity();
+	}
+
+	bool decomp(void)
+	{
 		uint32_t m = m_U.rows();
 		uint32_t n = m_U.cols();
 
-		m_S = VectorXd(n);
-		m_S.setZero();
-
-		m_V = MatrixXd(n, n);
-		m_V.setIdentity();
+		if ((m == 0) || (n == 0)) {
+			return false;
+		}
 
 		bool converged;
 		do {
@@ -123,11 +123,13 @@ public:
 
 			m_U.col(i).normalize();
 		}
+
+		return true;
 	}
 
 	double test(MatrixXd_IN G)
 	{
-		if ((G.rows() == 0) || (G.cols() == 0)) {
+		if ((m_U.rows() == 0) || (m_U.cols() == 0)) {
 			return true;
 		}
 
@@ -153,8 +155,8 @@ public:
 		*m_pDout << "--- V * V'" << endl << VVt << endl;
 
 		Gr -= G;
-		double difG = Gr.norm();
-		*m_pDout << "--- difG" << endl << difG << endl;
+		double diff = Gr.norm();
+		*m_pDout << "--- diff" << endl << diff << endl;
 
 		MatrixXd I;
 		I = MatrixXd(UtU.rows(), UtU.cols());
@@ -169,19 +171,19 @@ public:
 		double difV = I.norm();
 		*m_pDout << "--- difV" << endl << difV << endl;
 
-		return difG;
+		return diff;
 	}
 };
 
 void test1(void)
 {
 	MatrixXd G(3, 3);
-	OSJ_SVD d(&cout);
-
 	//G.setIdentity();
 	G.setRandom();
 
-	d.decomp(G);
+	OSJ_SVD d(G, &cout);
+	d.decomp();
+
 	d.test(G);
 }
 
@@ -198,21 +200,25 @@ void test2(void)
 		cout << r << " rows " << c << " cols: ";
 
 		MatrixXd G(r, c);
-		OSJ_SVD d(NULL);
-
 		//G.setIdentity();
 		G.setRandom();
 
-		d.decomp(G);
-		double dif = d.test(G);
-		cout << "diff "<< dif << endl;
+		OSJ_SVD d(G);
+		d.decomp();
+
+		double diff = d.test(G);
+		cout << "diff "<< diff << endl;
 	}
 }
 
 int main(int argc, char ** argv)
 {
 	test1();
-	//test2();
+
+	cout << "Hit Any Key" << endl;
+	getchar();
+
+	test2();
 
 	cout << "Hit Any Key" << endl;
 	getchar();
