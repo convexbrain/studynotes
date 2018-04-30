@@ -5,11 +5,14 @@
 #include <cmath>
 #include <cfloat>
 #include <cstdio>
+
 #include <iostream>
+#include <chrono>
 
 #include <Eigen/Dense>
 
 using std::cout;
+using std::cerr;
 using std::endl;
 using std::ostream;
 using std::stringstream;
@@ -191,35 +194,43 @@ void test2(void)
 {
 	VectorXd rc(2);
 
+	cout << "num, rows, cols, period, diff" << endl;
 	for (uint32_t i = 0; i < 100; i++) {
-		cout << i << ": ";
+		cout << i << ", ";
 
 		rc.setRandom();
-		uint32_t r = (uint32_t)((rc(0) + 1.0) * 0.5 * 100) + 1;
-		uint32_t c = (uint32_t)((rc(1) + 1.0) * 0.5 * 100) + 1;
-		cout << r << " rows " << c << " cols: ";
+		uint32_t r = (uint32_t)((rc(0) + 1.0) * 0.5 * 500) + 1;
+		uint32_t c = (uint32_t)((rc(1) + 1.0) * 0.5 * 500) + 1;
+		cout << r << ", " << c << ", ";
 
 		MatrixXd G(r, c);
 		//G.setIdentity();
 		G.setRandom();
 
 		OSJ_SVD d(G);
+		auto start = std::chrono::system_clock::now();
 		d.decomp();
+		auto end = std::chrono::system_clock::now();
+		auto period = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+		cout << period << ", ";
 
 		double diff = d.test(G);
-		cout << "diff "<< diff << endl;
+		cout << diff << endl;
 	}
 }
 
 int main(int argc, char ** argv)
 {
+#if 0
 	test1();
 
-	cout << "Hit Any Key" << endl;
+	cerr << "Hit Any Key" << endl;
 	getchar();
-
+#endif
+#if 1
 	test2();
 
-	cout << "Hit Any Key" << endl;
+	cerr << "Hit Any Key" << endl;
 	getchar();
+#endif
 }
