@@ -17,7 +17,7 @@ void test1(void)
 	//G.row(3) = G.row(2) * G(0, 1);
 
 	{
-		IF_SVD *pSVD = new OSJ_SVD(G);
+		IF_SVD *pSVD = new OSJ_SVD_MT(G);
 
 		pSVD->decomp();
 		pSVD->test(G, cout);
@@ -45,7 +45,7 @@ void test2(uint32_t num_max, uint32_t sz_max, uint32_t r_max, bool doTest)
 		G.setRandom();
 
 		{
-			IF_SVD *pSVD = new OSJ_SVD(G);
+			IF_SVD *pSVD = new OSJ_SVD_MT(G);
 
 			auto start = std::chrono::system_clock::now();
 			pSVD->decomp();
