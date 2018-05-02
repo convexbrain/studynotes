@@ -79,7 +79,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="svd.cpp" />
+    <ClCompile Include="osj_svd.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="svd.h" />
