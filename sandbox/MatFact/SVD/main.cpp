@@ -7,9 +7,9 @@ using std::cout;
 using std::cerr;
 static std::stringstream nullout;
 
-void test1(void)
+void test1(uint32_t rows, uint32_t cols)
 {
-	MatrixXd G(3, 3);
+	MatrixXd G(rows, cols);
 	//G.setIdentity();
 	G.setRandom();
 
@@ -17,7 +17,8 @@ void test1(void)
 	//G.row(3) = G.row(2) * G(0, 1);
 
 	{
-		IF_SVD *pSVD = new OSJ_SVD_MT(G);
+		IF_SVD *pSVD = new OSJ_SVD(G);
+		//IF_SVD *pSVD = new OSJ_SVD_MT(G);
 
 		pSVD->decomp();
 		pSVD->test(G, cout);
@@ -45,7 +46,8 @@ void test2(uint32_t num_max, uint32_t sz_max, uint32_t r_max, bool doTest)
 		G.setRandom();
 
 		{
-			IF_SVD *pSVD = new OSJ_SVD_MT(G);
+			IF_SVD *pSVD = new OSJ_SVD(G);
+			//IF_SVD *pSVD = new OSJ_SVD_MT(G);
 
 			auto start = std::chrono::system_clock::now();
 			pSVD->decomp();
@@ -66,7 +68,8 @@ void test2(uint32_t num_max, uint32_t sz_max, uint32_t r_max, bool doTest)
 
 int main(int argc, char ** argv)
 {
-	//test1();
+	//test1(3, 3);
+	//test1(10, 10);
 	//test2(10, 3000, 50, true);
 	test2(100, 300000, 500, false);
 
