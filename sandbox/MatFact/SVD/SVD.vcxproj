@@ -83,6 +83,7 @@
     <ClCompile Include="osj_svd_mt.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="osj_svd_mt.h" />
     <ClInclude Include="svd.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

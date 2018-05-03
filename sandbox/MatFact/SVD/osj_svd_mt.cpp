@@ -1,70 +1,7 @@
 
-#include "svd.h"
+#include "osj_svd_mt.h"
 
-#include <iostream> // for debug
-#include <list>
-#include <vector>
-#include <thread>
-#include <future>
-#include <condition_variable>
-using std::list;
-using std::vector;
-using std::thread;
-using std::mutex;
-using std::unique_lock;
-using std::condition_variable;
-
-enum ColPairTerm {
-	CPTERM_NONE = 0,
-	CPTERM_PAR,
-	CPTERM_LOOP
-};
-
-struct ColPair {
-	uint32_t col1;
-	uint32_t col2;
-	ColPairTerm term;
-};
-
-template <class T>
-class MsgBox {
-protected:
-	mutex m_mtx;
-	condition_variable m_cond_empty;
-	condition_variable m_cond_full;
-	T m_msg;
-	bool m_valid;
-
-public:
-	MsgBox() : m_valid(false) {}
-	~MsgBox() {}
-
-	void put(T msg)
-	{
-		{
-			unique_lock<mutex> lk(m_mtx);
-			m_cond_empty.wait(lk, [this] { return !m_valid; });
-			m_valid = true;
-			m_msg = msg;
-		}
-		m_cond_full.notify_one();
-	}
-
-	T get(void)
-	{
-		T msg;
-		{
-			unique_lock<mutex> lk(m_mtx);
-			m_cond_full.wait(lk, [this] { return m_valid; });
-			msg = m_msg;
-			m_valid = false;
-		}
-		m_cond_empty.notify_one();
-		return msg;
-	}
-};
-
-OSJ_SVD_MT::OSJ_SVD_MT(MatrixXd_IN G) : IF_SVD(G)
+OSJ_SVD_MT::OSJ_SVD_MT(MatrixXd_IN G, uint32_t th_num) : IF_SVD(G)
 {
 	if (G.rows() < G.cols()) {
 		m_tr = true;
@@ -80,31 +17,38 @@ OSJ_SVD_MT::OSJ_SVD_MT(MatrixXd_IN G) : IF_SVD(G)
 
 	m_V = MatrixXd(m_U.cols(), m_U.cols());
 	m_V.setIdentity();
+
+	m_thNum = (th_num >= 1) ? th_num : 1;
+
+	m_vecThread.resize(m_thNum);
+	m_vecMsgToSlave.resize(m_thNum);
+	m_vecMsgToMaster.resize(m_thNum);
 }
 
-list<ColPair> lsColPair;
-mutex mtxLsColPair;
-const uint32_t th_num = 3;
-thread th[th_num];
-MsgBox<bool> msgToSlave[th_num];
-MsgBox<bool> msgToMaster[th_num];
-
-void work(uint32_t id, MsgBox<bool> *pMsgtoSlave, MsgBox<bool> *pMsgtoMaster)
+void OSJ_SVD_MT::thread_work(OSJ_SVD_MT *pThis, uint32_t th_id)
 {
+	pThis->work(th_id);
+}
+
+void OSJ_SVD_MT::work(uint32_t th_id)
+{
+	MsgBox<bool> *pMsgtoSlave = &(m_vecMsgToSlave[th_id]);
+	MsgBox<bool> *pMsgtoMaster = &(m_vecMsgToMaster[th_id]);
+
 	bool global_conv = false;
 	bool local_conv = true;
 
 	while (!global_conv) {
 		ColPair cp;
 		{
-			unique_lock<mutex> lk(mtxLsColPair);
+			unique_lock<mutex> lk(m_mtxLsColPair);
 
-			cp = lsColPair.front();
+			cp = m_lsColPair.front();
 			if (!cp.term) {
-				lsColPair.pop_front();
-				lsColPair.push_back(cp);
+				m_lsColPair.pop_front();
+				m_lsColPair.push_back(cp);
 			}
-			std::cout << id << ":" << cp.col1 << "," << cp.col2 << "," << cp.term << endl;
+			std::cout << th_id << ":" << cp.col1 << "," << cp.col2 << "," << cp.term << endl;
 		}
 
 		switch (cp.term) {
@@ -119,7 +63,7 @@ void work(uint32_t id, MsgBox<bool> *pMsgtoSlave, MsgBox<bool> *pMsgtoMaster)
 			break;
 		case CPTERM_NONE:
 		default:
-			std::this_thread::sleep_for(std::chrono::seconds(1));
+			//std::this_thread::sleep_for(std::chrono::seconds(1));
 			// TODO: process
 			//local_conv = false;
 			break;
@@ -139,70 +83,65 @@ bool OSJ_SVD_MT::decomp(void)
 			isUsedCol[i] = false;
 		}
 
+		m_lsColPair.clear();
 		for (uint32_t i = 0; i < n - 1; i++) {
 			for (uint32_t j = i + 1; j < n; j++) {
-				lsColPair.push_back({ i, j, CPTERM_NONE });
+				m_lsColPair.push_back({ i, j, CPTERM_NONE });
 			}
 		}
-		lsColPair.push_back({ 0, 0, CPTERM_LOOP });
+		m_lsColPair.push_back({ 0, 0, CPTERM_LOOP });
 
-		auto cp = lsColPair.begin();
+		auto cp = m_lsColPair.begin();
 		while (1) {
 			if (cp->term) {
-				if (cp == lsColPair.begin()) {
-					lsColPair.push_back({ 0, 0, CPTERM_LOOP });
+				if (cp == m_lsColPair.begin()) {
+					m_lsColPair.push_back({ 0, 0, CPTERM_LOOP });
 					break;
 				}
 				else {
-					lsColPair.push_back({ 0, 0, CPTERM_PAR });
+					m_lsColPair.push_back({ 0, 0, CPTERM_PAR });
 					for (uint32_t i = 0; i < n; i++) {
 						isUsedCol[i] = false;
 					}
-					cp = lsColPair.begin();
+					cp = m_lsColPair.begin();
 				}
 			}
 			else if (!isUsedCol[cp->col1] && !isUsedCol[cp->col2]) {
 				isUsedCol[cp->col1] = true;
 				isUsedCol[cp->col2] = true;
 
-				lsColPair.push_back(*cp);
-				cp = lsColPair.erase(cp);
+				m_lsColPair.push_back(*cp);
+				cp = m_lsColPair.erase(cp);
 			}
 			else {
 				cp++;
 			}
 		}
-		lsColPair.pop_front(); // remove unnecessary CPTERM_LOOP
+		m_lsColPair.pop_front(); // remove unnecessary CPTERM_LOOP
 	}
 
-#if 0
-	std::for_each(lsColPair.begin(), lsColPair.end(), [](ColPair cp){
-		std::cout << cp.col1 << "," << cp.col2 << "," << cp.term << endl;
-	});
-#endif
-
 	{
-		for (uint32_t i = 0; i < th_num; i++) {
-			th[i] = thread(work, i, &msgToSlave[i], &msgToMaster[i]);
+		for (uint32_t i = 0; i < m_thNum; i++) {
+			m_vecThread[i] = thread(thread_work, this, i);
 		}
 
 		while (1) {
 			bool global_conv = true;
 
-			for (uint32_t i = 0; i < th_num; i++) {
-				bool local_conv = msgToMaster[i].get();
+			for (uint32_t i = 0; i < m_thNum; i++) {
+				bool local_conv = m_vecMsgToMaster[i].get();
 				global_conv = (global_conv && local_conv);
 			}
 
-			ColPair cp = lsColPair.front();
-			lsColPair.pop_front();
-			lsColPair.push_back(cp);
+			ColPair cp = m_lsColPair.front();
+			m_lsColPair.pop_front();
+			m_lsColPair.push_back(cp);
 
 			std::cout << "master:" << cp.term << endl;
-			std::this_thread::sleep_for(std::chrono::seconds(1));
+			//std::this_thread::sleep_for(std::chrono::seconds(1));
 
-			for (uint32_t i = 0; i < th_num; i++) {
-				msgToSlave[i].put(global_conv);
+			for (uint32_t i = 0; i < m_thNum; i++) {
+				m_vecMsgToSlave[i].put(global_conv);
 			}
 
 			if ((CPTERM_LOOP == cp.term) && global_conv) {
@@ -210,8 +149,8 @@ bool OSJ_SVD_MT::decomp(void)
 			}
 		}
 
-		for (uint32_t i = 0; i < th_num; i++) {
-			th[i].join();
+		for (uint32_t i = 0; i < m_thNum; i++) {
+			m_vecThread[i].join();
 		}
 	}
 

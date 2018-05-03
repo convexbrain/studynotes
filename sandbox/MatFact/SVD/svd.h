@@ -43,22 +43,4 @@ public:
 	virtual double test(MatrixXd_IN G, ostream &out);
 };
 
-class OSJ_SVD_MT : public IF_SVD {
-private:
-	const double m_tol = DBL_EPSILON;
-	const double m_thr = DBL_MIN;
-
-	bool m_tr;
-	MatrixXd m_U;
-	VectorXd m_S;
-	MatrixXd m_V;
-
-public:
-	explicit OSJ_SVD_MT(MatrixXd_IN G);
-	virtual ~OSJ_SVD_MT() {}
-
-	virtual bool decomp(void);
-	virtual double test(MatrixXd_IN G, ostream &out);
-};
-
 #endif

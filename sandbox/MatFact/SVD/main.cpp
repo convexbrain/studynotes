@@ -1,5 +1,6 @@
 
 #include "svd.h"
+#include "osj_svd_mt.h"
 
 #include <chrono>
 #include <iostream>
@@ -17,11 +18,11 @@ void test1(uint32_t rows, uint32_t cols)
 	//G.row(3) = G.row(2) * G(0, 1);
 
 	{
-		IF_SVD *pSVD = new OSJ_SVD(G);
-		//IF_SVD *pSVD = new OSJ_SVD_MT(G);
+		//IF_SVD *pSVD = new OSJ_SVD(G);
+		IF_SVD *pSVD = new OSJ_SVD_MT(G, 4);
 
 		pSVD->decomp();
-		pSVD->test(G, cout);
+		//pSVD->test(G, cout);
 
 		delete pSVD;
 	}
@@ -69,9 +70,9 @@ void test2(uint32_t num_max, uint32_t sz_max, uint32_t r_max, bool doTest)
 int main(int argc, char ** argv)
 {
 	//test1(3, 3);
-	//test1(10, 10);
+	test1(10, 10);
 	//test2(10, 3000, 50, true);
-	test2(100, 300000, 500, false);
+	//test2(100, 300000, 500, false);
 
 	cerr << "Hit Any Key" << endl;
 	getchar();
