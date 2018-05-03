@@ -48,7 +48,7 @@ void OSJ_SVD_MT::work(uint32_t th_id)
 				m_lsColPair.pop_front();
 				m_lsColPair.push_back(cp);
 			}
-			std::cout << th_id << ":" << cp.col1 << "," << cp.col2 << "," << cp.term << endl;
+			//std::cout << th_id << ":" << cp.col1 << "," << cp.col2 << "," << cp.term << endl;
 		}
 
 		switch (cp.term) {
@@ -63,6 +63,39 @@ void OSJ_SVD_MT::work(uint32_t th_id)
 			break;
 		case CPTERM_NONE:
 		default:
+			{
+				uint32_t m = m_U.rows();
+				uint32_t n = m_U.cols();
+				uint32_t i = cp.col1;
+				uint32_t j = cp.col2;
+
+				double a = m_U.col(i).squaredNorm();
+				double b = m_U.col(j).squaredNorm();
+				double c = m_U.col(i).dot(m_U.col(j));
+
+				if (c * c > m_tol * m_tol * a * b) local_conv = false;
+
+				if ((c < -m_thr) || (m_thr < c)) {
+					double zeta = (b - a) / (2.0 * c);
+					double t;
+					if (zeta > 0) t = 1.0 / (zeta + sqrt(1 + zeta * zeta));
+					else          t = -1.0 / (-zeta + sqrt(1 + zeta * zeta));
+					double cs = 1.0 / sqrt(1.0 + t * t);
+					double sn = cs * t;
+
+					for (uint32_t k = 0; k < m; k++) {
+						double tmp = m_U(k, i);
+						m_U(k, i) = cs * tmp - sn * m_U(k, j);
+						m_U(k, j) = sn * tmp + cs * m_U(k, j);
+					}
+
+					for (uint32_t k = 0; k < n; k++) {
+						double tmp = m_V(k, i);
+						m_V(k, i) = cs * tmp - sn * m_V(k, j);
+						m_V(k, j) = sn * tmp + cs * m_V(k, j);
+					}
+				}
+			}
 			//std::this_thread::sleep_for(std::chrono::seconds(1));
 			// TODO: process
 			//local_conv = false;
@@ -137,7 +170,7 @@ bool OSJ_SVD_MT::decomp(void)
 			m_lsColPair.pop_front();
 			m_lsColPair.push_back(cp);
 
-			std::cout << "master:" << cp.term << endl;
+			//std::cout << "master:" << cp.term << endl;
 			//std::this_thread::sleep_for(std::chrono::seconds(1));
 
 			for (uint32_t i = 0; i < m_thNum; i++) {
@@ -151,6 +184,15 @@ bool OSJ_SVD_MT::decomp(void)
 
 		for (uint32_t i = 0; i < m_thNum; i++) {
 			m_vecThread[i].join();
+		}
+
+		for (uint32_t i = 0; i < n; i++) {
+			double s = m_U.col(i).norm();
+			m_S(i) = s;
+
+			if ((-m_thr < s) && (s < m_thr)) continue;
+
+			m_U.col(i).normalize();
 		}
 	}
 
