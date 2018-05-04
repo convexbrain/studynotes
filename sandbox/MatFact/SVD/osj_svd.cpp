@@ -17,60 +17,54 @@ OSJ_SVD::OSJ_SVD(uint32_t rows, uint32_t cols) : SVD_IF(rows, cols)
 	}
 
 	m_S = VectorXd(m_U.cols());
-	m_S.setZero();
 
 	m_V = MatrixXd(m_U.cols(), m_U.cols());
-	m_V.setIdentity();
 }
 
-void OSJ_SVD::do_decomp(MatrixXd_IN G)
+void OSJ_SVD::initMats(MatrixXd_IN G)
 {
-	uint32_t m = m_U.rows();
-	uint32_t n = m_U.cols();
-
 	if (m_tr) {
 		m_U = G.transpose();
 	}
 	else {
 		m_U = G;
 	}
+	m_V.setIdentity();
+}
 
-	bool converged;
-	do {
-		converged = true;
+bool OSJ_SVD::applyJacobiRot(uint32_t c1, uint32_t c2)
+{
+	double a = m_U.col(c1).squaredNorm();
+	double b = m_U.col(c2).squaredNorm();
+	double c = m_U.col(c1).dot(m_U.col(c2));
 
-		for (uint32_t i = 0; i < n - 1; i++) {
-			for (uint32_t j = i + 1; j < n; j++) {
-				double a = m_U.col(i).squaredNorm();
-				double b = m_U.col(j).squaredNorm();
-				double c = m_U.col(i).dot(m_U.col(j));
+	bool converged = (c * c <= m_tol * m_tol * a * b);
 
-				if (c * c > m_tol * m_tol * a * b) converged = false;
+	if ((c < -m_thr) || (m_thr < c)) {
+		double zeta = (b - a) / (2.0 * c);
+		double t;
+		if (zeta > 0) t = 1.0 / (zeta + sqrt(1 + zeta * zeta));
+		else          t = -1.0 / (-zeta + sqrt(1 + zeta * zeta));
+		double cs = 1.0 / sqrt(1.0 + t * t);
+		double sn = cs * t;
 
-				if ((c < -m_thr) || (m_thr < c)) {
-					double zeta = (b - a) / (2.0 * c);
-					double t;
-					if (zeta > 0) t = 1.0 / (zeta + sqrt(1 + zeta * zeta));
-					else          t = -1.0 / (-zeta + sqrt(1 + zeta * zeta));
-					double cs = 1.0 / sqrt(1.0 + t * t);
-					double sn = cs * t;
+		VectorXd tmp;
+		
+		tmp = m_U.col(c1);
+		m_U.col(c1) = cs * tmp - sn * m_U.col(c2);
+		m_U.col(c2) = sn * tmp + cs * m_U.col(c2);
 
-					for (uint32_t k = 0; k < m; k++) {
-						double tmp = m_U(k, i);
-						m_U(k, i) = cs * tmp - sn * m_U(k, j);
-						m_U(k, j) = sn * tmp + cs * m_U(k, j);
-					}
+		tmp = m_V.col(c1);
+		m_V.col(c1) = cs * tmp - sn * m_V.col(c2);
+		m_V.col(c2) = sn * tmp + cs * m_V.col(c2);
+	}
 
-					for (uint32_t k = 0; k < n; k++) {
-						double tmp = m_V(k, i);
-						m_V(k, i) = cs * tmp - sn * m_V(k, j);
-						m_V(k, j) = sn * tmp + cs * m_V(k, j);
-					}
-				}
-			}
-		}
+	return converged;
+}
 
-	} while (!converged);
+void OSJ_SVD::normSingular(void)
+{
+	uint32_t n = m_U.cols();
 
 	for (uint32_t i = 0; i < n; i++) {
 		double s = m_U.col(i).norm();
@@ -80,6 +74,28 @@ void OSJ_SVD::do_decomp(MatrixXd_IN G)
 
 		m_U.col(i).normalize();
 	}
+}
+
+void OSJ_SVD::do_decomp(MatrixXd_IN G)
+{
+	initMats(G);
+
+	uint32_t m = m_U.rows();
+	uint32_t n = m_U.cols();
+
+	bool converged_all;
+	do {
+		converged_all = true;
+
+		for (uint32_t i = 0; i < n - 1; i++) {
+			for (uint32_t j = i + 1; j < n; j++) {
+				if (!applyJacobiRot(i, j)) converged_all = false;
+			}
+		}
+
+	} while (!converged_all);
+
+	normSingular();
 }
 
 bool OSJ_SVD::do_selftest(MatrixXd_IN G, ostream &out)

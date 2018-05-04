@@ -15,6 +15,10 @@ protected:
 	VectorXd m_S;
 	MatrixXd m_V;
 
+	void initMats(MatrixXd_IN G);
+	bool applyJacobiRot(uint32_t c1, uint32_t c2);
+	void normSingular(void);
+
 protected:
 	virtual void do_decomp(MatrixXd_IN G);
 	virtual bool do_selftest(MatrixXd_IN G, ostream &out);

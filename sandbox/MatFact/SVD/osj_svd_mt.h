@@ -1,7 +1,7 @@
 #ifndef _OSJ_SVD_MT_H_
 #define _OSJ_SVD_MT_H_
 
-#include "svd.h"
+#include "osj_svd.h"
 
 #include <list>
 #include <vector>
@@ -17,7 +17,7 @@ using std::condition_variable;
 
 enum ColPairTerm {
 	CPTERM_NONE = 0,
-	CPTERM_PAR,
+	CPTERM_SYNC,
 	CPTERM_LOOP
 };
 
@@ -66,16 +66,8 @@ public:
 	}
 };
 
-class OSJ_SVD_MT : public SVD_IF {
+class OSJ_SVD_MT : public OSJ_SVD {
 private:
-	const double m_tol = DBL_EPSILON;
-	const double m_thr = DBL_MIN;
-
-	bool m_tr;
-	MatrixXd m_U;
-	VectorXd m_S;
-	MatrixXd m_V;
-
 	list<ColPair> m_lsColPair;
 	mutex m_mtxLsColPair;
 	uint32_t m_thNum;
@@ -83,12 +75,14 @@ private:
 	vector< MsgBox<bool> > m_vecMsgToSlave;
 	vector< MsgBox<bool> > m_vecMsgToMaster;
 
-	static void thread_work(OSJ_SVD_MT *pThis, uint32_t th_id);
+	static void thread_work(OSJ_SVD_MT *pThis, uint32_t th_id) { pThis->work(th_id); }
 	void work(uint32_t th_id);
+
+	void makeLsColPair(void);
 
 protected:
 	virtual void do_decomp(MatrixXd_IN G);
-	virtual bool do_selftest(MatrixXd_IN G, ostream &out);
+	virtual bool do_selftest(MatrixXd_IN G, ostream &out) { return OSJ_SVD::do_selftest(G, out); }
 
 public:
 	explicit OSJ_SVD_MT(uint32_t rows, uint32_t cols, uint32_t th_num = 1);
