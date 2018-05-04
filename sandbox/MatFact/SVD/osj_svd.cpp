@@ -38,9 +38,9 @@ bool OSJ_SVD::applyJacobiRot(uint32_t c1, uint32_t c2)
 	double b = m_U.col(c2).squaredNorm();
 	double c = m_U.col(c1).dot(m_U.col(c2));
 
-	bool converged = (c * c <= m_tol * m_tol * a * b);
+	bool converged = (c * c <= m_tol_cnv2 * a * b);
 
-	if ((c < -m_thr) || (m_thr < c)) {
+	if ((c < -m_tol_div0) || (m_tol_div0 < c)) {
 		double zeta = (b - a) / (2.0 * c);
 		double t;
 		if (zeta > 0) t = 1.0 / (zeta + sqrt(1 + zeta * zeta));
@@ -70,7 +70,7 @@ void OSJ_SVD::normSingular(void)
 		double s = m_U.col(i).norm();
 		m_S(i) = s;
 
-		if ((-m_thr < s) && (s < m_thr)) continue;
+		if ((-m_tol_div0 < s) && (s < m_tol_div0)) continue;
 
 		m_U.col(i).normalize();
 	}
@@ -122,33 +122,27 @@ bool OSJ_SVD::do_selftest(MatrixXd_IN G, ostream &out)
 	out << "--- V * V'" << endl << VVt << endl;
 
 	Gr -= G;
-	double diff = Gr.norm();
-	out << "--- diff" << endl << diff << endl;
+	double rmseG = Gr.squaredNorm() / Gr.size();
+	out << "--- rmseG" << endl << rmseG << endl;
 
-	MatrixXd I;
-	I = MatrixXd(UtU.rows(), UtU.cols());
-	I.setIdentity();
-	I -= UtU;
-	double difU = I.norm();
-	out << "--- difU" << endl << difU << endl;
+	UtU.diagonal().setZero();
+	double rmseU = UtU.squaredNorm() / UtU.size();
+	out << "--- rmseU" << endl << rmseU << endl;
 
-	I = MatrixXd(VVt.rows(), VVt.cols());
-	I.setIdentity();
-	I -= VVt;
-	double difV = I.norm();
-	out << "--- difV" << endl << difV << endl;
+	VVt.diagonal().setZero();
+	double rmseV = VVt.squaredNorm() / VVt.size();
+	out << "--- rmseV" << endl << rmseV << endl;
 
+	return ((rmseG < m_tol_rmse) && (rmseU < m_tol_rmse) && (rmseV < m_tol_rmse));
+}
+
+void OSJ_SVD::do_solve(VectorXd_IO x, VectorXd_IN h)
+{
 	VectorXd Sinv = m_S.cwiseInverse();
 	for (Eigen::Index i = 0; i < Sinv.size(); i++) {
-		if ((-m_tol < m_S(i)) && (m_S(i) < m_tol)) Sinv(i) = 0;
+		if ((-m_tol_sinv < m_S(i)) && (m_S(i) < m_tol_sinv)) Sinv(i) = 0;
 	}
-	out << "--- Sinv" << endl << Sinv << endl;
 
-	MatrixXd IG;
-	if (m_tr) IG = m_U * Sinv.asDiagonal() * m_V.transpose() * G;
-	else IG = m_V * Sinv.asDiagonal() * m_U.transpose() * G;
-	out << "--- IG" << endl << IG << endl;
-	out << "--- G * IG" << endl << G * IG << endl;
-
-	return diff < 1e-10; // TODO
+	if (m_tr) x = m_U * (Sinv.asDiagonal() * (m_V.transpose() * h));
+	else x = m_V * (Sinv.asDiagonal() * (m_U.transpose() * h));
 }

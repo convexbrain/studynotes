@@ -39,6 +39,7 @@ protected:
 
 	virtual void do_decomp(MatrixXd_IN G) = 0;
 	virtual bool do_selftest(MatrixXd_IN G, ostream &out) = 0;
+	virtual void do_solve(VectorXd_IO x, VectorXd_IN h) = 0;
 
 public:
 	explicit SVD_IF(uint32_t rows, uint32_t cols) :
@@ -59,7 +60,12 @@ public:
 		return do_selftest(G, out);
 	}
 
-	// bool solve(VectorXd_IO x, VectorXd_IN h) = 0; // TODO
+	bool solve(VectorXd_IO x, VectorXd_IN h)
+	{
+		if (!m_decomped) return false;
+		do_solve(x, h);
+		return true;
+	}
 };
 
 //

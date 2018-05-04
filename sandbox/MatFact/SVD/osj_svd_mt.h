@@ -83,6 +83,7 @@ private:
 protected:
 	virtual void do_decomp(MatrixXd_IN G);
 	virtual bool do_selftest(MatrixXd_IN G, ostream &out) { return OSJ_SVD::do_selftest(G, out); }
+	virtual void do_solve(VectorXd_IO x, VectorXd_IN h) { return OSJ_SVD::do_solve(x, h); }
 
 public:
 	explicit OSJ_SVD_MT(uint32_t rows, uint32_t cols, uint32_t th_num = 1);

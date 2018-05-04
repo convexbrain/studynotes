@@ -7,8 +7,10 @@
 
 class OSJ_SVD : public SVD_IF {
 protected:
-	const double m_tol = DBL_EPSILON;
-	const double m_thr = DBL_MIN;
+	const double m_tol_cnv2 = DBL_EPSILON * DBL_EPSILON;
+	const double m_tol_div0 = DBL_MIN;
+	const double m_tol_sinv = DBL_EPSILON;
+	const double m_tol_rmse = 1.0 / (1LL << 32);
 
 	bool m_tr;
 	MatrixXd m_U;
@@ -22,6 +24,7 @@ protected:
 protected:
 	virtual void do_decomp(MatrixXd_IN G);
 	virtual bool do_selftest(MatrixXd_IN G, ostream &out);
+	virtual void do_solve(VectorXd_IO x, VectorXd_IN h);
 
 public:
 	explicit OSJ_SVD(uint32_t rows, uint32_t cols);
