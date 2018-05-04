@@ -15,8 +15,6 @@ using std::mutex;
 using std::unique_lock;
 using std::condition_variable;
 
-#include <iostream> // for debug
-
 enum ColPairTerm {
 	CPTERM_NONE = 0,
 	CPTERM_PAR,
@@ -68,7 +66,7 @@ public:
 	}
 };
 
-class OSJ_SVD_MT : public IF_SVD {
+class OSJ_SVD_MT : public SVD_IF {
 private:
 	const double m_tol = DBL_EPSILON;
 	const double m_thr = DBL_MIN;
@@ -88,12 +86,13 @@ private:
 	static void thread_work(OSJ_SVD_MT *pThis, uint32_t th_id);
 	void work(uint32_t th_id);
 
-public:
-	explicit OSJ_SVD_MT(MatrixXd_IN G, uint32_t th_num = 1);
-	virtual ~OSJ_SVD_MT() {}
+protected:
+	virtual void do_decomp(MatrixXd_IN G);
+	virtual bool do_selftest(MatrixXd_IN G, ostream &out);
 
-	virtual bool decomp(void);
-	virtual double test(MatrixXd_IN G, ostream &out);
+public:
+	explicit OSJ_SVD_MT(uint32_t rows, uint32_t cols, uint32_t th_num = 1);
+	virtual ~OSJ_SVD_MT() { /*std::cout << "~OSJ_SVD_MT()" << std::endl;*/ }
 };
 
 #endif

@@ -1,15 +1,19 @@
 
-#include "svd.h"
+#include "osj_svd.h"
 
-OSJ_SVD::OSJ_SVD(MatrixXd_IN G) : IF_SVD(G)
+using std::endl;
+
+//
+
+OSJ_SVD::OSJ_SVD(uint32_t rows, uint32_t cols) : SVD_IF(rows, cols)
 {
-	if (G.rows() < G.cols()) {
+	if (rows < cols) {
 		m_tr = true;
-		m_U = G.transpose();
+		m_U = MatrixXd(cols, rows);
 	}
 	else {
 		m_tr = false;
-		m_U = G;
+		m_U = MatrixXd(rows, cols);
 	}
 
 	m_S = VectorXd(m_U.cols());
@@ -19,13 +23,16 @@ OSJ_SVD::OSJ_SVD(MatrixXd_IN G) : IF_SVD(G)
 	m_V.setIdentity();
 }
 
-bool OSJ_SVD::decomp(void)
+void OSJ_SVD::do_decomp(MatrixXd_IN G)
 {
 	uint32_t m = m_U.rows();
 	uint32_t n = m_U.cols();
 
-	if ((m == 0) || (n == 0)) {
-		return false;
+	if (m_tr) {
+		m_U = G.transpose();
+	}
+	else {
+		m_U = G;
 	}
 
 	bool converged;
@@ -73,16 +80,10 @@ bool OSJ_SVD::decomp(void)
 
 		m_U.col(i).normalize();
 	}
-
-	return true;
 }
 
-double OSJ_SVD::test(MatrixXd_IN G, ostream &out)
+bool OSJ_SVD::do_selftest(MatrixXd_IN G, ostream &out)
 {
-	if ((m_U.rows() == 0) || (m_U.cols() == 0)) {
-		return true;
-	}
-
 	MatrixXd Gr;
 	if (m_tr) Gr = m_V * m_S.asDiagonal() * m_U.transpose();
 	else Gr = m_U * m_S.asDiagonal() * m_V.transpose();
@@ -133,5 +134,5 @@ double OSJ_SVD::test(MatrixXd_IN G, ostream &out)
 	out << "--- IG" << endl << IG << endl;
 	out << "--- G * IG" << endl << G * IG << endl;
 
-	return diff;
+	return diff < 1e-10; // TODO
 }

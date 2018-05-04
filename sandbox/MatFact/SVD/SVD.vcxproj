@@ -41,9 +41,11 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);../../../submodules/eigen-git-mirror/Eigen/</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);../../../submodules/eigen-git-mirror/Eigen/</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -81,8 +83,10 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="osj_svd.cpp" />
     <ClCompile Include="osj_svd_mt.cpp" />
+    <ClCompile Include="svd.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="osj_svd.h" />
     <ClInclude Include="osj_svd_mt.h" />
     <ClInclude Include="svd.h" />
   </ItemGroup>

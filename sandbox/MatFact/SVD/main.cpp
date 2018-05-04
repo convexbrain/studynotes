@@ -1,11 +1,14 @@
 
 #include "svd.h"
-#include "osj_svd_mt.h"
 
 #include <chrono>
 #include <iostream>
 using std::cout;
 using std::cerr;
+using std::endl;
+
+//
+
 static std::stringstream nullout;
 
 void test1(uint32_t rows, uint32_t cols)
@@ -18,13 +21,11 @@ void test1(uint32_t rows, uint32_t cols)
 	//G.row(3) = G.row(2) * G(0, 1);
 
 	{
-		//IF_SVD *pSVD = new OSJ_SVD(G);
-		IF_SVD *pSVD = new OSJ_SVD_MT(G, 8);
+		//auto pSVD = SVD_Factory::create_OSJ_SVD(rows, cols);
+		auto pSVD = SVD_Factory::create_OSJ_SVD_MT(rows, cols, 8);
 
-		pSVD->decomp();
-		pSVD->test(G, cout);
-
-		delete pSVD;
+		pSVD->decomp(G);
+		pSVD->selftest(G, cout);
 	}
 }
 
@@ -47,22 +48,20 @@ void test2(uint32_t num_max, uint32_t sz_max, uint32_t r_max, bool doTest)
 		G.setRandom();
 
 		{
-			//IF_SVD *pSVD = new OSJ_SVD(G);
-			IF_SVD *pSVD = new OSJ_SVD_MT(G, 8);
+			//auto pSVD = SVD_Factory::create_OSJ_SVD(r, c);
+			auto pSVD = SVD_Factory::create_OSJ_SVD_MT(r, c, 8);
 
 			auto start = std::chrono::system_clock::now();
-			pSVD->decomp();
+			pSVD->decomp(G);
 			auto end = std::chrono::system_clock::now();
 			auto period = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 			cout << period << ", ";
 
 			if (doTest) {
-				double diff = pSVD->test(G, nullout);
+				bool diff = pSVD->selftest(G, nullout);
 				cout << diff;
 			}
 			cout << endl;
-
-			delete pSVD;
 		}
 	}
 }
@@ -71,8 +70,9 @@ int main(int argc, char ** argv)
 {
 	//test1(3, 3);
 	//test1(10, 10);
-	//test2(10, 3000, 50, true);
-	test2(100, 300000, 500, false);
+	//test1(1000, 1000);
+	test2(10, 3000, 50, true);
+	//test2(100, 300000, 500, false);
 
 	cerr << "Hit Any Key" << endl;
 	getchar();

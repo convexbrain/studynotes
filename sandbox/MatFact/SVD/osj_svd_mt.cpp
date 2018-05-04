@@ -1,15 +1,19 @@
 
 #include "osj_svd_mt.h"
 
-OSJ_SVD_MT::OSJ_SVD_MT(MatrixXd_IN G, uint32_t th_num) : IF_SVD(G)
+using std::endl;
+
+//
+
+OSJ_SVD_MT::OSJ_SVD_MT(uint32_t rows, uint32_t cols, uint32_t th_num) : SVD_IF(rows, cols)
 {
-	if (G.rows() < G.cols()) {
+	if (rows < cols) {
 		m_tr = true;
-		m_U = G.transpose();
+		m_U = MatrixXd(cols, rows);
 	}
 	else {
 		m_tr = false;
-		m_U = G;
+		m_U = MatrixXd(rows, cols);
 	}
 
 	m_S = VectorXd(m_U.cols());
@@ -64,6 +68,7 @@ void OSJ_SVD_MT::work(uint32_t th_id)
 		case CPTERM_NONE:
 		default:
 			{
+				// TODO
 				uint32_t m = m_U.rows();
 				uint32_t n = m_U.cols();
 				uint32_t i = cp.col1;
@@ -104,10 +109,17 @@ void OSJ_SVD_MT::work(uint32_t th_id)
 	}
 }
 
-bool OSJ_SVD_MT::decomp(void)
+void OSJ_SVD_MT::do_decomp(MatrixXd_IN G)
 {
 	uint32_t m = m_U.rows();
 	uint32_t n = m_U.cols();
+
+	if (m_tr) {
+		m_U = G.transpose();
+	}
+	else {
+		m_U = G;
+	}
 
 	{
 		vector<bool> isUsedCol;
@@ -186,6 +198,7 @@ bool OSJ_SVD_MT::decomp(void)
 			m_vecThread[i].join();
 		}
 
+		// TODO
 		for (uint32_t i = 0; i < n; i++) {
 			double s = m_U.col(i).norm();
 			m_S(i) = s;
@@ -195,76 +208,10 @@ bool OSJ_SVD_MT::decomp(void)
 			m_U.col(i).normalize();
 		}
 	}
-
-	return true;
 }
 
-#if 0
-bool OSJ_SVD_MT::decomp(void)
+bool OSJ_SVD_MT::do_selftest(MatrixXd_IN G, ostream &out)
 {
-	uint32_t m = m_U.rows();
-	uint32_t n = m_U.cols();
-
-	if ((m == 0) || (n == 0)) {
-		return false;
-	}
-
-	bool converged;
-	do {
-		converged = true;
-
-		for (uint32_t i = 0; i < n - 1; i++) {
-			for (uint32_t j = i + 1; j < n; j++) {
-				double a = m_U.col(i).squaredNorm();
-				double b = m_U.col(j).squaredNorm();
-				double c = m_U.col(i).dot(m_U.col(j));
-
-				if (c * c > m_tol * m_tol * a * b) converged = false;
-
-				if ((c < -m_thr) || (m_thr < c)) {
-					double zeta = (b - a) / (2.0 * c);
-					double t;
-					if (zeta > 0) t = 1.0 / (zeta + sqrt(1 + zeta * zeta));
-					else          t = -1.0 / (-zeta + sqrt(1 + zeta * zeta));
-					double cs = 1.0 / sqrt(1.0 + t * t);
-					double sn = cs * t;
-
-					for (uint32_t k = 0; k < m; k++) {
-						double tmp = m_U(k, i);
-						m_U(k, i) = cs * tmp - sn * m_U(k, j);
-						m_U(k, j) = sn * tmp + cs * m_U(k, j);
-					}
-
-					for (uint32_t k = 0; k < n; k++) {
-						double tmp = m_V(k, i);
-						m_V(k, i) = cs * tmp - sn * m_V(k, j);
-						m_V(k, j) = sn * tmp + cs * m_V(k, j);
-					}
-				}
-			}
-		}
-
-	} while (!converged);
-
-	for (uint32_t i = 0; i < n; i++) {
-		double s = m_U.col(i).norm();
-		m_S(i) = s;
-
-		if ((-m_thr < s) && (s < m_thr)) continue;
-
-		m_U.col(i).normalize();
-	}
-
-	return true;
-}
-#endif
-
-double OSJ_SVD_MT::test(MatrixXd_IN G, ostream &out)
-{
-	if ((m_U.rows() == 0) || (m_U.cols() == 0)) {
-		return true;
-	}
-
 	MatrixXd Gr;
 	if (m_tr) Gr = m_V * m_S.asDiagonal() * m_U.transpose();
 	else Gr = m_U * m_S.asDiagonal() * m_V.transpose();
@@ -315,5 +262,5 @@ double OSJ_SVD_MT::test(MatrixXd_IN G, ostream &out)
 	out << "--- IG" << endl << IG << endl;
 	out << "--- G * IG" << endl << G * IG << endl;
 
-	return diff;
+	return diff < 1e-10; // TODO
 }

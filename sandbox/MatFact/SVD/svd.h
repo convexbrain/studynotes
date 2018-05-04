@@ -5,42 +5,72 @@
 #include <cstdbool>
 #include <cstddef>
 
-#include "../../../submodules/eigen-git-mirror/Eigen/Dense"
+#include "Eigen"
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 typedef const Eigen::Ref<const MatrixXd> MatrixXd_IN;
+typedef const Eigen::Ref<const VectorXd> VectorXd_IN;
 typedef Eigen::Ref<MatrixXd> MatrixXd_IO;
+typedef Eigen::Ref<VectorXd> VectorXd_IO;
 
 #include <ostream>
 using std::ostream;
-using std::endl;
 
-class IF_SVD {
+#include <memory>
+using std::unique_ptr;
+
+//
+
+class SVD_IF {
+private:
+	bool good(MatrixXd_IN G) {
+		if ((0 == G.rows()) || (0 == G.cols()) ||
+			(m_rows != G.rows()) || (m_cols != G.cols())
+			) {
+			return false;
+		}
+		return true;
+	}
+
+protected:
+	uint32_t m_rows;
+	uint32_t m_cols;
+	bool m_decomped;
+
+	virtual void do_decomp(MatrixXd_IN G) = 0;
+	virtual bool do_selftest(MatrixXd_IN G, ostream &out) = 0;
+
 public:
-	explicit IF_SVD(MatrixXd_IN G) {}
-	virtual ~IF_SVD() {}
+	explicit SVD_IF(uint32_t rows, uint32_t cols) :
+		m_rows(rows), m_cols(cols), m_decomped(false) { /*std::cout << "SVD_IF()" << std::endl;*/ }
+	virtual ~SVD_IF() { /*std::cout << "~SVD_IF()" << std::endl;*/ }
 
-	virtual bool decomp(void) = 0;
-	virtual double test(MatrixXd_IN G, ostream &out) = 0;
+	bool decomp(MatrixXd_IN G)
+	{
+		if (!good(G)) return false;
+		do_decomp(G);
+		m_decomped = true;
+		return true;
+	}
+
+	bool selftest(MatrixXd_IN G, ostream &out)
+	{
+		if (!good(G) || !m_decomped) return false;
+		return do_selftest(G, out);
+	}
+
+	// bool solve(VectorXd_IO x, VectorXd_IN h) = 0; // TODO
 };
 
+//
 
-class OSJ_SVD : public IF_SVD {
+class SVD_Factory {
 private:
-	const double m_tol = DBL_EPSILON;
-	const double m_thr = DBL_MIN;
-
-	bool m_tr;
-	MatrixXd m_U;
-	VectorXd m_S;
-	MatrixXd m_V;
-
+	SVD_Factory() {}
+	~SVD_Factory() {}
 public:
-	explicit OSJ_SVD(MatrixXd_IN G);
-	virtual ~OSJ_SVD() {}
-
-	virtual bool decomp(void);
-	virtual double test(MatrixXd_IN G, ostream &out);
+	static unique_ptr<SVD_IF> create_OSJ_SVD(uint32_t rows, uint32_t cols);
+	static unique_ptr<SVD_IF> create_OSJ_SVD_MT(uint32_t rows, uint32_t cols, uint32_t th_num = 1);
 };
 
 #endif
