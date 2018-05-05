@@ -1,7 +1,11 @@
 ---
 layout: ext
 ---
-# [SVD](SVD)実装例
+# [SVD](SVD)マルチスレッド実装
+
+## マルチスレッド並列化
+
+（あとで書く）
 
 コードは [ここ](https://github.com/convexbrain/studynotes/tree/master/sandbox/MatFact/SVD) にあります。
 
