@@ -6,6 +6,7 @@ layout: ext
 ## 凸最適化
 
 * [主双対内点法](PrimalDualIPM)
+    * [SVD](SVD)
 * [QCQP](QCQP)
 * [SOCP](SOCP)
 
@@ -13,7 +14,7 @@ layout: ext
 
 * [Total Variation](TV/TV)
 * [TV最小化アルゴリズム](TV/TVMin)
-* [TVについての補足](TV/TVSupp)
+    * [TVについての補足](TV/TVSupp)
 * [TV最小化ノイズ除去](TV/TVMinNR)
 
 ## SVM
@@ -27,4 +28,4 @@ layout: ext
 
 * [EMアルゴリズム](EM/EM)
 * [Gaussian Mixture Model](EM/GMM)
-* [GMMクラスタリング](EM/GMMClustering)
+    * [GMMクラスタリング](EM/GMMClustering)

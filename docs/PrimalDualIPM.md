@@ -33,13 +33,13 @@ $$
 
 $$
 \begin{array}{ll}
-{\rm maximize}     & g(\lambda, \nu) = \inf_{x \in {\cal D}} L(x, \lambda, \nu) \\
+{\rm maximize}     & g(\lambda, \nu) = \inf_{x \in {\mathcal D}} L(x, \lambda, \nu) \\
 {\rm subject \ to} & \lambda \succeq 0
 \end{array}
 $$
 
 * $$ \lambda \in {\bf R}^m, \ \nu \in {\bf R}^p $$　
-* $$ {\cal D} $$ ： $$ f_0, \ldots, f_m $$ の定義域の共通部分の集合
+* $$ {\mathcal D} $$ ： $$ f_0, \ldots, f_m $$ の定義域の共通部分の集合
 * $$ f(x) = (f_1(x) \ \cdots \ f_m(x))^T $$ のベクトルとして、ラグランジアン $$ L(x, \lambda, \nu) = f_0(x) + \lambda^T f(x) + \nu^T (Ax - b) $$
 
 をとることができます。
@@ -63,7 +63,7 @@ $$
 
 ### 初期値
 
-* $$ x \in {\cal D} $$ ： $$ f(x) \prec 0 $$ を満たす点。$$ Ax=b $$ である必要はありません。
+* $$ x \in {\mathcal D} $$ ： $$ f(x) \prec 0 $$ を満たす点。$$ Ax=b $$ である必要はありません。
 * $$ \lambda \succ 0 $$　
 
 $$ \nu $$ には初期値として満たすべき条件はありません。
@@ -83,24 +83,30 @@ $$ \nu $$ には初期値として満たすべき条件はありません。
 
 1. $$ t := \mu m / {\hat \eta} $$ のセット
   * ここで $$ {\hat \eta} = -f(x)^T \lambda $$ ： 代理双対ギャップ
-1. 探索方向 $$ \Delta x_{\rm pd}, \Delta \lambda_{\rm pd}, \Delta \nu_{\rm pd} $$ の計算
-  * 以下の線形連立方程式の解
+1. 探索方向 $$ \Delta x, \Delta \lambda, \Delta \nu $$ の計算
+  * 以下の線形連立方程式の解を求める（[SVD](SVD) を参照）
 $$
-  \left[ \array{
+  \left[
+  \begin{array}{c}
     \nabla^2 f_0(x) + \sum_{i=1}^m \lambda_i \nabla^2 f_i(x) & Df(x)^T           & A^T \\
     -{\bf diag}(\lambda) Df(x)                               & -{\bf diag}(f(x)) & 0 \\
     A                                                        & 0                 & 0
-  } \right]
-  \left[ \array{
+  \end{array}
+  \right]
+  \left[
+  \begin{array}{c}
     \Delta x       \\
     \Delta \lambda \\
     \Delta \nu
-  } \right]
-  = - \left[ \array{
-    r_{\rm dual} \\
-    r_{\rm cent} \\
-    r_{\rm pri}
-  } \right]
+  \end{array}
+  \right]
+  = - \left[
+      \begin{array}{c}
+        r_{\rm dual} \\
+        r_{\rm cent} \\
+        r_{\rm pri}
+      \end{array}
+      \right]
 $$
   * ここで
     * $$ Df(x) = (\nabla f_1(x) \ \cdots \ \nabla f_m(x))^T $$ の行列（ヤコビアン）
@@ -109,20 +115,22 @@ $$
     * $$ r_{\rm pri} = Ax - b $$ ： 双対残差
 1. バックトラッキングラインサーチで $$ x, \lambda, \nu $$ を更新
   * $$ s^{\max} = \sup \{ s \in [0, 1] \ \mid \ \lambda + s \Delta \lambda \succeq 0 \} $$ を求めて $$ s = 0.99 s^{\max} $$ をセット
-  * $$ x^+       = x       + s \Delta x_{\rm pd},       \
-       \lambda^+ = \lambda + s \Delta \lambda_{\rm pd}, \
-       \nu^+     = \nu     + s \Delta \nu_{\rm pd}      $$ として
+  * $$ x^+       = x       + s \Delta x,
+       \lambda^+ = \lambda + s \Delta \lambda,
+       \nu^+     = \nu     + s \Delta \nu      $$ として
     1. $$ f(x^+) \prec 0 $$ となるまで $$ s := \beta s $$
     1. さらに、
     $$ ||r_t(x^+, \lambda^+, \nu^+)||_2 \le (1 - \alpha s) ||r_t(x, \lambda, \nu)||_2 $$ となるまで
     $$ s := \beta s $$
       * ここで
-      $$ r_t(x, \lambda, \nu) = \left[ \array{
+      $$ r_t(x, \lambda, \nu) = \left[
+      \begin{array}{c}
       r_{\rm dual} \\ r_{\rm cent} \\ r_{\rm pri}
-      } \right] $$
+      \end{array}
+      \right] $$
   * $$ x := x^+, \ \lambda := \lambda^+, \ \nu := \nu^+ $$　
-1. 終了判定 $$ ||r_{\rm dual}||_2 \le \epsilon_{\rm feas}, \
-    ||r_{\rm pri}||_2 \le \epsilon_{\rm feas}, \
+1. 終了判定 $$ ||r_{\rm dual}||_2 \le \epsilon_{\rm feas},
+    ||r_{\rm pri}||_2 \le \epsilon_{\rm feas},
     {\hat \eta} \le \epsilon $$ を満たすまで繰り返し
 
 ## Phase I via infeasible start
@@ -148,7 +156,7 @@ $$
 $$ x \leftarrow (z \ \ s)^T $$ と置き換え拡張（$$ f, \nabla f, \nabla^2 f, A, b, \nu $$ も適宜拡張）して、
 主双対内点法アルゴリズムを適用します。
 
-$$ s $$ の初期値は $$ z \in {\cal D} $$ の初期値から $$ s > \max f_i(z) $$ となる任意の値とします。
+$$ s $$ の初期値は $$ z \in {\mathcal D} $$ の初期値から $$ s > \max f_i(z) $$ となる任意の値とします。
 これで、元の最適化問題において実行可能でない点から開始することができます。
 
 
