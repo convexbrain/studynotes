@@ -36,27 +36,27 @@ bool OSJ_SVD::applyJacobiRot(uint32_t c1, uint32_t c2)
 {
 	double a = m_U.col(c1).squaredNorm();
 	double b = m_U.col(c2).squaredNorm();
-	double c = m_U.col(c1).dot(m_U.col(c2));
+	double d = m_U.col(c1).dot(m_U.col(c2));
 
-	bool converged = (c * c <= m_tol_cnv2 * a * b);
+	bool converged = (d * d <= m_tol_cnv2 * a * b);
 
-	if ((c < -m_tol_div0) || (m_tol_div0 < c)) {
-		double zeta = (b - a) / (2.0 * c);
+	if (!converged) {
+		double zeta = (b - a) / (2.0 * d);
 		double t;
 		if (zeta > 0) t = 1.0 / (zeta + sqrt(1 + zeta * zeta));
 		else          t = -1.0 / (-zeta + sqrt(1 + zeta * zeta));
-		double cs = 1.0 / sqrt(1.0 + t * t);
-		double sn = cs * t;
+		double c = 1.0 / sqrt(1.0 + t * t);
+		double s = c * t;
 
 		VectorXd tmp;
 		
 		tmp = m_U.col(c1);
-		m_U.col(c1) = cs * tmp - sn * m_U.col(c2);
-		m_U.col(c2) = sn * tmp + cs * m_U.col(c2);
+		m_U.col(c1) = c * tmp - s * m_U.col(c2);
+		m_U.col(c2) = s * tmp + c * m_U.col(c2);
 
 		tmp = m_V.col(c1);
-		m_V.col(c1) = cs * tmp - sn * m_V.col(c2);
-		m_V.col(c2) = sn * tmp + cs * m_V.col(c2);
+		m_V.col(c1) = c * tmp - s * m_V.col(c2);
+		m_V.col(c2) = s * tmp + c * m_V.col(c2);
 	}
 
 	return converged;
