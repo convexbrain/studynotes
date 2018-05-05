@@ -105,20 +105,21 @@ $$ s $$ の初期値を決めることにより、
 $$
 \begin{array}{rcl}
 f_0 &=& f^T x \\
-f_i &=& \cases{
-{||G_i x + h_i||_2^2 \over s_i} - s_i, & \(i = 1, \ldots, m\) \\
-\epsilon_{\rm bd} - s_{i-m}, & \(i = m + 1, \ldots, 2m\)
-}
+f_i &=& \left\{ \begin{array}{ll}
+        {||G_i x + h_i||_2^2 \over s_i} - s_i, & (i = 1, \ldots, m) \\
+        \epsilon_{\rm bd} - s_{i-m}, & (i = m + 1, \ldots, 2m)
+        \end{array} \right.
 \end{array}
 $$
 
 目的関数の導関数は
+
 $$
 \begin{array}{rcl}
 \nabla_{x, s} f_0   &=&
-  \left[\matrix{
+  \left[ \begin{array}{c}
   f \\ 0
-  }\right] \\
+  \end{array} \right] \\
 \nabla_{x, s}^2 f_0 &=& 0
 \end{array}
 $$
@@ -135,15 +136,18 @@ $$ i = m + 1, \ldots, 2m $$ では $$ \nabla_{x,s}^2 f_i = 0 $$ です。
 等式制約は
 
 $$
-\left[\matrix{
+\left[ \begin{array}{cc}
   A & 0 \\
-  \matrix{c_1^T \\ \vdots \\ c_m^T} & -I_{m \times m}
-}\right]
-=
-\left[\matrix{
+  \begin{array}{c}
+  c_1^T \\ \vdots \\ c_m^T
+  \end{array} & -I_{m \times m}
+\end{array} \right] =
+\left[ \begin{array}{c}
   b \\
-  \matrix{-d_1 \\ \vdots \\ -d_m}
-}\right]
+  \begin{array}{c}
+  -d_1 \\ \vdots \\ -d_m
+  \end{array}
+\end{array} \right]
 $$
 
 と置き換えます。

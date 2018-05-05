@@ -57,18 +57,30 @@ $$ x \leftarrow (z \ \ s)^T $$ と置き換えると、
 元のQCQPの $$ P, q, A, b $$ を以下のように置き換えることになります
 （ $$ r $$ はそのまま）。
 
-* $$ P_0 \leftarrow \left[ \matrix{ P_0 & 0 \\
-                                    0   & 0 } \right ], \quad
-     P_i \leftarrow \left[ \matrix{ P_i & 0 \\
-                                    0   & 0 } \right ] $$　
-* $$ q_0 \leftarrow \left[ \matrix{ q_i \\
-                                    0   } \right ], \quad
-     q_i \leftarrow \left[ \matrix{ q_i \\
-                                    -1  } \right ] $$　
-* $$ A \leftarrow \left[ \matrix{ A & 0 \\
-                                  0 & 1 } \right ] $$　
-* $$ b \leftarrow \left[ \matrix{ b \\
-                                  0 } \right ] $$　
+* $$ P_0 \leftarrow \left[ \begin{array}{cc}
+                           P_0 & 0 \\
+                           0   & 0 
+                           \end{array} \right ], \quad
+     P_i \leftarrow \left[ \begin{array}{cc}
+                           P_i & 0 \\
+                           0   & 0
+                           \end{array} \right ] $$　
+* $$ q_0 \leftarrow \left[ \begin{array}{c}
+                           q_i \\
+                           0
+                           \end{array} \right ], \quad
+     q_i \leftarrow \left[ \begin{array}{c}
+                           q_i \\
+                           -1
+                           \end{array} \right ] $$　
+* $$ A \leftarrow \left[ \begin{array}{c}
+                         A & 0 \\
+                         0 & 1
+                         \end{array} \right ] $$　
+* $$ b \leftarrow \left[ \begin{array}{c}
+                         b \\
+                         0
+                         \end{array} \right ] $$　
 
 ## ソースコード
 
