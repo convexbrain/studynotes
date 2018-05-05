@@ -41,7 +41,7 @@ Algorithm 4.1にあるOne-sided Jacobi for SVDがいちばんシンプルでわ�
 
 非正方行列の考慮にあたり、
 $$U,\,\Sigma,\,V$$ の形状などはいろいろなパターンが考えられるようですが、ここでは
-* $$m \ge n$$（$$m \lt n$$ の場合は$$G^T$$を分解すればよい）として、
+* $$m \ge n$$（$$m \lt n$$ の場合は$$G^T$$を分解すればよい）を前提にして、
     * $$U$$ ： $$m \times n$$
     * $$\Sigma$$ ： $$n \times n$$、特異値のならび（昇順・降順）は特に問わない
     * $$V$$ ： $$n \times n$$
@@ -49,3 +49,42 @@ $$U,\,\Sigma,\,V$$ の形状などはいろいろなパターンが考えられ�
 
 ### アルゴリズム
 
+* パラメータ
+    * $$\tau_c$$：計算機イプシロン程度の値
+    * $$\tau_d$$：
+* 初期化
+    * $$U \leftarrow G$$　
+    * $$V \leftarrow I$$　
+* 以下を繰り返し
+    * $$1 \le i \lt j \le n$$ のすべての $$i,\,j$$ について
+        * $$u_i$$ を $$U$$ の $$i$$ 列目の列ベクトルとする。$$u_j,\,v_i,\,v_j$$ も同様に定義する。
+        * $$a = u_i^T u_i,\,b = u_j^T u_j,\,d = u_i^T u_j$$ を算出
+        * 収束条件 $$d^2 \le \tau_c^2 a b$$ を満たしていなかったら以下を計算
+            * $$\zeta = {b - a \over 2d}$$　
+            * $$t = {sign(\zeta) \over \mid\zeta\mid + \sqrt{1 + \zeta^2}}$$　
+            * $$c = {1 \over \sqrt{1 + t^2}},\,s = ct$$　
+            * $$[u_i \quad u_j] \leftarrow [u_i \quad u_j]
+                \left[ \begin{array}{cc}
+                c & s \\ -s & c
+                \end{array} \right]$$　
+            * $$[v_i \quad v_j] \leftarrow [v_i \quad v_j]
+                \left[ \begin{array}{cc}
+                c & s \\ -s & c
+                \end{array} \right]$$　
+    * すべての $$i,\,j$$ の収束条件が満たされていたら繰り返しを出る
+* 正規化と特異値の算出
+    * 特異値 $$\sigma_i = \|u_i\| \qquad(1 \le i \le n)$$
+    * 特異値をベクトル $$\sigma$$ として $$\Sigma = {\bf diag}(\sigma) $$　
+    * $$u_i \leftarrow {u_i \over \|u_i\|} \qquad(1 \le i \le n)$$　
+
+#### 解釈
+
+（あとで書く）
+
+#### マルチスレッド並列化
+
+（あとで書く）
+
+### 実装例
+
+[SVD実装例](SVDExample) 参照。
