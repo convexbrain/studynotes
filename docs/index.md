@@ -7,7 +7,7 @@ layout: ext
 
 * [主双対内点法](PrimalDualIPM)
     * [SVD](SVD)
-    * [SVDマルチスレッド実装](SVDMultiThread)
+    * [マルチスレッドSVD](SVDMultiThread)
 * [QCQP](QCQP)
 * [SOCP](SOCP)
 
