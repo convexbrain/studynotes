@@ -28,8 +28,7 @@ author:
   name   : "convexbrain"
   avatar : #"/assets/images/bio-photo.jpg"
 
-include:
-  - _pages
+include: ["_pages"]
 
 defaults:
   # _posts
