@@ -1,3 +1,7 @@
+---
+permalink: /
+---
+
 # FrontPage
 
 ## 凸最適化
