@@ -27,3 +27,16 @@ analytics:
 author:
   name   : "convexbrain"
   avatar : #"/assets/images/bio-photo.jpg"
+
+defaults:
+  # _posts
+  - scope:
+      path: ""
+      type: posts
+    values:
+      layout: single
+      author_profile: true
+      read_time: true
+      comments: true
+      share: true
+      related: true
