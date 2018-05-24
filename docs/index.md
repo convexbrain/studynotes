@@ -1,6 +1,3 @@
----
-layout: ext
----
 # FrontPage
 
 ## 凸最適化

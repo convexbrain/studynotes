@@ -1,6 +1,3 @@
----
-layout: ext
----
 # SVD
 
 特異値分解(Singular Value Decomposition)は、任意の $$m\times n$$ 行列 $$G$$ を
