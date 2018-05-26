@@ -69,6 +69,7 @@ public:
 class OSJ_SVD_MT : public OSJ_SVD {
 private:
 	list<ColPair> m_lsColPair;
+	list<ColPair>::iterator m_pColPair;
 	mutex m_mtxLsColPair;
 	uint32_t m_thNum;
 	vector<thread> m_vecThread;
