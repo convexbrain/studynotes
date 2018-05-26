@@ -67,7 +67,7 @@ void test_comp(uint32_t num_max, uint32_t sz_max, uint32_t r_max, uint32_t mt, b
 {
 	VectorXd rc(2);
 
-	cout << "num, rows, cols, time," << endl;
+	cout << "num, rows, cols, iters, time," << endl;
 	for (uint32_t i = 0; i < num_max; i++) {
 		cout << i << ", ";
 
@@ -88,7 +88,7 @@ void test_comp(uint32_t num_max, uint32_t sz_max, uint32_t r_max, uint32_t mt, b
 		pSVD->decomp(G);
 		auto end = std::chrono::system_clock::now();
 		auto period = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-		cout << period << ", ";
+		cout << pSVD->iters() << ", " << period << ", ";
 
 		if (doTest) {
 			bool r = pSVD->selftest(G, nullout);

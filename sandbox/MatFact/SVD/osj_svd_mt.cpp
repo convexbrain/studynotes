@@ -115,6 +115,7 @@ void OSJ_SVD_MT::do_decomp(MatrixXd_IN G)
 		m_vecThread[i] = thread(thread_work, this, i);
 	}
 
+	m_iters = 0;
 	while (1) {
 		bool converged_all = true;
 
@@ -129,6 +130,7 @@ void OSJ_SVD_MT::do_decomp(MatrixXd_IN G)
 
 		if (CPTERM_LOOP == term) {
 			m_pColPair = m_lsColPair.begin();
+			m_iters++;
 		}
 
 		// continue Slave threads
