@@ -1,13 +1,10 @@
----
-layout: ext
----
 # FrontPage
 
 ## 凸最適化
 
 * [主双対内点法](PrimalDualIPM)
     * [SVD](SVD)
-    * [マルチスレッドSVD](SVDMultiThread)
+    * [SVDマルチスレッド実装](SVDMultiThread)
 * [QCQP](QCQP)
 * [SOCP](SOCP)
 

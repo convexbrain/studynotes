@@ -1,1 +1,9 @@
 theme: jekyll-theme-slate
+theme: jekyll-theme-slate
+
+lang: "ja-JP"
+title: "convexbrainのけんきうメモ"
+
+url: "https://convexbrain.github.io/studynotes/"
+
+google_analytics: "UA-57046411-1"

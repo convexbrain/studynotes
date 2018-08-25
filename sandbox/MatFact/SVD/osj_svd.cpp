@@ -83,6 +83,7 @@ void OSJ_SVD::do_decomp(MatrixXd_IN G)
 	uint32_t m = m_U.rows();
 	uint32_t n = m_U.cols();
 
+	m_iters = 0;
 	bool converged_all;
 	do {
 		converged_all = true;
@@ -93,6 +94,7 @@ void OSJ_SVD::do_decomp(MatrixXd_IN G)
 			}
 		}
 
+		m_iters++;
 	} while (!converged_all);
 
 	normSingular();

@@ -1,6 +1,3 @@
----
-layout: ext
----
 # 主双対内点法
 
 [Convex Optimization by Stephen Boyd and Lieven Vandenberghe](http://stanford.edu/~boyd/cvxbook/)

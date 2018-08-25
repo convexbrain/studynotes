@@ -1,6 +1,3 @@
----
-layout: ext
----
 # SVD
 
 特異値分解(Singular Value Decomposition)は、任意の $$m\times n$$ 行列 $$G$$ を
@@ -36,7 +33,7 @@ SVDだとオーバースペックかもしれません。
 ## One-sided Jacobi for SVD
 
 SVDにもいろいろなアルゴリズムがあるようですが、
-[LAPACK Working Notes](http://www.netlib.org/lapack/lawns/downloads/) lawn15の
+[LAPACK Working Notes](http://www.netlib.org/lapack/lawns/index.html) lawn15の
 Algorithm 4.1にあるOne-sided Jacobi for SVDがいちばんシンプルでわかりやすそうです。
 ただlawn15では簡単のため正方行列を前提にしているようです。
 ここでは非正方行列も考慮します。
@@ -84,7 +81,7 @@ $$U,\,\Sigma,\,V$$ の形状などはいろいろなパターンが考えられ�
 この更新では $$UV^T=G$$ の関係が常に保たれます。
 というのも、この更新は（$$2 \times 2$$ 回転行列 $$R$$ による演算と等価な）$$n \times n$$ 直交行列 $$R'$$ を用いて、
 
-$$UV^T \rightarrow (UR')(VR')^T = UR'R'^TV^T = G$$
+$$UV^T \rightarrow (UR')(VR')^T = UR'R'^TV^T = UV^T = G$$
 
 のように書けるためです。
 
@@ -92,7 +89,7 @@ $$UV^T \rightarrow (UR')(VR')^T = UR'R'^TV^T = G$$
 $$(UV^T)^T UV^T = VU^T UV^T$$ を考えた時の $$U^TU$$ の $$(i,j)$$ 要素
 （$$U^TU$$は対象行列なので $$(j,i)$$ 要素も）をゼロにするような値に計算されています。
 
-__（図を入れる）__
+![](SVD_update.png)
 
 したがって、収束して繰り返しを出たときには、$$U^TU$$ は（$$\tau$$ で許容されるレベルで）
 対角行列になっているので、$$U$$ の各列正規化で
@@ -103,4 +100,4 @@ $$V$$ も、単位行列に直交行列をどんどんかけていったもの�
 
 ### 実装例
 
-[マルチスレッドSVD](SVDMultiThread) 参照。
+[SVDマルチスレッド実装](SVDMultiThread) 参照。

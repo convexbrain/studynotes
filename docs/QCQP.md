@@ -1,6 +1,3 @@
----
-layout: ext
----
 # QCQP
 
 二次制約二次計画問題(quadratically constrained quadratic program)を扱います。

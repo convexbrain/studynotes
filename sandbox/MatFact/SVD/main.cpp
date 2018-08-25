@@ -67,7 +67,7 @@ void test_comp(uint32_t num_max, uint32_t sz_max, uint32_t r_max, uint32_t mt, b
 {
 	VectorXd rc(2);
 
-	cout << "num, rows, cols, time," << endl;
+	cout << "num, rows, cols, iters, time," << endl;
 	for (uint32_t i = 0; i < num_max; i++) {
 		cout << i << ", ";
 
@@ -88,7 +88,7 @@ void test_comp(uint32_t num_max, uint32_t sz_max, uint32_t r_max, uint32_t mt, b
 		pSVD->decomp(G);
 		auto end = std::chrono::system_clock::now();
 		auto period = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-		cout << period << ", ";
+		cout << pSVD->iters() << ", " << period << ", ";
 
 		if (doTest) {
 			bool r = pSVD->selftest(G, nullout);
@@ -100,6 +100,22 @@ void test_comp(uint32_t num_max, uint32_t sz_max, uint32_t r_max, uint32_t mt, b
 
 int main(int argc, char ** argv)
 {
+	// CPU負荷率テスト（スレッドなし）
+	//test_simple(1000, 1000, 0);
+
+	// CPU負荷率テスト（8スレッド）
+	//test_simple(1000, 1000, 8);
+
+	// 計算量テスト（スレッドなし）
+	//test_comp(100, 360000, 600, 0, false);
+
+	// 計算量テスト（1スレッド）
+	//test_comp(100, 360000, 600, 1, false);
+
+	// 計算量テスト（8スレッド）
+	test_comp(100, 360000, 600, 8, false);
+
+
 	// 二次多項式フィッティング（3点：正則正方）
 	//test_fit(3, 0, false);
 
@@ -109,19 +125,10 @@ int main(int argc, char ** argv)
 	// 二次多項式フィッティング（1点：劣決定系）
 	//test_fit(1, 0, false);
 
-	// CPU負荷率テスト（8スレッド）
-	//test_simple(1000, 1000, 8);
 
-	// 計算量テスト（スレッドなし）
-	//test_comp(100, 360000, 600, 0, false);
-
-	// 計算量テスト（8スレッド）
-	//test_comp(100, 360000, 600, 8, false);
-
-
-	test_simple(10, 10, 8);
+	//test_simple(10, 10, 8);
 	//test_fit(3, 0, true);
-	//test_comp(10, 3600, 60, 0, true);
+	//test_comp(10, 3600, 60, 8, true);
 
 	cerr << "Hit Any Key" << endl;
 	getchar();

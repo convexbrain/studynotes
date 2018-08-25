@@ -2,6 +2,7 @@
 #define _OSJ_SVD_H_
 
 #include "svd.h"
+#include <cfloat>
 
 //
 

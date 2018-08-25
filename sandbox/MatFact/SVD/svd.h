@@ -23,6 +23,8 @@ using std::unique_ptr;
 
 class SVD_IF {
 private:
+	bool m_decomped;
+
 	bool good(MatrixXd_IN G) {
 		if ((0 == G.rows()) || (0 == G.cols()) ||
 			(m_rows != G.rows()) || (m_cols != G.cols())
@@ -35,7 +37,7 @@ private:
 protected:
 	uint32_t m_rows;
 	uint32_t m_cols;
-	bool m_decomped;
+	uint32_t m_iters;
 
 	virtual void do_decomp(MatrixXd_IN G) = 0;
 	virtual bool do_selftest(MatrixXd_IN G, ostream &out) = 0;
@@ -43,7 +45,7 @@ protected:
 
 public:
 	explicit SVD_IF(uint32_t rows, uint32_t cols) :
-		m_rows(rows), m_cols(cols), m_decomped(false) { /*std::cout << "SVD_IF()" << std::endl;*/ }
+		m_rows(rows), m_cols(cols), m_decomped(false), m_iters(0) { /*std::cout << "SVD_IF()" << std::endl;*/ }
 	virtual ~SVD_IF() { /*std::cout << "~SVD_IF()" << std::endl;*/ }
 
 	bool decomp(MatrixXd_IN G)
@@ -66,6 +68,8 @@ public:
 		do_solve(x, h);
 		return true;
 	}
+
+	uint32_t iters(void) { return m_iters; }
 };
 
 //

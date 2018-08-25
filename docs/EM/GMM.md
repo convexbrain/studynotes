@@ -1,6 +1,3 @@
----
-layout: ext
----
 # Gaussian Mixture Model
 
 ## 定義

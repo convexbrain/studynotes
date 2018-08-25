@@ -1,6 +1,3 @@
----
-layout: ext
----
 # SOCP
 
 二次錐計画問題(second-order cone program)を扱います。

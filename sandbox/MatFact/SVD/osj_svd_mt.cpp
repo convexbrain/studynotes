@@ -27,10 +27,9 @@ void OSJ_SVD_MT::work(uint32_t th_id)
 		{
 			unique_lock<mutex> lk(m_mtxLsColPair);
 
-			cp = m_lsColPair.front();
+			cp = *m_pColPair;
 			if (!cp.term) {
-				m_lsColPair.pop_front();
-				m_lsColPair.push_back(cp);
+				m_pColPair++;
 			}
 		}
 
@@ -109,12 +108,14 @@ void OSJ_SVD_MT::do_decomp(MatrixXd_IN G)
 
 	// make concurrent column pairs
 	makeLsColPair();
+	m_pColPair = m_lsColPair.begin();
 
 	// run Slave threads
 	for (uint32_t i = 0; i < m_thNum; i++) {
 		m_vecThread[i] = thread(thread_work, this, i);
 	}
 
+	m_iters = 0;
 	while (1) {
 		bool converged_all = true;
 
@@ -124,16 +125,20 @@ void OSJ_SVD_MT::do_decomp(MatrixXd_IN G)
 			converged_all = (converged_all && local_conv);
 		}
 
-		ColPair cp = m_lsColPair.front();
-		m_lsColPair.pop_front();
-		m_lsColPair.push_back(cp);
+		ColPairTerm term = m_pColPair->term;
+		m_pColPair++;
+
+		if (CPTERM_LOOP == term) {
+			m_pColPair = m_lsColPair.begin();
+			m_iters++;
+		}
 
 		// continue Slave threads
 		for (uint32_t i = 0; i < m_thNum; i++) {
 			m_vecMsgToSlave[i].put(converged_all);
 		}
 
-		if ((CPTERM_LOOP == cp.term) && converged_all) {
+		if ((CPTERM_LOOP == term) && converged_all) {
 			break;
 		}
 	}
