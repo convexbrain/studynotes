@@ -36,6 +36,14 @@ class FeVec:
         nq = nz * ny * nx * 3
         self.m = lil_matrix((nq, 1))
     #
+    def sub_ix(self, nnodes):
+        q_n = []
+        for node in nnodes:
+            serpos = (node[0] * self.ny + node[1]) * self.nx + node[2]
+            for dim in range(3):
+                q_n.append(int(serpos * 3 + dim))
+        return q_n
+    #
     def ix(self, z, y, x, d):
         return ((z * self.ny + y) * self.nx + x) * 3 + d
 #
@@ -73,68 +81,76 @@ class TopolOpt3D:
         max_i = 10
         # Initialization
         rho = vratio * np.ones((self.nz, self.ny, self.nx))
+        self.K_E1 = self.calc_K_E1()
         # Iteration
         i = 0
         while i < max_i: # TODO
-            l, dldr = self.ana_fe_sens(rho)
+            u, l = self.ana_fe(rho)
+            dldr = self.ana_fe_sens(rho, u)
+            #
+            if False:
+                um = u.m.toarray()
+                um = np.reshape(um, (self.nz + 1, self.ny + 1, self.nx + 1, 3))
+                #plt.plot(um[self.nz / 2, self.ny / 2, :, 2])
+                plt.imshow(um[self.nz / 2, :, :, 2]); plt.colorbar()
+                plt.show()
+            #
             rho_new = self.update_oc(rho, dldr)
             #
             print('{0:5}: l:{1}'.format(i, l))
+            assert False, "TODO"
             # TODO
             rho = rho_new
             i = i + 1
         #
         return rho
     #
-    def ana_fe_sens(self, rho):
+    def ana_fe(self, rho):
+        # Stiffness matrix
         K = FeMat(self.nz + 1, self.ny + 1, self.nx + 1)
-        #
-        K_E1 = self.calc_K_E1()
         for elem in np.ndindex(self.nz, self.ny, self.nx):
             nnodes = TopolOpt3D.neibor_nodes(elem)
-            K.m[K.sub_ix(nnodes)] += K_E1 * self.calc_E(rho[elem])
+            K.m[K.sub_ix(nnodes)] += self.K_E1 * self.calc_E(rho[elem])
         #
         f = FeVec(self.nz + 1, self.ny + 1, self.nx + 1)
-        fix_ixs = np.empty(0)
+        # Forced node indices
         force_ixs = np.empty(0)
+        force_ixs = np.append(force_ixs, f.ix(self.nz / 2, self.ny / 2, self.nx, 2)) # TODO: configurable
+        f.m[force_ixs] = 0.01 # TODO: what unit is?
+        # Fixed node indices
+        fix_ixs = np.empty(0)
         for zy in np.ndindex(self.nz + 1, self.ny + 1):
             for d in range(3):
-                fix_ixs = np.append(fix_ixs, f.ix(zy[0], zy[1], 0, d))
-            force_ixs = np.append(force_ixs, f.ix(zy[0], zy[1], self.nx, 2))
-        #force_ixs = np.append(force_ixs, f.ix(2, 4, self.nx, 2))
-        f.m[force_ixs] = 0.001
-        f.m[fix_ixs] = 0
-        K.m[:, fix_ixs] = 0
-        K.m[fix_ixs, fix_ixs] = -1
+                fix_ixs = np.append(fix_ixs, f.ix(zy[0], zy[1], 0, d)) # TODO: configurable
         #
+        # Replace fixing f with fixed u
+        K.m[:, fix_ixs] = 0 # fixed u = 0
+        K.m[fix_ixs, fix_ixs] = -1 # move fixing f to left-hand side
+        #
+        # Solve Ku = f
         u = FeVec(self.nz + 1, self.ny + 1, self.nx + 1)
         u.m[:] = spsolve(K.m.tocsr(), f.m).reshape((-1, 1))
-        print(type(u.m))
-        print(u.m.shape)
-        f.m[fix_ixs] = u.m[fix_ixs]
-        u.m[fix_ixs] = 0
-        um = u.m.toarray()
-        print(type(um))
-        print(um.shape)
-        um = np.reshape(um, (5, 9, 17, 3))
-        #plt.plot(um[2, 4, :, 2])
-        #plt.plot(um[0, 4, :, 2] - 2)
-        #plt.plot(um[1, 4, :, 2] - 1)
-        #plt.plot(um[3, 4, :, 2] + 1)
-        #plt.plot(um[4, 4, :, 2] + 2)
-        plt.imshow(um[2, :, :, 2])
-        plt.colorbar()
-        plt.show()
-        assert False, "TODO"
-        # TODO
         #
-        # TODO
+        # Undo replace fixing f with fixed u
+        f.m[fix_ixs] = u.m[fix_ixs] # fixing f
+        u.m[fix_ixs] = 0 # fixed u = 0
         #
-        l = 0.0
+        # Mean Compliance
+        l = u.m.transpose().dot(K.m.dot(u.m))[0, 0]
         #
-        dldr = np.zeros((self.nz + 1, self.ny + 1, self.nx + 1))
-        # TODO
-        return l, dldr
+        return u, l
+    #
+    def ana_fe_sens(self, rho, u):
+        dldr = np.zeros((self.nz, self.ny, self.nx))
+        #
+        for elem in np.ndindex(self.nz, self.ny, self.nx):
+            nnodes = TopolOpt3D.neibor_nodes(elem)
+            ixs = u.sub_ix(nnodes)
+            ue = u.m[ixs].toarray()
+            Ke = self.K_E1 * self.calc_dEdr(rho[elem])
+            dldr[elem] += ue.transpose().dot(Ke.dot(ue))[0, 0]
+        #
+        return dldr
     #
     def update_oc(self, rho, dldr):
         rho_new = np.zeros_like(rho)
@@ -173,6 +189,9 @@ class TopolOpt3D:
     #
     def calc_E(self, rho_e):
         return np.interp(rho_e ** self.pnl, [0, 1], [self.Emin, self.E])
+    #
+    def calc_dEdr(self, rho_e):
+        return self.pnl * (rho_e ** (self.pnl - 1.0)) * (self.E - self.Emin)
         
 #
 #####
