@@ -2,9 +2,10 @@ import numpy as np
 import scipy as sp
 from scipy.sparse import lil_matrix
 from scipy.sparse.linalg import spsolve
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-import itertools as itt
+from mpl_toolkits.mplot3d import Axes3D
 
 # x +:right, -:left
 # y +:back, -:front
@@ -74,19 +75,25 @@ class TopolOpt3D:
         self.nx = nx
         self.ny = ny
         self.slen = slen
+        self.vratio = vratio
         self.nu = 0.3
         self.E = 1.0
         self.Emin = 0.001
         self.pnl = 3
         max_i = 10
         # Initialization
-        rho = vratio * np.ones((self.nz, self.ny, self.nx))
+        rho = self.vratio * np.ones((self.nz, self.ny, self.nx))
         self.K_E1 = self.calc_K_E1()
         # Iteration
         i = 0
         while i < max_i: # TODO
             u, l = self.ana_fe(rho)
             dldr = self.ana_fe_sens(rho, u)
+            rho_new = self.update_oc(rho, dldr)
+            #
+            print('{0:5}: l:{1}'.format(i, l))
+            #
+            # TODO
             #
             if False:
                 um = u.m.toarray()
@@ -94,12 +101,24 @@ class TopolOpt3D:
                 #plt.plot(um[self.nz / 2, self.ny / 2, :, 2])
                 plt.imshow(um[self.nz / 2, :, :, 2]); plt.colorbar()
                 plt.show()
+            if False:
+                plt.imshow(rho[self.nz / 2, :, :], vmin = 0.0, vmax = 1.0, cmap = cm.binary);
+                plt.colorbar()
+                plt.show()
+            if i == max_i - 1:
+                for z in range(self.nz):
+                    plt.imshow(rho[z, :, :], vmin = 0.0, vmax = 1.0, cmap = cm.binary);
+                    plt.colorbar()
+                    plt.show()
+            if False:
+                voxels = rho > 0.2
+                #fig = plt.figure()
+                plt.gca(projection='3d')
+                #plt.
+                plt.voxels(voxels)
+                #plt.colorbar()
+                plt.show()
             #
-            rho_new = self.update_oc(rho, dldr)
-            #
-            print('{0:5}: l:{1}'.format(i, l))
-            assert False, "TODO"
-            # TODO
             rho = rho_new
             i = i + 1
         #
@@ -115,7 +134,7 @@ class TopolOpt3D:
         f = FeVec(self.nz + 1, self.ny + 1, self.nx + 1)
         # Forced node indices
         force_ixs = np.empty(0)
-        force_ixs = np.append(force_ixs, f.ix(self.nz / 2, self.ny / 2, self.nx, 2)) # TODO: configurable
+        force_ixs = np.append(force_ixs, f.ix(self.nz / 2, self.ny / 2, self.nx, 1)) # TODO: configurable
         f.m[force_ixs] = 0.01 # TODO: what unit is?
         # Fixed node indices
         fix_ixs = np.empty(0)
@@ -153,8 +172,24 @@ class TopolOpt3D:
         return dldr
     #
     def update_oc(self, rho, dldr):
-        rho_new = np.zeros_like(rho)
-        # TODO
+        # TODO: explore
+        lambdaL = 0
+        lambdaU = np.max([np.max(dldr), 1.0])
+        mvLim = 0.125
+        dump = 0.75
+        eps = 1e-3
+        while (lambdaU - lambdaL) / (lambdaU + lambdaL) > eps:
+            lambdaM = (lambdaU + lambdaL) / 2.0
+            rho_new = np.multiply(rho, (dldr / lambdaM) ** dump)
+            rho_new = np.minimum(rho_new, rho + mvLim)
+            rho_new = np.minimum(rho_new, 1)
+            rho_new = np.maximum(rho_new, rho - mvLim)
+            rho_new = np.maximum(rho_new, 0)
+            if np.mean(rho_new) - self.vratio > 0:
+                lambdaL = lambdaM
+            else:
+                lambdaU = lambdaM
+        #
         return rho_new
     #
     def calc_K_E1(self):
@@ -199,7 +234,8 @@ class TopolOpt3D:
 if __name__ == '__main__':
     print('numpy ver: ' + np.version.full_version)
     print('scipy ver: ' + sp.version.full_version)
+    print('matplotlib ver: ' + matplotlib.__version__)
     #
     t = TopolOpt3D()
-    t.solve((4, 8, 16), 1, 0.3)
+    t.solve((4, 8, 16), 1, 0.5)
 #
