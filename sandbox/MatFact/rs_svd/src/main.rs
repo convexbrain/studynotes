@@ -26,6 +26,11 @@ impl Mat
         }
     }
     //
+    pub fn new_vec(nrows: usize) -> Mat
+    {
+        Mat::new(nrows, 1)
+    }
+    //
     pub fn col(&self, c: usize) -> Mat
     {
         assert!(!self.transposed); // TODO: transposed
@@ -39,42 +44,12 @@ impl Mat
         }
     }
     //
-    fn _get(&self, r: usize, c: usize) -> MatFP
-    {
-        self.vec[self.stride * c + r]
-    }
-    //
-    pub fn get(&self, r: usize, c: usize) -> MatFP
-    {
-        if !self.transposed {
-            self._get(r, c)
-        }
-        else {
-            self._get(c, r)
-        }
-    }
-    //
-    pub fn _set(&mut self, r: usize, c: usize, v: MatFP)
-    {
-        self.vec[self.stride * c + r] = v;
-    }
-    //
-    pub fn set(&mut self, r: usize, c: usize, v: MatFP)
-    {
-        if !self.transposed {
-            self._set(r, c, v);
-        }
-        else {
-            self._set(c, r, v);
-        }
-    }
-    //
     pub fn set_by<F>(&mut self, f: F)
     where F: Fn() -> MatFP
     {
         for r in 0 .. self.nrows {
             for c in 0 .. self.ncols {
-                self.set(r, c, f());
+                self[(r, c)] = f();
             }
         }
     }
@@ -83,18 +58,8 @@ impl Mat
     {
         for r in 0 .. self.nrows {
             for c in 0 .. self.ncols {
-                self.set(r, c, if r == c {1.0} else {0.0});
+                self[(r, c)] = if r == c {1.0} else {0.0};
             }
-        }
-    }
-    //
-    pub fn dim(&self) -> (usize, usize)
-    {
-        if !self.transposed {
-            (self.nrows, self.ncols)
-        }
-        else {
-            (self.ncols, self.nrows)
         }
     }
     //
@@ -103,42 +68,74 @@ impl Mat
         self.transposed = !self.transposed;
         self
     }
-    //
-    pub fn sq_norm(&self) -> MatFP
+}
+
+impl std::ops::Index<(usize, usize)> for Mat
+{
+    type Output = MatFP;
+    fn index(&self, index: (usize, usize)) -> &MatFP
     {
-        let mut a: MatFP = 0.0;
-
-        for r in 0 .. self.nrows {
-            for c in 0 .. self.ncols {
-                let v = self.get(r, c);
-                a += v * v;
-            }
+        if !self.transposed {
+            &self.vec[self.stride * index.1 + index.0]
         }
-
-        a
+        else {
+            &self.vec[self.stride * index.0 + index.1]
+        }
     }
 }
 
-impl std::ops::Mul for Mat
+impl std::ops::IndexMut<(usize, usize)> for Mat
+{
+    fn index_mut(&mut self, index: (usize, usize)) -> &mut MatFP
+    {
+        if !self.transposed {
+            &mut self.vec[self.stride * index.1 + index.0]
+        }
+        else {
+            &mut self.vec[self.stride * index.0 + index.1]
+        }
+    }
+}
+
+trait MatOps: std::ops::IndexMut<(usize, usize)>
+{
+    fn dim(&self) -> (usize, usize);
+}
+
+impl MatOps for Mat
+{
+    fn dim(&self) -> (usize, usize)
+    {
+        if !self.transposed {
+            (self.nrows, self.ncols)
+        }
+        else {
+            (self.ncols, self.nrows)
+        }
+    }
+}
+
+impl<T> std::ops::Mul<T> for Mat
+where T: MatOps + std::ops::Index<(usize, usize), Output=MatFP>
 {
     type Output = Mat;
 
-    fn mul(self, rhs: Mat) -> Mat
+    fn mul(self, rhs: T) -> Mat
     {
         let (l_nrows, l_ncols) = self.dim();
         let (r_nrows, r_ncols) = rhs.dim();
 
         assert_eq!(l_ncols, r_nrows);
 
-        let mut mat = Mat::new(l_nrows, r_ncols);
+        let mut mat = Mat::new(l_nrows, r_ncols); // TODO: new-less
 
         for r in 0 .. l_nrows {
             for c in 0 .. r_ncols {
                 let mut v: MatFP = 0.0;
                 for k in 0 .. l_ncols {
-                    v += self.get(r, k) * rhs.get(k, c);
+                    v += self[(r, k)] * rhs[(k, c)];
                 }
-                mat.set(r, c, v);
+                mat[(r, c)] = v;
             }
         }
 
@@ -177,7 +174,7 @@ impl MatSVD
         let mut svd = MatSVD {
             transposed,
             u: if !transposed {g} else {g.t()}, // TODO: re-initialize
-            s: Mat::new(u_ncols, 1),
+            s: Mat::new_vec(u_ncols),
             v: Mat::new(u_ncols, u_ncols)
         };
 
@@ -188,9 +185,9 @@ impl MatSVD
     //
     fn apply_jacobi_rot(&mut self, c1: usize, c2: usize) -> bool
     {
-        let a = self.u.col(c1).sq_norm();
-        let b = self.u.col(c2).sq_norm();
-        let d = (self.u.col(c1) * self.u.col(c2).t()).get(0, 0);
+        let a = (self.u.col(c1).t() * self.u.col(c1))[(0, 0)];
+        let b = (self.u.col(c2).t() * self.u.col(c2))[(0, 0)];
+        let d = (self.u.col(c1).t() * self.u.col(c2))[(0, 0)];
 
         let converged = d * d <= TOL_CNV2 * a * b;
 
@@ -206,7 +203,7 @@ impl MatSVD
             let s = c * t;
 
             let tmp = self.u.col(c1);
-            self.u.col(c1) = c * tmp - s * self.u.col(c2);
+            //self.u.col(c1) = c * tmp - s * self.u.col(c2);
         }
         panic!();
 
