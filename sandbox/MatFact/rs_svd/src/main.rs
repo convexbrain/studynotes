@@ -97,13 +97,27 @@ impl std::ops::IndexMut<(usize, usize)> for Mat
     }
 }
 
-trait MatOps: std::ops::IndexMut<(usize, usize)>
+trait MatOps
 {
-    fn dim(&self) -> (usize, usize);
+    fn is_mat(&self) -> bool
+    {
+        false
+    }
+    fn dim(&self) -> (usize, usize)
+    {
+        (1, 1)
+    }
+    fn get(&self, row: usize, col: usize) -> MatFP;
+    fn set(&mut self, row: usize, col: usize, value: MatFP);
 }
 
 impl MatOps for Mat
 {
+    fn is_mat(&self) -> bool
+    {
+        true
+    }
+    //
     fn dim(&self) -> (usize, usize)
     {
         if !self.transposed {
@@ -113,35 +127,151 @@ impl MatOps for Mat
             (self.ncols, self.nrows)
         }
     }
+    //
+    fn get(&self, row: usize, col: usize) -> MatFP
+    {
+        self[(row, col)]
+    }
+    //
+    fn set(&mut self, row: usize, col: usize, value: MatFP)
+    {
+        self[(row, col)] = value;
+    }
+}
+
+impl MatOps for MatFP
+{
+    fn get(&self, _: usize, _: usize) -> MatFP
+    {
+        *self
+    }
+    //
+    fn set(&mut self, _: usize, _: usize, value: MatFP)
+    {
+        *self = value;
+    }
 }
 
 impl<T> std::ops::Mul<T> for Mat
-where T: MatOps + std::ops::Index<(usize, usize), Output=MatFP>
+where T: MatOps
 {
     type Output = Mat;
 
     fn mul(self, rhs: T) -> Mat
     {
         let (l_nrows, l_ncols) = self.dim();
-        let (r_nrows, r_ncols) = rhs.dim();
 
-        assert_eq!(l_ncols, r_nrows);
+        if rhs.is_mat() {
+            let (r_nrows, r_ncols) = rhs.dim();
 
-        let mut mat = Mat::new(l_nrows, r_ncols); // TODO: new-less
+            assert_eq!(l_ncols, r_nrows);
 
-        for r in 0 .. l_nrows {
-            for c in 0 .. r_ncols {
-                let mut v: MatFP = 0.0;
-                for k in 0 .. l_ncols {
-                    v += self[(r, k)] * rhs[(k, c)];
+            let mut mat = Mat::new(l_nrows, r_ncols); // TODO: new-less
+
+            for r in 0 .. l_nrows {
+                for c in 0 .. r_ncols {
+                    let mut v: MatFP = 0.0;
+                    for k in 0 .. l_ncols {
+                        v += self[(r, k)] * rhs.get(k, c);
+                    }
+                    mat[(r, c)] = v;
                 }
-                mat[(r, c)] = v;
             }
-        }
 
-        mat
+            mat
+        }
+        else {
+            let mut mat = Mat::new(l_nrows, l_ncols); // TODO: new-less
+
+            for r in 0 .. l_nrows {
+                for c in 0 .. l_ncols {
+                    mat[(r, c)] = self[(r, c)] * rhs.get(0, 0);
+                }
+            }
+
+            mat
+        }
     }
 }
+
+impl<T> std::ops::Add<T> for Mat
+where T: MatOps
+{
+    type Output = Mat;
+
+    fn add(self, rhs: T) -> Mat
+    {
+        let (l_nrows, l_ncols) = self.dim();
+
+        if rhs.is_mat() {
+            let (r_nrows, r_ncols) = rhs.dim();
+
+            assert_eq!(l_nrows, r_nrows);
+            assert_eq!(l_ncols, r_ncols);
+
+            let mut mat = Mat::new(l_nrows, l_ncols); // TODO: new-less
+
+            for r in 0 .. l_nrows {
+                for c in 0 .. l_ncols {
+                    mat[(r, c)] = self[(r, c)] + rhs.get(r, c);
+                }
+            }
+
+            mat
+        }
+        else {
+            let mut mat = Mat::new(l_nrows, l_ncols); // TODO: new-less
+
+            for r in 0 .. l_nrows {
+                for c in 0 .. l_ncols {
+                    mat[(r, c)] = self[(r, c)] + rhs.get(0, 0);
+                }
+            }
+
+            mat
+        }
+    }
+}
+
+impl<T> std::ops::Sub<T> for Mat
+where T: MatOps
+{
+    type Output = Mat;
+
+    fn sub(self, rhs: T) -> Mat
+    {
+        let (l_nrows, l_ncols) = self.dim();
+
+        if rhs.is_mat() {
+            let (r_nrows, r_ncols) = rhs.dim();
+
+            assert_eq!(l_nrows, r_nrows);
+            assert_eq!(l_ncols, r_ncols);
+
+            let mut mat = Mat::new(l_nrows, l_ncols); // TODO: new-less
+
+            for r in 0 .. l_nrows {
+                for c in 0 .. l_ncols {
+                    mat[(r, c)] = self[(r, c)] - rhs.get(r, c);
+                }
+            }
+
+            mat
+        }
+        else {
+            let mut mat = Mat::new(l_nrows, l_ncols); // TODO: new-less
+
+            for r in 0 .. l_nrows {
+                for c in 0 .. l_ncols {
+                    mat[(r, c)] = self[(r, c)] - rhs.get(0, 0);
+                }
+            }
+
+            mat
+        }
+    }
+}
+
 
 //
 
@@ -191,7 +321,7 @@ impl MatSVD
 
         let converged = d * d <= TOL_CNV2 * a * b;
 
-        if converged {
+        if !converged {
             let zeta = (b - a) / (2.0 * d);
             let t = if zeta > 0.0 {
                 1.0 / (zeta + MatFP::sqrt(1.0 + zeta * zeta))
@@ -203,6 +333,8 @@ impl MatSVD
             let s = c * t;
 
             let tmp = self.u.col(c1);
+            let ttt = tmp * c - self.u.col(c2) * s;
+            println!("{:?}", ttt);
             //self.u.col(c1) = c * tmp - s * self.u.col(c2);
         }
         panic!();
