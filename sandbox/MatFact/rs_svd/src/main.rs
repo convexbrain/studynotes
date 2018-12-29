@@ -2,7 +2,15 @@ type FP = f64;
 const FP_EPSILON: FP = std::f64::EPSILON;
 
 #[derive(Debug)]
-struct Mat
+enum View<'a>
+{
+    Own(Vec<FP>),
+    Borrow(&'a [FP]),
+    BorrowMut(&'a mut[FP])
+}
+
+#[derive(Debug)]
+struct Mat<'a>
 {
     nrows: usize,
     ncols: usize,
@@ -10,23 +18,23 @@ struct Mat
     stride: usize,
     transposed: bool,
     //
-    vec: Vec<FP>
+    view: View<'a>
 }
 
-impl Mat
+impl<'a> Mat<'a>
 {
-    pub fn new(nrows: usize, ncols: usize) -> Mat
+    pub fn new(nrows: usize, ncols: usize) -> Mat<'a>
     {
         Mat {
             nrows,
             ncols,
             stride: nrows,
             transposed: false,
-            vec: vec![0.0; nrows * ncols]
+            view: View::Own(vec![0.0; nrows * ncols])
         }
     }
     //
-    pub fn new_vec(nrows: usize) -> Mat
+    pub fn new_vec(nrows: usize) -> Mat<'a>
     {
         Mat::new(nrows, 1)
     }
@@ -35,12 +43,28 @@ impl Mat
     {
         assert!(!self.transposed); // TODO: transposed
 
+        let view = match &self.view {
+            View::Own(v) => View::Borrow(&v[self.stride * c .. self.stride * (c + 1)]), // TODO: offset
+            View::Borrow(v) => View::Borrow(&v[self.stride * c .. self.stride * (c + 1)]), // TODO: offset
+            View::BorrowMut(v) => View::Borrow(&v[self.stride * c .. self.stride * (c + 1)]), // TODO: offset
+        };
+
         Mat {
             nrows: self.nrows,
             ncols: 1,
             stride: self.nrows,
             transposed: false,
-            vec: self.vec[self.stride * c .. self.stride * (c + 1)].to_vec() // TODO: copy-less
+            view
+        }
+    }
+    //
+    fn tr_index(&self, index: (usize, usize)) -> usize
+    {
+        if !self.transposed {
+            self.stride * index.1 + index.0
+        }
+        else {
+            self.stride * index.0 + index.1
         }
     }
     //
@@ -63,36 +87,38 @@ impl Mat
         }
     }
     //
-    pub fn t(mut self) -> Mat
+    pub fn t(mut self) -> Mat<'a>
     {
         self.transposed = !self.transposed;
         self
     }
 }
 
-impl std::ops::Index<(usize, usize)> for Mat
+impl<'a> std::ops::Index<(usize, usize)> for Mat<'a>
 {
     type Output = FP;
     fn index(&self, index: (usize, usize)) -> &FP
     {
-        if !self.transposed {
-            &self.vec[self.stride * index.1 + index.0]
-        }
-        else {
-            &self.vec[self.stride * index.0 + index.1]
+        let i = self.tr_index(index);
+
+        match &self.view {
+            View::Own(v) => &v[i],
+            View::Borrow(v) => &v[i],
+            View::BorrowMut(v) => &v[i]
         }
     }
 }
 
-impl std::ops::IndexMut<(usize, usize)> for Mat
+impl<'a> std::ops::IndexMut<(usize, usize)> for Mat<'a>
 {
     fn index_mut(&mut self, index: (usize, usize)) -> &mut FP
     {
-        if !self.transposed {
-            &mut self.vec[self.stride * index.1 + index.0]
-        }
-        else {
-            &mut self.vec[self.stride * index.0 + index.1]
+        let i = self.tr_index(index);
+
+        match &mut self.view {
+            View::Own(v) => &mut v[i],
+            View::Borrow(_) => panic!("cannot borrow immutable borrowed content as mutable"),
+            View::BorrowMut(v) => &mut v[i]
         }
     }
 }
@@ -111,7 +137,7 @@ trait MatOps
     fn set(&mut self, row: usize, col: usize, value: FP);
 }
 
-impl MatOps for Mat
+impl<'a> MatOps for Mat<'a>
 {
     fn is_mat(&self) -> bool
     {
@@ -152,12 +178,12 @@ impl MatOps for FP
     }
 }
 
-impl<T> std::ops::Mul<T> for Mat
+impl<'a, T> std::ops::Mul<T> for Mat<'a>
 where T: MatOps
 {
-    type Output = Mat;
+    type Output = Mat<'a>;
 
-    fn mul(self, rhs: T) -> Mat
+    fn mul(self, rhs: T) -> Mat<'a>
     {
         let (l_nrows, l_ncols) = self.dim();
 
@@ -194,12 +220,12 @@ where T: MatOps
     }
 }
 
-impl<T> std::ops::Add<T> for Mat
+impl<'a, T> std::ops::Add<T> for Mat<'a>
 where T: MatOps
 {
-    type Output = Mat;
+    type Output = Mat<'a>;
 
-    fn add(self, rhs: T) -> Mat
+    fn add(self, rhs: T) -> Mat<'a>
     {
         let (l_nrows, l_ncols) = self.dim();
 
@@ -233,12 +259,12 @@ where T: MatOps
     }
 }
 
-impl<T> std::ops::Sub<T> for Mat
+impl<'a, T> std::ops::Sub<T> for Mat<'a>
 where T: MatOps
 {
-    type Output = Mat;
+    type Output = Mat<'a>;
 
-    fn sub(self, rhs: T) -> Mat
+    fn sub(self, rhs: T) -> Mat<'a>
     {
         let (l_nrows, l_ncols) = self.dim();
 
@@ -278,18 +304,18 @@ where T: MatOps
 const TOL_CNV2: FP = FP_EPSILON * FP_EPSILON;
 
 #[derive(Debug)]
-struct MatSVD
+struct MatSVD<'a>
 {
     transposed: bool,
     //
-    u: Mat,
-    s: Mat,
-    v: Mat
+    u: Mat<'a>,
+    s: Mat<'a>,
+    v: Mat<'a>
 }
 
-impl MatSVD
+impl<'a> MatSVD<'a>
 {
-    pub fn new(g: Mat) -> MatSVD
+    pub fn new(g: Mat<'a>) -> MatSVD<'a>
     {
         let (nrows, ncols) = g.dim();
         let transposed = nrows < ncols;
@@ -337,19 +363,19 @@ impl MatSVD
             println!("{:?}", ttt);
             //self.u.col(c1) = c * tmp - s * self.u.col(c2);
         }
-        panic!();
-
+        panic!("not implemented");
+        
         converged
     }
     //
     fn norm_singular(&mut self)
     {
-        panic!();
+        panic!("not implemented");
     }
     //
     pub fn do_decomp(&mut self)
     {
-        let (m, n) = self.u.dim();
+        let (_, n) = self.u.dim();
 
         let mut converged_all = false;
         while !converged_all {
