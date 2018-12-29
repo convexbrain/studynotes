@@ -1,5 +1,5 @@
-type MatFP = f64;
-const MATFP_EPSILON: MatFP = std::f64::EPSILON;
+type FP = f64;
+const FP_EPSILON: FP = std::f64::EPSILON;
 
 #[derive(Debug)]
 struct Mat
@@ -10,7 +10,7 @@ struct Mat
     stride: usize,
     transposed: bool,
     //
-    vec: Vec<MatFP>
+    vec: Vec<FP>
 }
 
 impl Mat
@@ -45,7 +45,7 @@ impl Mat
     }
     //
     pub fn set_by<F>(&mut self, f: F)
-    where F: Fn() -> MatFP
+    where F: Fn() -> FP
     {
         for r in 0 .. self.nrows {
             for c in 0 .. self.ncols {
@@ -72,8 +72,8 @@ impl Mat
 
 impl std::ops::Index<(usize, usize)> for Mat
 {
-    type Output = MatFP;
-    fn index(&self, index: (usize, usize)) -> &MatFP
+    type Output = FP;
+    fn index(&self, index: (usize, usize)) -> &FP
     {
         if !self.transposed {
             &self.vec[self.stride * index.1 + index.0]
@@ -86,7 +86,7 @@ impl std::ops::Index<(usize, usize)> for Mat
 
 impl std::ops::IndexMut<(usize, usize)> for Mat
 {
-    fn index_mut(&mut self, index: (usize, usize)) -> &mut MatFP
+    fn index_mut(&mut self, index: (usize, usize)) -> &mut FP
     {
         if !self.transposed {
             &mut self.vec[self.stride * index.1 + index.0]
@@ -107,8 +107,8 @@ trait MatOps
     {
         (1, 1)
     }
-    fn get(&self, row: usize, col: usize) -> MatFP;
-    fn set(&mut self, row: usize, col: usize, value: MatFP);
+    fn get(&self, row: usize, col: usize) -> FP;
+    fn set(&mut self, row: usize, col: usize, value: FP);
 }
 
 impl MatOps for Mat
@@ -128,25 +128,25 @@ impl MatOps for Mat
         }
     }
     //
-    fn get(&self, row: usize, col: usize) -> MatFP
+    fn get(&self, row: usize, col: usize) -> FP
     {
         self[(row, col)]
     }
     //
-    fn set(&mut self, row: usize, col: usize, value: MatFP)
+    fn set(&mut self, row: usize, col: usize, value: FP)
     {
         self[(row, col)] = value;
     }
 }
 
-impl MatOps for MatFP
+impl MatOps for FP
 {
-    fn get(&self, _: usize, _: usize) -> MatFP
+    fn get(&self, _: usize, _: usize) -> FP
     {
         *self
     }
     //
-    fn set(&mut self, _: usize, _: usize, value: MatFP)
+    fn set(&mut self, _: usize, _: usize, value: FP)
     {
         *self = value;
     }
@@ -170,7 +170,7 @@ where T: MatOps
 
             for r in 0 .. l_nrows {
                 for c in 0 .. r_ncols {
-                    let mut v: MatFP = 0.0;
+                    let mut v: FP = 0.0;
                     for k in 0 .. l_ncols {
                         v += self[(r, k)] * rhs.get(k, c);
                     }
@@ -275,7 +275,7 @@ where T: MatOps
 
 //
 
-const TOL_CNV2: MatFP = MATFP_EPSILON * MATFP_EPSILON;
+const TOL_CNV2: FP = FP_EPSILON * FP_EPSILON;
 
 #[derive(Debug)]
 struct MatSVD
@@ -324,12 +324,12 @@ impl MatSVD
         if !converged {
             let zeta = (b - a) / (2.0 * d);
             let t = if zeta > 0.0 {
-                1.0 / (zeta + MatFP::sqrt(1.0 + zeta * zeta))
+                1.0 / (zeta + FP::sqrt(1.0 + zeta * zeta))
             }
             else {
-                -1.0 / (-zeta + MatFP::sqrt(1.0 + zeta * zeta))
+                -1.0 / (-zeta + FP::sqrt(1.0 + zeta * zeta))
             };
-            let c = 1.0 / MatFP::sqrt(1.0 + t * t);
+            let c = 1.0 / FP::sqrt(1.0 + t * t);
             let s = c * t;
 
             let tmp = self.u.col(c1);
