@@ -48,8 +48,13 @@ impl<'a> Mat<'a>
             view: View::Own(vec![0.0; nrows * ncols])
         }
     }
+    pub fn new0() -> Mat<'a>
+    {
+        Mat::new(0, 0)
+    }
     //
-    pub fn new_vec(nrows: usize) -> Mat<'a>
+    //
+    pub fn new1(nrows: usize) -> Mat<'a>
     {
         Mat::new(nrows, 1)
     }
@@ -116,7 +121,7 @@ impl<'a> Mat<'a>
 
         let view = match &mut self.view {
             View::Own(v) => View::BorrowMut(v),
-            View::Borrow(_) => panic!("cannot borrow immutable as mutable"),
+            View::Borrow(_) => panic!("cannot borrow Borrow as mutable"),
             View::BorrowMut(v) => View::BorrowMut(v),
         };
 
@@ -169,7 +174,7 @@ impl<'a> Mat<'a>
         }
     }
     //
-    pub fn set_identity(&mut self)
+    pub fn set_eye(&mut self)
     {
         for r in 0 .. self.nrows {
             for c in 0 .. self.ncols {
@@ -200,6 +205,8 @@ impl<'a> Mat<'a>
     }
 }
 
+//
+
 impl<'a> std::ops::Index<(usize, usize)> for Mat<'a>
 {
     type Output = FP;
@@ -223,22 +230,18 @@ impl<'a> std::ops::IndexMut<(usize, usize)> for Mat<'a>
 
         match &mut self.view {
             View::Own(v) => &mut v[i],
-            View::Borrow(_) => panic!("cannot borrow immutable as mutable"),
+            View::Borrow(_) => panic!("cannot index Borrow as mutable"),
             View::BorrowMut(v) => &mut v[i]
         }
     }
 }
 
+//
+
 trait MatOps
 {
-    fn is_mat(&self) -> bool
-    {
-        false
-    }
-    fn dim(&self) -> (usize, usize)
-    {
-        (1, 1)
-    }
+    fn is_mat(&self) -> bool;
+    fn dim(&self) -> (usize, usize);
     fn get(&self, row: usize, col: usize) -> FP;
     fn set(&mut self, row: usize, col: usize, value: FP);
 }
@@ -273,6 +276,16 @@ impl<'a> MatOps for Mat<'a>
 
 impl MatOps for FP
 {
+    fn is_mat(&self) -> bool
+    {
+        false
+    }
+    //
+    fn dim(&self) -> (usize, usize)
+    {
+        (1, 1)
+    }
+    //
     fn get(&self, _: usize, _: usize) -> FP
     {
         *self
@@ -298,7 +311,7 @@ where T: MatOps
 
             assert_eq!(l_ncols, r_nrows);
 
-            let mut mat = Mat::new(l_nrows, r_ncols); // TODO: new-less
+            let mut mat = Mat::new(l_nrows, r_ncols);
 
             for r in 0 .. l_nrows {
                 for c in 0 .. r_ncols {
@@ -313,7 +326,7 @@ where T: MatOps
             mat
         }
         else {
-            let mut mat = Mat::new(l_nrows, l_ncols); // TODO: new-less
+            let mut mat = Mat::new(l_nrows, l_ncols);
 
             for r in 0 .. l_nrows {
                 for c in 0 .. l_ncols {
@@ -338,21 +351,30 @@ where T: MatOps
         if rhs.is_mat() {
             let (r_nrows, r_ncols) = rhs.dim();
 
-            assert_eq!(l_nrows, r_nrows);
-            assert_eq!(l_ncols, r_ncols);
+            let mut mat = Mat::new(r_nrows, r_ncols);
 
-            let mut mat = Mat::new(l_nrows, l_ncols); // TODO: new-less
+            if (l_nrows, l_ncols) == (0, 0) {
+                for r in 0 .. r_nrows {
+                    for c in 0 .. r_ncols {
+                        mat[(r, c)] = rhs.get(r, c);
+                    }
+                }
+            }
+            else {
+                assert_eq!(l_nrows, r_nrows);
+                assert_eq!(l_ncols, r_ncols);
 
-            for r in 0 .. l_nrows {
-                for c in 0 .. l_ncols {
-                    mat[(r, c)] = self[(r, c)] + rhs.get(r, c);
+                for r in 0 .. r_nrows {
+                    for c in 0 .. r_ncols {
+                        mat[(r, c)] = self[(r, c)] + rhs.get(r, c);
+                    }
                 }
             }
 
             mat
         }
         else {
-            let mut mat = Mat::new(l_nrows, l_ncols); // TODO: new-less
+            let mut mat = Mat::new(l_nrows, l_ncols);
 
             for r in 0 .. l_nrows {
                 for c in 0 .. l_ncols {
@@ -377,21 +399,30 @@ where T: MatOps
         if rhs.is_mat() {
             let (r_nrows, r_ncols) = rhs.dim();
 
-            assert_eq!(l_nrows, r_nrows);
-            assert_eq!(l_ncols, r_ncols);
+            let mut mat = Mat::new(r_nrows, r_ncols);
 
-            let mut mat = Mat::new(l_nrows, l_ncols); // TODO: new-less
+            if (l_nrows, l_ncols) == (0, 0) {
+                for r in 0 .. r_nrows {
+                    for c in 0 .. r_ncols {
+                        mat[(r, c)] = - rhs.get(r, c);
+                    }
+                }
+            }
+            else {
+                assert_eq!(l_nrows, r_nrows);
+                assert_eq!(l_ncols, r_ncols);
 
-            for r in 0 .. l_nrows {
-                for c in 0 .. l_ncols {
-                    mat[(r, c)] = self[(r, c)] - rhs.get(r, c);
+                for r in 0 .. r_nrows {
+                    for c in 0 .. r_ncols {
+                        mat[(r, c)] = self[(r, c)] - rhs.get(r, c);
+                    }
                 }
             }
 
             mat
         }
         else {
-            let mut mat = Mat::new(l_nrows, l_ncols); // TODO: new-less
+            let mut mat = Mat::new(l_nrows, l_ncols);
 
             for r in 0 .. l_nrows {
                 for c in 0 .. l_ncols {
@@ -510,11 +541,11 @@ impl<'a> MatSVD<'a>
         let mut svd = MatSVD {
             transposed,
             u: if !transposed {g} else {g.t()}, // TODO: re-initialize
-            s: Mat::new_vec(u_ncols),
+            s: Mat::new1(u_ncols),
             v: Mat::new(u_ncols, u_ncols)
         };
 
-        svd.v.set_identity(); // TODO: re-initialize
+        svd.v.set_eye(); // TODO: re-initialize
 
         svd
     }
@@ -538,20 +569,26 @@ impl<'a> MatSVD<'a>
             let c = 1.0 / FP::sqrt(1.0 + t * t);
             let s = c * t;
 
-            let (r, _) = self.u.dim();
-            let tmp1 = Mat::new_vec(r) + self.u.col(c1) * c - self.u.col(c2) * s;
-            println!("{:?}", tmp1);
-            println!("{:?}", self.u);
+            // TODO: borrowal error if you don't have "Mat::new0() +"
+            let tmp1 = Mat::new0() + self.u.col(c1) * c - self.u.col(c2) * s;
+            let tmp2 = Mat::new0() + self.u.col(c1) * s + self.u.col(c2) * c;
             self.u.col_mut(c1).assign(tmp1);
-            println!("{:?}", self.u);
+            self.u.col_mut(c2).assign(tmp2);
+
+            let tmp1 = Mat::new0() + self.v.col(c1) * c - self.v.col(c2) * s;
+            let tmp2 = Mat::new0() + self.v.col(c1) * s + self.v.col(c2) * c;
+            self.v.col_mut(c1).assign(tmp1);
+            self.v.col_mut(c2).assign(tmp2);
         }
-        panic!("not implemented");
         
         converged
     }
     //
     fn norm_singular(&mut self)
     {
+        println!("{:?}", self.u);
+        println!("{:?}", self.v);
+
         panic!("not implemented");
     }
     //
