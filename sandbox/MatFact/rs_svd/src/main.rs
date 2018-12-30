@@ -1,5 +1,6 @@
 type FP = f64;
 const FP_EPSILON: FP = std::f64::EPSILON;
+const FP_MIN: FP = std::f64::MIN;
 
 #[derive(Debug)]
 enum View<'a>
@@ -203,6 +204,20 @@ impl<'a> Mat<'a>
         self.transposed = !self.transposed;
         self
     }
+    //
+    pub fn as_diag(&self) -> Mat<'a>
+    {
+        let (nrows, ncols) = self.dim();
+
+        assert_eq!(ncols, 1);
+
+        let mut mat = Mat::new(nrows, nrows);
+        for r in 0 .. nrows {
+            mat[(r, r)] = self[(r, 0)];
+        }
+
+        mat
+    }
 }
 
 //
@@ -339,6 +354,29 @@ where T: MatOps
     }
 }
 
+impl<'a, T> std::ops::Div<T> for Mat<'a>
+where T: MatOps
+{
+    type Output = Mat<'a>;
+
+    fn div(self, rhs: T) -> Mat<'a>
+    {
+        let (l_nrows, l_ncols) = self.dim();
+
+        assert!(!rhs.is_mat());
+
+        let mut mat = Mat::new(l_nrows, l_ncols);
+
+        for r in 0 .. l_nrows {
+            for c in 0 .. l_ncols {
+                mat[(r, c)] = self[(r, c)] / rhs.get(0, 0);
+            }
+        }
+
+        mat
+    }
+}
+
 impl<'a, T> std::ops::Add<T> for Mat<'a>
 where T: MatOps
 {
@@ -438,7 +476,8 @@ where T: MatOps
 impl<'a, T> std::ops::MulAssign<T> for Mat<'a>
 where T: MatOps
 {
-    fn mul_assign(&mut self, rhs: T) {
+    fn mul_assign(&mut self, rhs: T)
+    {
         let (l_nrows, l_ncols) = self.dim();
 
         if rhs.is_mat() {
@@ -454,10 +493,28 @@ where T: MatOps
     }
 }
 
+impl<'a, T> std::ops::DivAssign<T> for Mat<'a>
+where T: MatOps
+{
+    fn div_assign(&mut self, rhs: T)
+    {
+        let (l_nrows, l_ncols) = self.dim();
+
+        assert!(!rhs.is_mat());
+
+        for r in 0 .. l_nrows {
+            for c in 0 .. l_ncols {
+                self[(r, c)] /= rhs.get(0, 0);
+            }
+        }
+    }
+}
+
 impl<'a, T> std::ops::AddAssign<T> for Mat<'a>
 where T: MatOps
 {
-    fn add_assign(&mut self, rhs: T) {
+    fn add_assign(&mut self, rhs: T)
+    {
         let (l_nrows, l_ncols) = self.dim();
 
         if rhs.is_mat() {
@@ -485,7 +542,8 @@ where T: MatOps
 impl<'a, T> std::ops::SubAssign<T> for Mat<'a>
 where T: MatOps
 {
-    fn sub_assign(&mut self, rhs: T) {
+    fn sub_assign(&mut self, rhs: T)
+    {
         let (l_nrows, l_ncols) = self.dim();
 
         if rhs.is_mat() {
@@ -513,6 +571,9 @@ where T: MatOps
 //
 
 const TOL_CNV2: FP = FP_EPSILON * FP_EPSILON;
+const TOL_DIV0: FP = FP_MIN;
+const TOL_SINV: FP = FP_EPSILON;
+const TOL_RMSE: FP = 1.0 / (1u64 << 32) as FP;
 
 #[derive(Debug)]
 struct MatSVD<'a>
@@ -586,13 +647,23 @@ impl<'a> MatSVD<'a>
     //
     fn norm_singular(&mut self)
     {
-        println!("{:?}", self.u);
-        println!("{:?}", self.v);
+        let (_, n) = self.u.dim();
 
-        panic!("not implemented");
+        for i in 0 .. n {
+            let s = FP::sqrt((self.u.col(i).t() * self.u.col(i))[(0, 0)]);
+            self.s[(i, 0)] = s;
+
+            if (-TOL_DIV0 < s) && (s < TOL_DIV0) {
+                continue;
+            }
+
+            let tmp = Mat::new0() + self.u.col(i) / s;
+
+            self.u.col_mut(i).assign(tmp);
+        }
     }
     //
-    pub fn do_decomp(&mut self)
+    pub fn decomp(&mut self)
     {
         let (_, n) = self.u.dim();
 
@@ -609,8 +680,21 @@ impl<'a> MatSVD<'a>
 
         self.norm_singular();
     }
+    //
+    pub fn selftest(&self)
+    {
+        let gr = if !self.transposed {
+            self.u.clone() * self.s.as_diag() * self.v.clone().t() // TODO: clone?
+        }
+        else {
+            self.v.clone() * self.s.as_diag() * self.u.clone().t() // TODO: clone?
+        };
+
+        println!("{:?}", gr);
+    }
 }
 
+// TODO: module, test, display
 //
 
 fn main()
@@ -621,10 +705,8 @@ fn main()
     println!();
 
     let mut svd = MatSVD::new(mat);
-    println!("{:?}", svd);
-    println!();
 
-    svd.do_decomp();
-    println!("{:?}", svd);
-    println!();
+    svd.decomp();
+
+    svd.selftest();
 }
