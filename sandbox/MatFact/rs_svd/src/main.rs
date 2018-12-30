@@ -538,7 +538,8 @@ impl<'a> MatSVD<'a>
             let c = 1.0 / FP::sqrt(1.0 + t * t);
             let s = c * t;
 
-            let tmp1 = Mat::new_vec(4) + self.u.col(c1) * c - self.u.col(c2) * s;
+            let (r, _) = self.u.dim();
+            let tmp1 = Mat::new_vec(r) + self.u.col(c1) * c - self.u.col(c2) * s;
             println!("{:?}", tmp1);
             println!("{:?}", self.u);
             self.u.col_mut(c1).assign(tmp1);
