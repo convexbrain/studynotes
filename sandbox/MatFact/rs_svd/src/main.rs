@@ -116,7 +116,7 @@ impl<'a> Mat<'a>
 
         let view = match &mut self.view {
             View::Own(v) => View::BorrowMut(v),
-            View::Borrow(v) => panic!("cannot borrow immutable as mutable"),
+            View::Borrow(_) => panic!("cannot borrow immutable as mutable"),
             View::BorrowMut(v) => View::BorrowMut(v),
         };
 
@@ -538,16 +538,11 @@ impl<'a> MatSVD<'a>
             let c = 1.0 / FP::sqrt(1.0 + t * t);
             let s = c * t;
 
-            println!("{:?}", c1);
-            println!("{:?}", c2);
-            println!("{:?}", self.u.col(c1));
-            println!("{:?}", self.u.col(c2));
-            println!("{:?}", c);
-            println!("{:?}", s);
-            //let tmp1 = Mat::new_vec(4);
-            let tmp1 = self.u.col(c1) * c - self.u.col(c2) * s;
+            let tmp1 = Mat::new_vec(4) + self.u.col(c1) * c - self.u.col(c2) * s;
             println!("{:?}", tmp1);
-            //self.u.col_mut(c1).assign(tmp1);
+            println!("{:?}", self.u);
+            self.u.col_mut(c1).assign(tmp1);
+            println!("{:?}", self.u);
         }
         panic!("not implemented");
         
