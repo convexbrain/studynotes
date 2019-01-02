@@ -5,10 +5,9 @@ use self::mat::{Mat, FP, FP_EPSILON, FP_MIN}; // TODO: prelude
 const TOL_CNV2: FP = FP_EPSILON * FP_EPSILON;
 const TOL_DIV0: FP = FP_MIN;
 const TOL_SINV: FP = FP_EPSILON;
-const TOL_RMSE: FP = 1.0 / (1u64 << 32) as FP;
 
 #[derive(Debug)]
-struct MatSVD<'a>
+pub struct MatSVD<'a>
 {
     transposed: bool,
     //
@@ -121,29 +120,113 @@ impl<'a> MatSVD<'a>
         self.norm_singular();
     }
     //
-    pub fn selftest(&self)
+    pub fn solve(&self, h: &Mat) -> Mat
     {
-        let gr = if !self.transposed {
-            self.u.mul_diag(&self.s) * self.v.t()
+        let mut sinv = self.s.diag();
+        let (nrows, _) = self.s.size();
+
+        for r in 0 .. nrows {
+            let s = sinv[(r, r)];
+            sinv[(r, r)] = if (-TOL_SINV < s) && (s < TOL_SINV) {
+                0.
+            }
+            else {
+                1. / s
+            }
+        }
+
+        if !self.transposed {
+            &self.v * (sinv * (self.u.t() * h))
         }
         else {
-            self.v.mul_diag(&self.s) * self.u.t()
-        };
-
-        println!("{}", gr);
+            &self.u * (sinv * (self.v.t() * h))
+        }
     }
+}
+
+#[test]
+fn test_decomp()
+{
+    const TOL_RMSE: FP = 1.0 / (1u64 << 32) as FP;
+
+    let mat = Mat::new(4, 4).set_by(|_| {rand::random()});
+    println!("mat = {}", mat);
+
+    let mut svd = MatSVD::new(mat.clone());
+
+    svd.decomp();
+
+    //
+
+    let g = if !svd.transposed {
+        &svd.u * svd.s.diag() * svd.v.t()
+    }
+    else {
+        &svd.v * svd.s.diag() * svd.u.t()
+    };
+    println!("mat reconstructed = {}", g);
+
+    let g_size = g.size();
+    let g_err = (g - mat).sq_sum() / ((g_size.0 * g_size.1) as FP);
+    assert!(g_err < TOL_RMSE);
+
+    //
+
+    let mut utu = svd.u.t() * &svd.u;
+    println!("u' * u = {}", utu);
+
+    let utu_size = utu.size();
+    for k in 0 .. utu_size.0 {
+        utu[(k, k)] = 0.;
+    }
+    let utu_err = utu.sq_sum() / ((utu_size.0 * utu_size.1) as FP);
+    assert!(utu_err < TOL_RMSE);
+
+    //
+
+    let mut vvt = &svd.v * svd.v.t();
+    println!("v * v' = {}", vvt);
+
+    let vvt_size = vvt.size();
+    for k in 0 .. vvt_size.0 {
+        vvt[(k, k)] = 0.;
+    }
+    let vvt_err = vvt.sq_sum() / ((vvt_size.0 * vvt_size.1) as FP);
+    assert!(vvt_err < TOL_RMSE);
+}
+
+#[test]
+fn test_solve()
+{
+    const TOL_RMSE: FP = 1.0 / (1u64 << 32) as FP;
+
+    let mat = Mat::new(2, 2).set_iter(&[
+        1., 2.,
+        3., 4.
+    ]);
+
+    let mut svd = MatSVD::new(mat.clone());
+
+    svd.decomp();
+
+    let vec = Mat::new1(2).set_iter(&[
+        5., 6.
+    ]);
+
+    let x = svd.solve(&vec);
+    println!("x = {}", x);
+
+    let h = &mat * &x;
+    println!("vec reconstructed = {}", h);
+
+    let h_size = h.size();
+    let h_err = (h - vec).sq_sum() / ((h_size.0 * h_size.1) as FP);
+    assert!(h_err < TOL_RMSE);
 }
 
 //
 
 fn main()
 {
-    let mat = Mat::new(4, 4).set_by(|_| {rand::random()});
-    println!("{}", mat);
-
-    let mut svd = MatSVD::new(mat);
-
-    svd.decomp();
-
-    svd.selftest();
+    println!("run 'cargo test -- --nocapture'");
 }

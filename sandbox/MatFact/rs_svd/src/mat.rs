@@ -140,22 +140,22 @@ impl<'a> Mat<'a>
     //
     pub fn row(&self, r: usize) -> Mat
     {
-        self.slice(r..=r, ..)
+        self.slice(r ..= r, ..)
     }
     //
     pub fn col(&self, c: usize) -> Mat
     {
-        self.slice(.., c..=c)
+        self.slice(.., c ..= c)
     }
     //
     pub fn row_mut(&mut self, r: usize) -> Mat
     {
-        self.slice_mut(r..=r, ..)
+        self.slice_mut(r ..= r, ..)
     }
     //
     pub fn col_mut(&mut self, c: usize) -> Mat
     {
-        self.slice_mut(.., c..=c)
+        self.slice_mut(.., c ..= c)
     }
     //
     fn tr_index(&self, index: (usize, usize)) -> usize
@@ -242,21 +242,32 @@ impl<'a> Mat<'a>
         }
     }
     //
-    pub fn mul_diag(&self, rhs: &Mat) -> Mat
+    pub fn diag(&self) -> Mat
     {
-        let (l_nrows, l_ncols) = self.size();
+        let (l_nrows, _) = self.size();
 
-        assert_eq!((l_ncols, 1), rhs.size());
+        let mut mat = Mat::new(l_nrows, l_nrows);
 
-        let mut mat = Mat::new(l_nrows, l_ncols);
-
-        for c in 0 .. l_ncols {
-            for r in 0 .. l_nrows {
-                mat[(r, c)] = self[(r, c)] * rhs[(c, 0)];
-            }
+        for r in 0 .. l_nrows {
+            mat[(r, r)] = self[(r, 0)];
         }
 
         mat
+    }
+    //
+    pub fn sq_sum(&self) -> FP
+    {
+        let (l_nrows, l_ncols) = self.size();
+
+        let mut sum = 0.;
+
+        for c in 0 .. l_ncols {
+            for r in 0 .. l_nrows {
+                sum += self[(r, c)] * self[(r, c)];
+            }
+        }
+
+        sum
     }
 }
 
@@ -299,14 +310,14 @@ impl<'a> fmt::Display for Mat<'a>
     {
         let (l_nrows, l_ncols) = self.size();
 
-        for c in 0 .. l_ncols {
-            for r in 0 .. l_nrows {
-                write!(f, " {},", self[(r, c)])?;
+        writeln!(f, "[")?;
+        for r in 0 .. l_nrows {
+            for c in 0 .. l_ncols {
+                write!(f, "  {:.3e},", self[(r, c)])?;
             }
             writeln!(f)?;
         }
-
-        Ok(())
+        write!(f, "]")
     }
 }
 
@@ -783,7 +794,7 @@ fn test_slice()
 {
     {
         let a = Mat::new(4, 4).set_eye();
-        let a = a.slice(1..=2, 1..=2);
+        let a = a.slice(1 ..= 2, 1 ..= 2);
         let b = Mat::new(2, 2).set_eye();
         assert_eq!(a, b);
     }
@@ -795,7 +806,7 @@ fn test_slice()
             0., 2., 2., 0.,
             0., 0., 0., 1.
         ]);
-        let mut a1 = a.slice_mut(1..=2, 1..=2);
+        let mut a1 = a.slice_mut(1 ..= 2, 1 ..= 2);
         let a2 = Mat::new(2, 2).set_by(|_| {2.0});
         a1.assign(&a2);
         assert_eq!(a, b);
