@@ -1,3 +1,5 @@
+mod mat;
+
 type FP = f64;
 const FP_EPSILON: FP = std::f64::EPSILON;
 const FP_MIN: FP = std::f64::MIN;

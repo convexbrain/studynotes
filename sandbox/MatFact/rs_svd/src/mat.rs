@@ -230,7 +230,7 @@ impl<'a> Mat<'a>
         }
     }
     //
-    fn mul_diag(&self, rhs: &Mat) -> Mat
+    pub fn mul_diag(&self, rhs: &Mat) -> Mat
     {
         let (l_nrows, l_ncols) = self.dim();
 
@@ -245,16 +245,6 @@ impl<'a> Mat<'a>
         }
 
         mat
-    }
-    //
-    pub fn dim(&self) -> (usize, usize)
-    {
-        if !self.transposed {
-            (self.nrows, self.ncols)
-        }
-        else {
-            (self.ncols, self.nrows)
-        }
     }
 }
 
@@ -315,11 +305,51 @@ impl<'a> PartialEq for Mat<'a>
 
 //
 
-impl<'al, 'bl, 'ar, 'br> Add<&'br Mat<'ar>> for &'bl Mat<'al>
+trait MatAcc
+{
+    fn dim(&self) -> (usize, usize);
+    fn get(&self, row: usize, col: usize) -> FP;
+}
+
+impl<'a> MatAcc for Mat<'a>
+{
+    fn dim(&self) -> (usize, usize)
+    {
+        if !self.transposed {
+            (self.nrows, self.ncols)
+        }
+        else {
+            (self.ncols, self.nrows)
+        }
+    }
+    //
+    fn get(&self, row: usize, col: usize) -> FP
+    {
+        self[(row, col)]
+    }
+}
+
+impl<'a> MatAcc for &Mat<'a>
+{
+    fn dim(&self) -> (usize, usize)
+    {
+        (*self).dim()
+    }
+    //
+    fn get(&self, row: usize, col: usize) -> FP
+    {
+        (*self).get(row, col)
+    }
+}
+
+//
+
+impl<'al, T> Add<T> for &Mat<'al>
+where T: MatAcc
 {
     type Output = Mat<'static>;
 
-    fn add(self, rhs: &Mat) -> Mat<'static>
+    fn add(self, rhs: T) -> Mat<'static>
     {
         let (l_nrows, l_ncols) = self.dim();
 
@@ -329,7 +359,7 @@ impl<'al, 'bl, 'ar, 'br> Add<&'br Mat<'ar>> for &'bl Mat<'al>
 
         for c in 0 .. l_ncols {
             for r in 0 .. l_nrows {
-                mat[(r, c)] = self[(r, c)] + rhs[(r, c)];
+                mat[(r, c)] = self.get(r, c) + rhs.get(r, c);
             }
         }
 
@@ -337,7 +367,7 @@ impl<'al, 'bl, 'ar, 'br> Add<&'br Mat<'ar>> for &'bl Mat<'al>
     }
 }
 
-impl<'al, 'bl> Add<FP> for &'bl Mat<'al>
+impl<'al> Add<FP> for &Mat<'al>
 {
     type Output = Mat<'static>;
 
@@ -357,7 +387,28 @@ impl<'al, 'bl> Add<FP> for &'bl Mat<'al>
     }
 }
 
-impl<'ar, 'br> Add<&'br Mat<'ar>> for FP
+impl<'al, T> Add<T> for Mat<'al>
+where T: MatAcc
+{
+    type Output = Mat<'static>;
+
+    fn add(self, rhs: T) -> Mat<'static>
+    {
+        &self + rhs
+    }
+}
+
+impl<'al> Add<FP> for Mat<'al>
+{
+    type Output = Mat<'static>;
+
+    fn add(self, rhs: FP) -> Mat<'static>
+    {
+        &self + rhs
+    }
+}
+
+impl<'a> Add<&Mat<'a>> for FP
 {
     type Output = Mat<'static>;
 
@@ -367,10 +418,21 @@ impl<'ar, 'br> Add<&'br Mat<'ar>> for FP
     }
 }
 
+impl<'a> Add<Mat<'a>> for FP
+{
+    type Output = Mat<'static>;
+
+    fn add(self, rhs: Mat) -> Mat<'static>
+    {
+        rhs.add(self)
+    }
+}
+
 // TODO: module, test, display
 //
 
-fn main()
+#[test]
+fn test()
 {
     {
         let a = Mat::new(3, 3).set_eye();
@@ -379,7 +441,7 @@ fn main()
             0., 1., 0.,
             0., 0., 1.
         ]);
-        let c = &a + &b;
+        let c = &a + (&b + &a);
         println!("{:?}", c);
         let c = &a + 1.;
         println!("{:?}", c);
