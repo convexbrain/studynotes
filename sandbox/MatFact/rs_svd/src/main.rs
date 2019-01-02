@@ -1,576 +1,6 @@
 mod mat;
 
-type FP = f64;
-const FP_EPSILON: FP = std::f64::EPSILON;
-const FP_MIN: FP = std::f64::MIN;
-
-#[derive(Debug)]
-enum View<'a>
-{
-    Own(Vec<FP>),
-    Borrow(&'a [FP]),
-    BorrowMut(&'a mut[FP])
-}
-
-impl<'a> Clone for View<'a>
-{
-    fn clone(&self) -> Self
-    {
-        match &self {
-            View::Own(v) => View::Own(v.clone()),
-            View::Borrow(v) => View::Own(v.to_vec()),
-            View::BorrowMut(v) => View::Own(v.to_vec())
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-struct Mat<'a>
-{
-    nrows: usize,
-    ncols: usize,
-    //
-    offset: usize,
-    stride: usize,
-    //
-    transposed: bool,
-    //
-    view: View<'a>
-}
-
-impl<'a> Mat<'a>
-{
-    pub fn new(nrows: usize, ncols: usize) -> Mat<'a>
-    {
-        Mat {
-            nrows,
-            ncols,
-            offset: 0,
-            stride: nrows,
-            transposed: false,
-            view: View::Own(vec![0.0; nrows * ncols])
-        }
-    }
-    pub fn new0() -> Mat<'a>
-    {
-        Mat::new(0, 0)
-    }
-    //
-    //
-    pub fn new1(nrows: usize) -> Mat<'a>
-    {
-        Mat::new(nrows, 1)
-    }
-    //
-    fn tr_bound<RR, CR>(&self, rows: RR, cols: CR) -> (std::ops::Range<usize>, std::ops::Range<usize>)
-    where RR: std::ops::RangeBounds<usize>, CR: std::ops::RangeBounds<usize>
-    {
-        let row_b = match rows.start_bound() {
-            std::ops::Bound::Unbounded => 0,
-            std::ops::Bound::Included(&i) => i,
-            std::ops::Bound::Excluded(&i) => i + 1
-        };
-
-        let row_e = match rows.end_bound() {
-            std::ops::Bound::Unbounded => if !self.transposed {self.nrows} else {self.ncols},
-            std::ops::Bound::Included(&i) => i - 1,
-            std::ops::Bound::Excluded(&i) => i
-        };
-
-        let col_b = match cols.start_bound() {
-            std::ops::Bound::Unbounded => 0,
-            std::ops::Bound::Included(&i) => i,
-            std::ops::Bound::Excluded(&i) => i + 1
-        };
-
-        let col_e = match cols.end_bound() {
-            std::ops::Bound::Unbounded => if !self.transposed {self.ncols} else {self.nrows},
-            std::ops::Bound::Included(&i) => i - 1,
-            std::ops::Bound::Excluded(&i) => i
-        };
-
-        if !self.transposed {
-            (std::ops::Range{start: row_b, end: row_e}, std::ops::Range{start: col_b, end: col_e})
-        }
-        else {
-            (std::ops::Range{start: col_b, end: col_e}, std::ops::Range{start: row_b, end: row_e})
-        }
-    }
-    //
-    pub fn slice<RR, CR>(&self, rows: RR, cols: CR) -> Mat
-    where RR: std::ops::RangeBounds<usize>,  CR: std::ops::RangeBounds<usize>
-    {
-        let (row_range, col_range) = self.tr_bound(rows, cols);
-
-        let view = match &self.view {
-            View::Own(v) => View::Borrow(&v),
-            View::Borrow(v) => View::Borrow(&v),
-            View::BorrowMut(v) => View::Borrow(&v),
-        };
-
-        Mat {
-            nrows: row_range.end - row_range.start,
-            ncols: col_range.end - col_range.start,
-            offset: self.offset + self.stride * col_range.start + row_range.start,
-            view,
-            .. *self
-        }
-    }
-    //
-    pub fn slice_mut<RR, CR>(&mut self, rows: RR, cols: CR) -> Mat
-    where RR: std::ops::RangeBounds<usize>,  CR: std::ops::RangeBounds<usize>
-    {
-        let (row_range, col_range) = self.tr_bound(rows, cols);
-
-        let view = match &mut self.view {
-            View::Own(v) => View::BorrowMut(v),
-            View::Borrow(_) => panic!("cannot borrow Borrow as mutable"),
-            View::BorrowMut(v) => View::BorrowMut(v),
-        };
-
-        Mat {
-            nrows: row_range.end - row_range.start,
-            ncols: col_range.end - col_range.start,
-            offset: self.offset + self.stride * col_range.start + row_range.start,
-            view,
-            .. *self
-        }
-    }
-    //
-    pub fn row(&self, r: usize) -> Mat
-    {
-        self.slice(r .. r + 1, ..)
-    }
-    //
-    pub fn col(&self, c: usize) -> Mat
-    {
-        self.slice(.., c .. c + 1)
-    }
-    //
-    pub fn row_mut(&mut self, r: usize) -> Mat
-    {
-        self.slice_mut(r .. r + 1, ..)
-    }
-    //
-    pub fn col_mut(&mut self, c: usize) -> Mat
-    {
-        self.slice_mut(.., c .. c + 1)
-    }
-    //
-    fn tr_index(&self, index: (usize, usize)) -> usize
-    {
-        if !self.transposed {
-            self.offset + self.stride * index.1 + index.0
-        }
-        else {
-            self.offset + self.stride * index.0 + index.1
-        }
-    }
-    //
-    pub fn set_by<F>(&mut self, f: F)
-    where F: Fn() -> FP
-    {
-        for r in 0 .. self.nrows {
-            for c in 0 .. self.ncols {
-                self[(r, c)] = f();
-            }
-        }
-    }
-    //
-    pub fn set_eye(&mut self)
-    {
-        for r in 0 .. self.nrows {
-            for c in 0 .. self.ncols {
-                self[(r, c)] = if r == c {1.0} else {0.0};
-            }
-        }
-    }
-    //
-    pub fn assign(&mut self, rhs: Mat)
-    {
-        let (l_nrows, l_ncols) = self.dim();
-        let (r_nrows, r_ncols) = rhs.dim();
-
-        assert_eq!(l_nrows, r_nrows);
-        assert_eq!(l_ncols, r_ncols);
-        
-        for r in 0 .. self.nrows {
-            for c in 0 .. self.ncols {
-                self[(r, c)] = rhs[(r, c)];
-            }
-        }
-    }
-    //
-    pub fn t(mut self) -> Mat<'a>
-    {
-        self.transposed = !self.transposed;
-        self
-    }
-    //
-    pub fn as_diag(&self) -> Mat<'a>
-    {
-        let (nrows, ncols) = self.dim();
-
-        assert_eq!(ncols, 1);
-
-        let mut mat = Mat::new(nrows, nrows);
-        for r in 0 .. nrows {
-            mat[(r, r)] = self[(r, 0)];
-        }
-
-        mat
-    }
-}
-
-//
-
-impl<'a> std::ops::Index<(usize, usize)> for Mat<'a>
-{
-    type Output = FP;
-    fn index(&self, index: (usize, usize)) -> &FP
-    {
-        let i = self.tr_index(index);
-
-        match &self.view {
-            View::Own(v) => &v[i],
-            View::Borrow(v) => &v[i],
-            View::BorrowMut(v) => &v[i]
-        }
-    }
-}
-
-impl<'a> std::ops::IndexMut<(usize, usize)> for Mat<'a>
-{
-    fn index_mut(&mut self, index: (usize, usize)) -> &mut FP
-    {
-        let i = self.tr_index(index);
-
-        match &mut self.view {
-            View::Own(v) => &mut v[i],
-            View::Borrow(_) => panic!("cannot index Borrow as mutable"),
-            View::BorrowMut(v) => &mut v[i]
-        }
-    }
-}
-
-//
-
-trait MatOps
-{
-    fn is_mat(&self) -> bool;
-    fn dim(&self) -> (usize, usize);
-    fn get(&self, row: usize, col: usize) -> FP;
-    fn set(&mut self, row: usize, col: usize, value: FP);
-}
-
-impl<'a> MatOps for Mat<'a>
-{
-    fn is_mat(&self) -> bool
-    {
-        true
-    }
-    //
-    fn dim(&self) -> (usize, usize)
-    {
-        if !self.transposed {
-            (self.nrows, self.ncols)
-        }
-        else {
-            (self.ncols, self.nrows)
-        }
-    }
-    //
-    fn get(&self, row: usize, col: usize) -> FP
-    {
-        self[(row, col)]
-    }
-    //
-    fn set(&mut self, row: usize, col: usize, value: FP)
-    {
-        self[(row, col)] = value;
-    }
-}
-
-impl MatOps for FP
-{
-    fn is_mat(&self) -> bool
-    {
-        false
-    }
-    //
-    fn dim(&self) -> (usize, usize)
-    {
-        (1, 1)
-    }
-    //
-    fn get(&self, _: usize, _: usize) -> FP
-    {
-        *self
-    }
-    //
-    fn set(&mut self, _: usize, _: usize, value: FP)
-    {
-        *self = value;
-    }
-}
-
-impl<'a, T> std::ops::Mul<T> for Mat<'a>
-where T: MatOps
-{
-    type Output = Mat<'a>;
-
-    fn mul(self, rhs: T) -> Mat<'a>
-    {
-        let (l_nrows, l_ncols) = self.dim();
-
-        if rhs.is_mat() {
-            let (r_nrows, r_ncols) = rhs.dim();
-
-            assert_eq!(l_ncols, r_nrows);
-
-            let mut mat = Mat::new(l_nrows, r_ncols);
-
-            for r in 0 .. l_nrows {
-                for c in 0 .. r_ncols {
-                    let mut v: FP = 0.0;
-                    for k in 0 .. l_ncols {
-                        v += self[(r, k)] * rhs.get(k, c);
-                    }
-                    mat[(r, c)] = v;
-                }
-            }
-
-            mat
-        }
-        else {
-            let mut mat = Mat::new(l_nrows, l_ncols);
-
-            for r in 0 .. l_nrows {
-                for c in 0 .. l_ncols {
-                    mat[(r, c)] = self[(r, c)] * rhs.get(0, 0);
-                }
-            }
-
-            mat
-        }
-    }
-}
-
-impl<'a, T> std::ops::Div<T> for Mat<'a>
-where T: MatOps
-{
-    type Output = Mat<'a>;
-
-    fn div(self, rhs: T) -> Mat<'a>
-    {
-        let (l_nrows, l_ncols) = self.dim();
-
-        assert!(!rhs.is_mat());
-
-        let mut mat = Mat::new(l_nrows, l_ncols);
-
-        for r in 0 .. l_nrows {
-            for c in 0 .. l_ncols {
-                mat[(r, c)] = self[(r, c)] / rhs.get(0, 0);
-            }
-        }
-
-        mat
-    }
-}
-
-impl<'a, T> std::ops::Add<T> for Mat<'a>
-where T: MatOps
-{
-    type Output = Mat<'a>;
-
-    fn add(self, rhs: T) -> Mat<'a>
-    {
-        let (l_nrows, l_ncols) = self.dim();
-
-        if rhs.is_mat() {
-            let (r_nrows, r_ncols) = rhs.dim();
-
-            let mut mat = Mat::new(r_nrows, r_ncols);
-
-            if (l_nrows, l_ncols) == (0, 0) {
-                for r in 0 .. r_nrows {
-                    for c in 0 .. r_ncols {
-                        mat[(r, c)] = rhs.get(r, c);
-                    }
-                }
-            }
-            else {
-                assert_eq!(l_nrows, r_nrows);
-                assert_eq!(l_ncols, r_ncols);
-
-                for r in 0 .. r_nrows {
-                    for c in 0 .. r_ncols {
-                        mat[(r, c)] = self[(r, c)] + rhs.get(r, c);
-                    }
-                }
-            }
-
-            mat
-        }
-        else {
-            let mut mat = Mat::new(l_nrows, l_ncols);
-
-            for r in 0 .. l_nrows {
-                for c in 0 .. l_ncols {
-                    mat[(r, c)] = self[(r, c)] + rhs.get(0, 0);
-                }
-            }
-
-            mat
-        }
-    }
-}
-
-impl<'a, T> std::ops::Sub<T> for Mat<'a>
-where T: MatOps
-{
-    type Output = Mat<'a>;
-
-    fn sub(self, rhs: T) -> Mat<'a>
-    {
-        let (l_nrows, l_ncols) = self.dim();
-
-        if rhs.is_mat() {
-            let (r_nrows, r_ncols) = rhs.dim();
-
-            let mut mat = Mat::new(r_nrows, r_ncols);
-
-            if (l_nrows, l_ncols) == (0, 0) {
-                for r in 0 .. r_nrows {
-                    for c in 0 .. r_ncols {
-                        mat[(r, c)] = - rhs.get(r, c);
-                    }
-                }
-            }
-            else {
-                assert_eq!(l_nrows, r_nrows);
-                assert_eq!(l_ncols, r_ncols);
-
-                for r in 0 .. r_nrows {
-                    for c in 0 .. r_ncols {
-                        mat[(r, c)] = self[(r, c)] - rhs.get(r, c);
-                    }
-                }
-            }
-
-            mat
-        }
-        else {
-            let mut mat = Mat::new(l_nrows, l_ncols);
-
-            for r in 0 .. l_nrows {
-                for c in 0 .. l_ncols {
-                    mat[(r, c)] = self[(r, c)] - rhs.get(0, 0);
-                }
-            }
-
-            mat
-        }
-    }
-}
-
-impl<'a, T> std::ops::MulAssign<T> for Mat<'a>
-where T: MatOps
-{
-    fn mul_assign(&mut self, rhs: T)
-    {
-        let (l_nrows, l_ncols) = self.dim();
-
-        if rhs.is_mat() {
-            panic!("not implemented");
-        }
-        else {
-            for r in 0 .. l_nrows {
-                for c in 0 .. l_ncols {
-                    self[(r, c)] *= rhs.get(0, 0);
-                }
-            }
-        }
-    }
-}
-
-impl<'a, T> std::ops::DivAssign<T> for Mat<'a>
-where T: MatOps
-{
-    fn div_assign(&mut self, rhs: T)
-    {
-        let (l_nrows, l_ncols) = self.dim();
-
-        assert!(!rhs.is_mat());
-
-        for r in 0 .. l_nrows {
-            for c in 0 .. l_ncols {
-                self[(r, c)] /= rhs.get(0, 0);
-            }
-        }
-    }
-}
-
-impl<'a, T> std::ops::AddAssign<T> for Mat<'a>
-where T: MatOps
-{
-    fn add_assign(&mut self, rhs: T)
-    {
-        let (l_nrows, l_ncols) = self.dim();
-
-        if rhs.is_mat() {
-            let (r_nrows, r_ncols) = rhs.dim();
-
-            assert_eq!(l_nrows, r_nrows);
-            assert_eq!(l_ncols, r_ncols);
-
-            for r in 0 .. l_nrows {
-                for c in 0 .. l_ncols {
-                    self[(r, c)] += rhs.get(r, c);
-                }
-            }
-        }
-        else {
-            for r in 0 .. l_nrows {
-                for c in 0 .. l_ncols {
-                    self[(r, c)] += rhs.get(0, 0);
-                }
-            }
-        }
-    }
-}
-
-impl<'a, T> std::ops::SubAssign<T> for Mat<'a>
-where T: MatOps
-{
-    fn sub_assign(&mut self, rhs: T)
-    {
-        let (l_nrows, l_ncols) = self.dim();
-
-        if rhs.is_mat() {
-            let (r_nrows, r_ncols) = rhs.dim();
-
-            assert_eq!(l_nrows, r_nrows);
-            assert_eq!(l_ncols, r_ncols);
-
-            for r in 0 .. l_nrows {
-                for c in 0 .. l_ncols {
-                    self[(r, c)] -= rhs.get(r, c);
-                }
-            }
-        }
-        else {
-            for r in 0 .. l_nrows {
-                for c in 0 .. l_ncols {
-                    self[(r, c)] -= rhs.get(0, 0);
-                }
-            }
-        }
-    }
-}
-
-//
+use self::mat::{Mat, FP, FP_EPSILON, FP_MIN}; // TODO: prelude
 
 const TOL_CNV2: FP = FP_EPSILON * FP_EPSILON;
 const TOL_DIV0: FP = FP_MIN;
@@ -591,10 +21,10 @@ impl<'a> MatSVD<'a>
 {
     pub fn new(g: Mat<'a>) -> MatSVD<'a>
     {
-        let (nrows, ncols) = g.dim();
+        let (nrows, ncols) = g.size();
         let transposed = nrows < ncols;
 
-        let (_u_nrows, u_ncols) = if !transposed {
+        let (u_nrows, u_ncols) = if !transposed {
             (nrows, ncols)
         }
         else {
@@ -603,12 +33,21 @@ impl<'a> MatSVD<'a>
 
         let mut svd = MatSVD {
             transposed,
-            u: if !transposed {g} else {g.t()}, // TODO: re-initialize
+            u: Mat::new(u_nrows, u_ncols),
             s: Mat::new1(u_ncols),
             v: Mat::new(u_ncols, u_ncols)
         };
 
-        svd.v.set_eye(); // TODO: re-initialize
+        // TODO: re-initialize
+
+        if !transposed {
+            svd.u.assign(&g);
+        }
+        else {
+            svd.u.assign(&g.t());
+        }
+
+        svd.v = svd.v.set_eye();
 
         svd
     }
@@ -632,16 +71,15 @@ impl<'a> MatSVD<'a>
             let c = 1.0 / FP::sqrt(1.0 + t * t);
             let s = c * t;
 
-            // TODO: borrowal error if you don't have "Mat::new0() +"
-            let tmp1 = Mat::new0() + self.u.col(c1) * c - self.u.col(c2) * s;
-            let tmp2 = Mat::new0() + self.u.col(c1) * s + self.u.col(c2) * c;
-            self.u.col_mut(c1).assign(tmp1);
-            self.u.col_mut(c2).assign(tmp2);
+            let tmp1 = self.u.col(c1) * c - self.u.col(c2) * s;
+            let tmp2 = self.u.col(c1) * s + self.u.col(c2) * c;
+            self.u.col_mut(c1).assign(&tmp1);
+            self.u.col_mut(c2).assign(&tmp2);
 
-            let tmp1 = Mat::new0() + self.v.col(c1) * c - self.v.col(c2) * s;
-            let tmp2 = Mat::new0() + self.v.col(c1) * s + self.v.col(c2) * c;
-            self.v.col_mut(c1).assign(tmp1);
-            self.v.col_mut(c2).assign(tmp2);
+            let tmp1 = self.v.col(c1) * c - self.v.col(c2) * s;
+            let tmp2 = self.v.col(c1) * s + self.v.col(c2) * c;
+            self.v.col_mut(c1).assign(&tmp1);
+            self.v.col_mut(c2).assign(&tmp2);
         }
         
         converged
@@ -649,7 +87,7 @@ impl<'a> MatSVD<'a>
     //
     fn norm_singular(&mut self)
     {
-        let (_, n) = self.u.dim();
+        let (_, n) = self.u.size();
 
         for i in 0 .. n {
             let s = FP::sqrt((self.u.col(i).t() * self.u.col(i))[(0, 0)]);
@@ -659,15 +97,15 @@ impl<'a> MatSVD<'a>
                 continue;
             }
 
-            let tmp = Mat::new0() + self.u.col(i) / s;
+            let tmp = self.u.col(i) / s;
 
-            self.u.col_mut(i).assign(tmp);
+            self.u.col_mut(i).assign(&tmp);
         }
     }
     //
     pub fn decomp(&mut self)
     {
-        let (_, n) = self.u.dim();
+        let (_, n) = self.u.size();
 
         let mut converged_all = false;
         while !converged_all {
@@ -686,25 +124,22 @@ impl<'a> MatSVD<'a>
     pub fn selftest(&self)
     {
         let gr = if !self.transposed {
-            self.u.clone() * self.s.as_diag() * self.v.clone().t() // TODO: clone?
+            self.u.mul_diag(&self.s) * self.v.t()
         }
         else {
-            self.v.clone() * self.s.as_diag() * self.u.clone().t() // TODO: clone?
+            self.v.mul_diag(&self.s) * self.u.t()
         };
 
-        println!("{:?}", gr);
+        println!("{}", gr);
     }
 }
 
-// TODO: module, test, display
 //
 
 fn main()
 {
-    let mut mat = Mat::new(4, 4);
-    mat.set_by(|| {rand::random()});
-    println!("{:?}", mat);
-    println!();
+    let mat = Mat::new(4, 4).set_by(|_| {rand::random()});
+    println!("{}", mat);
 
     let mut svd = MatSVD::new(mat);
 

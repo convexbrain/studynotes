@@ -1,10 +1,11 @@
-type FP = f64;
-use std::f64::EPSILON as FP_EPSILON;
-use std::f64::MIN as FP_MIN;
+pub type FP = f64;
+pub use std::f64::EPSILON as FP_EPSILON;
+pub use std::f64::MIN as FP_MIN;
 
 use std::cmp::PartialEq;
 use std::ops::{Range, RangeBounds, Bound};
-use std::ops::{Add, Index, IndexMut};
+use std::ops::{Neg, Add, Mul, Sub, Div};
+use std::ops::{Index, IndexMut};
 use std::fmt;
 
 #[derive(Debug)]
@@ -28,7 +29,7 @@ impl<'a> Clone for View<'a>
 }
 
 #[derive(Debug, Clone)]
-struct Mat<'a>
+pub struct Mat<'a>
 {
     nrows: usize,
     ncols: usize,
@@ -201,10 +202,20 @@ impl<'a> Mat<'a>
         self
     }
     //
+    pub fn size(&self) -> (usize, usize)
+    {
+        if !self.transposed {
+            (self.nrows, self.ncols)
+        }
+        else {
+            (self.ncols, self.nrows)
+        }
+    }
+    //
     pub fn assign(&mut self, rhs: &Mat)
     {
-        let (l_nrows, l_ncols) = self.dim();
-        let (r_nrows, r_ncols) = rhs.dim();
+        let (l_nrows, l_ncols) = self.size();
+        let (r_nrows, r_ncols) = rhs.size();
 
         assert_eq!(l_nrows, r_nrows);
         assert_eq!(l_ncols, r_ncols);
@@ -233,15 +244,15 @@ impl<'a> Mat<'a>
     //
     pub fn mul_diag(&self, rhs: &Mat) -> Mat
     {
-        let (l_nrows, l_ncols) = self.dim();
+        let (l_nrows, l_ncols) = self.size();
 
-        assert_eq!((l_ncols, 1), rhs.dim());
+        assert_eq!((l_ncols, 1), rhs.size());
 
         let mut mat = Mat::new(l_nrows, l_ncols);
 
         for c in 0 .. l_ncols {
             for r in 0 .. l_nrows {
-                mat[(r, c)] = self[(r, c)] * rhs[(c, c)];
+                mat[(r, c)] = self[(r, c)] * rhs[(c, 0)];
             }
         }
 
@@ -286,7 +297,7 @@ impl<'a> fmt::Display for Mat<'a>
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error>
     {
-        let (l_nrows, l_ncols) = self.dim();
+        let (l_nrows, l_ncols) = self.size();
 
         for c in 0 .. l_ncols {
             for r in 0 .. l_nrows {
@@ -305,9 +316,9 @@ impl<'a> PartialEq for Mat<'a>
 {
     fn eq(&self, other: &Self) -> bool
     {
-        let (l_nrows, l_ncols) = self.dim();
+        let (l_nrows, l_ncols) = self.size();
 
-        if (l_nrows, l_ncols) != other.dim() {
+        if (l_nrows, l_ncols) != other.size() {
             return false;
         }
 
@@ -325,22 +336,17 @@ impl<'a> PartialEq for Mat<'a>
 
 //
 
-trait MatAcc
+pub trait MatAcc
 {
-    fn dim(&self) -> (usize, usize);
+    fn size(&self) -> (usize, usize);
     fn get(&self, row: usize, col: usize) -> FP;
 }
 
 impl<'a> MatAcc for Mat<'a>
 {
-    fn dim(&self) -> (usize, usize)
+    fn size(&self) -> (usize, usize)
     {
-        if !self.transposed {
-            (self.nrows, self.ncols)
-        }
-        else {
-            (self.ncols, self.nrows)
-        }
+        self.size()
     }
     //
     fn get(&self, row: usize, col: usize) -> FP
@@ -351,14 +357,46 @@ impl<'a> MatAcc for Mat<'a>
 
 impl<'a> MatAcc for &Mat<'a>
 {
-    fn dim(&self) -> (usize, usize)
+    fn size(&self) -> (usize, usize)
     {
-        (*self).dim()
+        (*self).size()
     }
     //
     fn get(&self, row: usize, col: usize) -> FP
     {
         (*self).get(row, col)
+    }
+}
+
+//
+
+impl<'a> Neg for &Mat<'a>
+{
+    type Output = Mat<'static>;
+
+    fn neg(self) -> Mat<'static>
+    {
+        let (l_nrows, l_ncols) = self.size();
+
+        let mut mat = Mat::new(l_nrows, l_ncols);
+
+        for c in 0 .. l_ncols {
+            for r in 0 .. l_nrows {
+                mat[(r, c)] = -self.get(r, c);
+            }
+        }
+
+        mat
+    }
+}
+
+impl<'a> Neg for Mat<'a>
+{
+    type Output = Mat<'static>;
+
+    fn neg(self) -> Mat<'static>
+    {
+        -&self
     }
 }
 
@@ -371,9 +409,9 @@ where T: MatAcc
 
     fn add(self, rhs: T) -> Mat<'static>
     {
-        let (l_nrows, l_ncols) = self.dim();
+        let (l_nrows, l_ncols) = self.size();
 
-        assert_eq!((l_nrows, l_ncols), rhs.dim());
+        assert_eq!((l_nrows, l_ncols), rhs.size());
 
         let mut mat = Mat::new(l_nrows, l_ncols);
 
@@ -393,13 +431,13 @@ impl<'a> Add<FP> for &Mat<'a>
 
     fn add(self, rhs: FP) -> Mat<'static>
     {
-        let (l_nrows, l_ncols) = self.dim();
+        let (l_nrows, l_ncols) = self.size();
 
         let mut mat = Mat::new(l_nrows, l_ncols);
 
         for c in 0 .. l_ncols {
             for r in 0 .. l_nrows {
-                mat[(r, c)] = self[(r, c)] + rhs;
+                mat[(r, c)] = self.get(r, c) + rhs;
             }
         }
 
@@ -445,6 +483,257 @@ impl<'a> Add<Mat<'a>> for FP
     fn add(self, rhs: Mat) -> Mat<'static>
     {
         rhs.add(self)
+    }
+}
+
+//
+
+impl<'a, T> Sub<T> for &Mat<'a>
+where T: MatAcc
+{
+    type Output = Mat<'static>;
+
+    fn sub(self, rhs: T) -> Mat<'static>
+    {
+        let (l_nrows, l_ncols) = self.size();
+
+        assert_eq!((l_nrows, l_ncols), rhs.size());
+
+        let mut mat = Mat::new(l_nrows, l_ncols);
+
+        for c in 0 .. l_ncols {
+            for r in 0 .. l_nrows {
+                mat[(r, c)] = self.get(r, c) - rhs.get(r, c);
+            }
+        }
+
+        mat
+    }
+}
+
+impl<'a> Sub<FP> for &Mat<'a>
+{
+    type Output = Mat<'static>;
+
+    fn sub(self, rhs: FP) -> Mat<'static>
+    {
+        let (l_nrows, l_ncols) = self.size();
+
+        let mut mat = Mat::new(l_nrows, l_ncols);
+
+        for c in 0 .. l_ncols {
+            for r in 0 .. l_nrows {
+                mat[(r, c)] = self.get(r, c) - rhs;
+            }
+        }
+
+        mat
+    }
+}
+
+impl<'a, T> Sub<T> for Mat<'a>
+where T: MatAcc
+{
+    type Output = Mat<'static>;
+
+    fn sub(self, rhs: T) -> Mat<'static>
+    {
+        &self - rhs
+    }
+}
+
+impl<'a> Sub<FP> for Mat<'a>
+{
+    type Output = Mat<'static>;
+
+    fn sub(self, rhs: FP) -> Mat<'static>
+    {
+        &self - rhs
+    }
+}
+
+impl<'a> Sub<&Mat<'a>> for FP
+{
+    type Output = Mat<'static>;
+
+    fn sub(self, rhs: &Mat) -> Mat<'static>
+    {
+        -rhs + self
+    }
+}
+
+impl<'a> Sub<Mat<'a>> for FP
+{
+    type Output = Mat<'static>;
+
+    fn sub(self, rhs: Mat) -> Mat<'static>
+    {
+        -rhs + self
+    }
+}
+
+//
+
+impl<'a, T> Mul<T> for &Mat<'a>
+where T: MatAcc
+{
+    type Output = Mat<'static>;
+
+    fn mul(self, rhs: T) -> Mat<'static>
+    {
+        let (l_nrows, l_ncols) = self.size();
+        let (r_nrows, r_ncols) = rhs.size();
+
+        assert_eq!(l_ncols, r_nrows);
+
+        let mut mat = Mat::new(l_nrows, r_ncols);
+
+        for c in 0 .. r_ncols {
+            for r in 0 .. l_nrows {
+                let mut v: FP = 0.0;
+                for k in 0 .. l_ncols {
+                    v += self.get(r, k) * rhs.get(k, c);
+                }
+                mat[(r, c)] = v;
+            }
+        }
+
+        mat
+    }
+}
+
+impl<'a> Mul<FP> for &Mat<'a>
+{
+    type Output = Mat<'static>;
+
+    fn mul(self, rhs: FP) -> Mat<'static>
+    {
+        let (l_nrows, l_ncols) = self.size();
+
+        let mut mat = Mat::new(l_nrows, l_ncols);
+
+        for c in 0 .. l_ncols {
+            for r in 0 .. l_nrows {
+                mat[(r, c)] = self.get(r, c) * rhs;
+            }
+        }
+
+        mat
+    }
+}
+
+impl<'a, T> Mul<T> for Mat<'a>
+where T: MatAcc
+{
+    type Output = Mat<'static>;
+
+    fn mul(self, rhs: T) -> Mat<'static>
+    {
+        &self * rhs
+    }
+}
+
+impl<'a> Mul<FP> for Mat<'a>
+{
+    type Output = Mat<'static>;
+
+    fn mul(self, rhs: FP) -> Mat<'static>
+    {
+        &self * rhs
+    }
+}
+
+impl<'a> Mul<&Mat<'a>> for FP
+{
+    type Output = Mat<'static>;
+
+    fn mul(self, rhs: &Mat) -> Mat<'static>
+    {
+        rhs.mul(self)
+    }
+}
+
+impl<'a> Mul<Mat<'a>> for FP
+{
+    type Output = Mat<'static>;
+
+    fn mul(self, rhs: Mat) -> Mat<'static>
+    {
+        rhs.mul(self)
+    }
+}
+
+//
+
+impl<'a, T> Div<T> for &Mat<'a>
+where T: MatAcc
+{
+    type Output = Mat<'static>;
+
+    fn div(self, _rhs: T) -> Mat<'static>
+    {
+        panic!("not supported");
+    }
+}
+
+impl<'a> Div<FP> for &Mat<'a>
+{
+    type Output = Mat<'static>;
+
+    fn div(self, rhs: FP) -> Mat<'static>
+    {
+        let (l_nrows, l_ncols) = self.size();
+
+        let mut mat = Mat::new(l_nrows, l_ncols);
+
+        for c in 0 .. l_ncols {
+            for r in 0 .. l_nrows {
+                mat[(r, c)] = self.get(r, c) / rhs;
+            }
+        }
+
+        mat
+    }
+}
+
+impl<'a, T> Div<T> for Mat<'a>
+where T: MatAcc
+{
+    type Output = Mat<'static>;
+
+    fn div(self, _rhs: T) -> Mat<'static>
+    {
+        panic!("not supported");
+    }
+}
+
+impl<'a> Div<FP> for Mat<'a>
+{
+    type Output = Mat<'static>;
+
+    fn div(self, rhs: FP) -> Mat<'static>
+    {
+        &self / rhs
+    }
+}
+
+impl<'a> Div<&Mat<'a>> for FP
+{
+    type Output = Mat<'static>;
+
+    fn div(self, _rhs: &Mat) -> Mat<'static>
+    {
+        panic!("not supported");
+    }
+}
+
+impl<'a> Div<Mat<'a>> for FP
+{
+    type Output = Mat<'static>;
+
+    fn div(self, _rhs: Mat) -> Mat<'static>
+    {
+        panic!("not supported");
     }
 }
 
