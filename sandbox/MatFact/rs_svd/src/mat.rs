@@ -5,6 +5,7 @@ use std::f64::MIN as FP_MIN;
 use std::cmp::PartialEq;
 use std::ops::{Range, RangeBounds, Bound};
 use std::ops::{Add, Index, IndexMut};
+use std::fmt;
 
 #[derive(Debug)]
 enum View<'a>
@@ -72,7 +73,7 @@ impl<'a> Mat<'a>
 
         let row_e = match rows.end_bound() {
             Bound::Unbounded => if !self.transposed {self.nrows} else {self.ncols},
-            Bound::Included(&i) => i - 1,
+            Bound::Included(&i) => i + 1,
             Bound::Excluded(&i) => i
         };
 
@@ -84,7 +85,7 @@ impl<'a> Mat<'a>
 
         let col_e = match cols.end_bound() {
             Bound::Unbounded => if !self.transposed {self.ncols} else {self.nrows},
-            Bound::Included(&i) => i - 1,
+            Bound::Included(&i) => i + 1,
             Bound::Excluded(&i) => i
         };
 
@@ -167,11 +168,11 @@ impl<'a> Mat<'a>
     }
     //
     pub fn set_by<F>(mut self, f: F) -> Mat<'a>
-    where F: Fn(usize, usize) -> FP
+    where F: Fn((usize, usize)) -> FP
     {
         for c in 0 .. self.ncols {
             for r in 0 .. self.nrows {
-                self[(r, c)] = f(r, c);
+                self[(r, c)] = f((r, c));
             }
         }
         self
@@ -192,8 +193,8 @@ impl<'a> Mat<'a>
     {
         // NOTE: read row-wise
         let mut i = iter.into_iter();
-        for c in 0 .. self.ncols {
-            for r in 0 .. self.nrows {
+        for r in 0 .. self.nrows {
+            for c in 0 .. self.ncols {
                 self[(r, c)] = *i.next().unwrap_or(&0.);
             }
         }
@@ -281,6 +282,25 @@ impl<'a> IndexMut<(usize, usize)> for Mat<'a>
 
 //
 
+impl<'a> fmt::Display for Mat<'a>
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error>
+    {
+        let (l_nrows, l_ncols) = self.dim();
+
+        for c in 0 .. l_ncols {
+            for r in 0 .. l_nrows {
+                write!(f, " {},", self[(r, c)])?;
+            }
+            writeln!(f)?;
+        }
+
+        Ok(())
+    }
+}
+
+//
+
 impl<'a> PartialEq for Mat<'a>
 {
     fn eq(&self, other: &Self) -> bool
@@ -344,7 +364,7 @@ impl<'a> MatAcc for &Mat<'a>
 
 //
 
-impl<'al, T> Add<T> for &Mat<'al>
+impl<'a, T> Add<T> for &Mat<'a>
 where T: MatAcc
 {
     type Output = Mat<'static>;
@@ -367,7 +387,7 @@ where T: MatAcc
     }
 }
 
-impl<'al> Add<FP> for &Mat<'al>
+impl<'a> Add<FP> for &Mat<'a>
 {
     type Output = Mat<'static>;
 
@@ -387,7 +407,7 @@ impl<'al> Add<FP> for &Mat<'al>
     }
 }
 
-impl<'al, T> Add<T> for Mat<'al>
+impl<'a, T> Add<T> for Mat<'a>
 where T: MatAcc
 {
     type Output = Mat<'static>;
@@ -398,7 +418,7 @@ where T: MatAcc
     }
 }
 
-impl<'al> Add<FP> for Mat<'al>
+impl<'a> Add<FP> for Mat<'a>
 {
     type Output = Mat<'static>;
 
@@ -428,9 +448,72 @@ impl<'a> Add<Mat<'a>> for FP
     }
 }
 
-// TODO: module, test, display
 //
 
+#[test]
+fn test_set()
+{
+    {
+        let a = Mat::new(3, 3).set_eye();
+        let b = Mat::new(3, 3).set_iter(&[
+            1., 0., 0.,
+            0., 1., 0.,
+            0., 0., 1.
+        ]);
+        assert_eq!(a, b);
+    }
+    {
+        let a = Mat::new(2, 4).set_by(|(r, c)| {(r * 4 + c) as FP});
+        let b = Mat::new(2, 4).set_iter(&[
+            0., 1., 2., 3.,
+            4., 5., 6., 7.
+        ]);
+        assert_eq!(a, b);
+    }
+}
+
+#[test]
+fn test_misc()
+{
+    {
+        let a = Mat::new1(3);
+        let a = a.t();
+        let b = Mat::new(1, 3);
+        assert_eq!(a, b);
+    }
+    {
+        let mut a = Mat::new(4, 4);
+        let b = Mat::new(4, 4).set_by(|_| {rand::random()});
+        a.assign(&b);
+        assert_eq!(a, b);
+    }
+}
+
+#[test]
+fn test_slice()
+{
+    {
+        let a = Mat::new(4, 4).set_eye();
+        let a = a.slice(1..=2, 1..=2);
+        let b = Mat::new(2, 2).set_eye();
+        assert_eq!(a, b);
+    }
+    {
+        let mut a = Mat::new(4, 4).set_eye();
+        let b = Mat::new(4, 4).set_iter(&[
+            1., 0., 0., 0.,
+            0., 2., 2., 0.,
+            0., 2., 2., 0.,
+            0., 0., 0., 1.
+        ]);
+        let mut a1 = a.slice_mut(1..=2, 1..=2);
+        let a2 = Mat::new(2, 2).set_by(|_| {2.0});
+        a1.assign(&a2);
+        assert_eq!(a, b);
+    }
+}
+
+// TODO: test
 #[test]
 fn test()
 {
@@ -442,7 +525,7 @@ fn test()
             0., 0., 1.
         ]);
         let c = &a + (&b + &a);
-        println!("{:?}", c);
+        println!("{}", c);
         let c = &a + 1.;
         println!("{:?}", c);
         let c = 1. + &b;
@@ -460,27 +543,5 @@ fn test()
         ]);
         let c = &a + &b;
         a.assign(&c);
-    }
-    {
-        let mat = Mat::new1(4).set_by(|_, _| {rand::random()});
-        println!("{:?}", mat);
-        println!();
-    }
-    {
-        let a = Mat::new(3, 3).set_eye();
-        let b = Mat::new(3, 3).set_iter(&[
-            1., 0., 0.,
-            0., 1., 0.,
-            0., 0., 1.
-        ]);
-        assert_eq!(a, b);
-    }
-    {
-        let a = Mat::new(2, 2).set_by(|r, c| {(r + c) as FP});
-        let b = Mat::new(2, 2).set_iter(&[
-            0., 1.,
-            1., 2.
-        ]);
-        assert_eq!(a, b);
     }
 }
