@@ -1,8 +1,0 @@
-[package]
-name = "rs_svd"
-version = "0.1.0"
-authors = ["convexbrain"]
-edition = "2018"
-
-[dependencies]
-rand = "0.6"
