@@ -1,4 +1,5 @@
 import numpy as np
+import time
 
 #----- normal distribution
 
@@ -64,14 +65,18 @@ if __name__ == '__main__':
 
     T = 100 #10000
 
-    n = 25 #25
-    B = 100
+    n = 25 #25, 100, 400
+    B = 100 #1000
 
     t_eic = np.zeros(T)
     t_eic_2nd = np.zeros(T)
 
+    prv_ut = time.time()
     for t in range(T):
-        if t % 10 == 0: print("---", t)
+        ut = time.time()
+        if ut - prv_ut > 5.0:
+            prv_ut = ut
+            print("---", t)
         
         #-- samples from true distribution
         x = np.random.normal(0.0, 1.0, n)
