@@ -9,8 +9,6 @@ def normal_model_log_prob(_x, _theta):
     #-- parameters
     _mu = _theta[0]
     _sigma_sq = _theta[1]
-    if not (_sigma_sq > 0.1): # ???
-        return -float('inf')
     #-- log probability
     _p = -(_x - _mu) ** 2 / (2 * _sigma_sq) - np.log(2 * np.pi * _sigma_sq) / 2
     #print(_p)
@@ -55,7 +53,10 @@ def max_likelihood_est(_x, _k):
         _intvl_s = 0
         for _i in range(_k):
             _theta_intvl = normal_max_likelihood_est(_x[_intvl_s:_div_[_i]])
-            _l += normal_log_likelihood(_x[_intvl_s:_div_[_i]], _theta_intvl)
+            if _theta_intvl[1] < 0.1: # ???
+                _l = -float('inf')
+            else:
+                _l += normal_log_likelihood(_x[_intvl_s:_div_[_i]], _theta_intvl)
             _theta_intvl.append(_intvl_s)
             _theta_intvl.append(_div_[_i])
             _theta.append(_theta_intvl)
