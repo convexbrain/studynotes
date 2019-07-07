@@ -9,7 +9,7 @@ def normal_model_log_prob(_x, _theta):
     #-- parameters
     _mu = _theta[0]
     _sigma_sq = _theta[1]
-    if not (_sigma_sq > 1e-3):
+    if not (_sigma_sq > 0.1): # ???
         return -float('inf')
     #-- log probability
     _p = -(_x - _mu) ** 2 / (2 * _sigma_sq) - np.log(2 * np.pi * _sigma_sq) / 2
@@ -111,7 +111,7 @@ def EIC_biasE(_x, _k, _B):
     for i in range(_B):
         _x_ast = bootstrap_sample(_x, _theta)
         _theta_ast = max_likelihood_est(_x_ast, _k)
-        print(_theta_ast)
+        #print(_theta_ast)
         _D_ast[i, 0] = log_likelihood(_x_ast, _theta_ast) - log_likelihood(_x_ast, _theta)
         _D_ast[i, 1] = log_likelihood(_x, _theta) - log_likelihood(_x, _theta_ast)
 
