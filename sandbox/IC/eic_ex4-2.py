@@ -35,13 +35,23 @@ def model_log_prob(_x, _theta):
     return _prob
 
 def max_likelihood_est(_x, _k):
-    _X = _x[:, 0:_k]
+    _max_l = -float('inf')
+    _K = _x.shape[1] - 1
     _Y = _x[:, -1]
-    _beta = np.linalg.solve(_X.T @ _X, _X.T @ _Y)
-    _beta.resize(_x.shape[1] - 1)
-    _sigma_sq = np.mean((_Y - _x[:, 0:-1] @ _beta) ** 2)
-    _theta = [_beta, _sigma_sq]
-    return _theta
+    for _i in itertools.combinations(range(_K), _k):
+        _ids = np.array(_i)
+        _beta = np.zeros(_K)
+        if _ids.size != 0:
+            _X = _x[:, _ids]
+            _Beta = np.linalg.solve(_X.T @ _X, _X.T @ _Y)
+            _beta[_ids] = _Beta
+        _sigma_sq = np.mean((_Y - _x[:, 0:-1] @ _beta) ** 2)
+        _theta = [_beta, _sigma_sq]
+        _l = log_likelihood(_x, _theta)
+        if _l > _max_l:
+            _max_l = _l
+            _max_theta = _theta
+    return _max_theta
 
 def bootstrap_residual(_x, _ids, _theta):
     return _x
