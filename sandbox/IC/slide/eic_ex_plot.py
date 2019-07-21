@@ -3,12 +3,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-a = np.loadtxt('eic_ex1.log')
-fname = 'eic_ex1-4.png'
+a = np.loadtxt('slide/eic_ex2-2.log')
+fname = 'slide/eic_ex2-3.png'
 labels = a[:, 0].astype('int')
-samples = a[:, 4]
+samples = a[:, 3]
 xtitle = 'n'
-ytitle = 'log-likelihood mean'
+ytitle = 'D-variance mean'
 yformat = '{:.2f}'
 fsz = 20
 

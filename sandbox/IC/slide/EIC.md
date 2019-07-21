@@ -1,7 +1,7 @@
 <!-- $size: A4 -->
 <!-- page_number: true -->
 <!-- footer: ブートストラップ情報量基準 -->
----
+
 ブートストラップ情報量基準
 =
 情報量基準をモンテカルロ法で数値計算
@@ -24,7 +24,7 @@
 * ***KL情報量*** （小さいほどモデルが近い）
   $$ I(g;f) = E_G\left[ \log{g(x)\over f(x)} \right]
             = \int \log{g(x)\over f(x)} dG $$
-  * $dG$：$g$の確率分布を細切れにしたもの$(\int dG=1)$
+  * $dG$：$g$で決まる確率分布を細切れにしたもの$(\int dG=1)$
   * 連続モデルの場合
     * $g,f$：密度関数
     * $G$：$g$の累積分布関数
@@ -57,15 +57,15 @@ $$ \mathrm{const.} - \int \log f(x|\hat\theta)dG $$
 ---
 復習
 =
-$G$→データにもとづく経験分布$G'$に置き換え
-* $G'$：データ$x_1, \ldots, x_n$が等確率$1/n$で発生
-$$ \mathrm{const.} - \int \log f(x|\hat\theta)dG'
+そこで、$G$→データにもとづく経験分布$\hat G$に置き換え
+* $\hat G$：データ$x_1, \ldots, x_n$が等確率$1/n$で発生
+$$ \mathrm{const.} - \int \log f(x|\hat\theta)d\hat G
    = \mathrm{const.} - {1\over n} \sum_{\alpha=1}^n \log f(x_\alpha|\hat\theta) $$
 * 第2項：データにもとづく ***対数尤度*** の$1/n$
 * 平均対数尤度→対数尤度に置き換え、とも言える
 
-対数尤度に置き換えの結果、誤差：バイアスが生じる
-* バイアスを評価し、補正したい
+対数尤度に置き換えの結果、KL情報量に対して誤差が生じる
+* 誤差（バイアス）を評価し、補正したい
 
 ---
 復習
@@ -116,13 +116,12 @@ $b(G)$をブートストラップ法によるモンテカルロシミュレー�
 * ブートストラップ法
   1. 未知の$G$→データ$\mathbf{x}_n$にもとづく経験分布$\hat G$ で置き換え
      * $\hat G$：データ$x_1, \ldots, x_n$が等確率$1/n$で発生
-  1. $\hat G$からの無作為標本による ***ブートストラップ標本*** の定義
+  1. $\hat G$からの無作為標本による ***ブートストラップ標本*** を定義
      * 確率変数$\mathbf{X}_n^*=(X_1^*, \ldots, X_n^*)$
-     * $G$での推定値→$\hat G$での推定値：***ブートストラップ推定値***
   1. ブートストラップ標本データを$B$回反復抽出
      * $\{\mathbf{x}_n^{*(i)}=(x_1^{*(i)}, \ldots, x_n^{*(i)}); i=1, \ldots, B\}$
-     * ブートストラップ推定値の算出
-       * 特に$E_G$→$E_{\hat G}$：$B$本の$\mathbf{x}_n^{*(i)}$による平均 
+     * $\hat G$での ***ブートストラップ推定値*** の算出
+       * $b(\hat G)$のうち、特に$E_{\hat G(\mathbf{X}_n)}$：$B$本の$\mathbf{x}_n^{*(i)}$による平均 
 
 ---
 ブートストラップ情報量基準
@@ -152,8 +151,8 @@ $$ b^*(\hat G) = E_{\hat G(\mathbf{X}_n^*)} \left[
 $E_{\hat G(\mathbf{X}_n^*)}$内第1項の対数尤度
 $$ \begin{aligned} \log f(\mathbf{X}_n^*|\hat\theta(\mathbf{X}_n^*))
    &= \log f(X_1^*, \ldots, X_n^*|\hat\theta(\mathbf{X}_n^*)) \\
-   &= \log \prod_\alpha f(X_\alpha^*|\hat\theta(\mathbf{X}_n^*)) \\
-   &= \sum_\alpha \log f(X_\alpha^*|\hat\theta(\mathbf{X}_n^*)) \\
+   &= \log \prod_{\alpha=1}^n f(X_\alpha^*|\hat\theta(\mathbf{X}_n^*)) \\
+   &= \sum_{\alpha=1}^n \log f(X_\alpha^*|\hat\theta(\mathbf{X}_n^*)) \\
    &\equiv \ell(\mathbf{X}_n^*|\hat\theta(\mathbf{X}_n^*))
    \end{aligned} $$
 
@@ -175,7 +174,7 @@ $$ b^*(\hat G) = E_{\hat G(\mathbf{X}_n^*)} \left[
 ---
 ブートストラップ情報量基準
 =
-$E_{\hat G}$：$B$本の$\mathbf{x}_n^{*(i)}$による平均 で近似
+$E_{\hat G(\mathbf{X}_n^*)}$：$B$本の$\mathbf{x}_n^{*(i)}$による平均 で近似
 $$ \begin{aligned} b^*(\hat G)
    &\approx {1\over B}\sum_{i=1}^B \left[
             \ell(\mathbf{x}_n^{*(i)}|\hat\theta(\mathbf{x}_n^{*(i)}))
@@ -214,7 +213,7 @@ $$ 2\left( -\ell(\mathbf{x}_n|\hat\theta(\mathbf{x}_n)) + b_B(\hat G) \right) $$
 * 分散：$n$とともに増大
   * $n$が大きい場合、ひとつひとつの試行の推定値は精度が悪い
 * 2種類の分散が同じ傾向で増加している
-  * ブートストラップ標本にわたる$D^{*(i)}$の分散が原因
+  * ブートストラップ標本に対する$D^{*(i)}$の分散が原因
 
 ---
 分散減少法
@@ -233,3 +232,42 @@ $D^{*(i)}$の分散を減らすテクニック
 ---
 分散減少法
 =
+ここで $E_{G(\mathbf{X}_n)} \left[ D_2(\mathbf{X}_n;G) \right]$
+$$ = E_{G(\mathbf{X}_n)} \left[ \log f(\mathbf{X}_n|\theta) \right] 
+   -n E_{G(\mathbf{X}_n)} \left[ \int \log f(x|\theta)dG \right] $$
+$$ = E_{G(\mathbf{X}_n)} \left[ \sum_{\alpha=1}^n \log f(X_\alpha|\theta) \right] 
+   -n \int \log f(x|\theta)dG $$
+$$ = \sum_{\alpha=1}^n E_{G(X_\alpha)} \left[ \log f(X_\alpha|\theta) \right] 
+   -n \int \log f(x|\theta)dG $$
+$$ = n E_{G(x)} \left[ \log f(x|\theta) \right] 
+   -n \int \log f(x|\theta)dG = 0$$
+
+---
+分散減少法
+=
+したがって $b(G) = E_{G(\mathbf{X}_n)} \left[ D_1(\mathbf{X}_n;G) + D_3(\mathbf{X}_n;G) \right]$ より
+$$ b_B(\hat G) = {1\over B}\sum_{i=1}^B \left[ D_1^{*(i)} + D_3^{*(i)} \right] $$
+※$D_1,D_3$内の$\theta$は、$\hat G$について最尤（つまりデータ$\mathbf{x}_n$について最尤）のパラメータに置き換わる
+
+* 以下が示されており、ブートストラップ標本に対する分散を減少させることができる
+  * $D_1,D_3$の分散：$O(1)$
+  * $D_2$の分散：$O(n)$
+
+---
+例2-1：例1と同じ条件で分散減少法を使用
+=
+
+![60%](eic_ex2-1.png) ![60%](eic_ex2-2.png) ![60%](eic_ex2-3.png)
+
+---
+例2-2：例1と同じ条件で分散減少法を使用、真の分布がラプラス分布の場合
+=
+
+---
+例2-2：例1と同じ条件で分散減少法を使用、パラメータ推定が最尤法でない場合
+=
+メジアン推定量
+* $\mu\rightarrow\hat\mu_m=\mathrm{median}_i\{X_i\}$
+* $\sigma\rightarrow\hat\sigma_m=c^{-1}\mathrm{median}_i\{|X_i-\hat\mu_m|\}$
+  * $c=\Phi^{-1}(0.75)$
+    * $\Phi$：$N(0, 1)$の累積分布関数
