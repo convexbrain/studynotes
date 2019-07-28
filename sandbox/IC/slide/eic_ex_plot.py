@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-a = np.loadtxt('slide/eic_ex2-2-2.log')
-fname = 'slide/eic_ex2-5.png'
+a = np.loadtxt('slide/eic_ex2-2-3.log')
+fname = 'slide/eic_ex2-7.png'
 labels = a[:, 0].astype('int')
 samples = a[:, 2]
 xtitle = 'n'

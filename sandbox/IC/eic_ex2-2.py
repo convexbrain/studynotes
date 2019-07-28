@@ -30,9 +30,11 @@ def model_log_prob(_x, _theta):
     return normal_model_log_prob(_x, _theta)
 
 def max_likelihood_est(_x):
+    return normal_max_likelihood_est(_x)
     #_mu = np.median(_x)
     #_sigma_sq = (np.median(np.abs(_x - _mu)) / sct.norm.ppf(0.75)) ** 2
-    return normal_max_likelihood_est(_x)
+    #_theta = [_mu, _sigma_sq]
+    #return _theta
 
 #-----
 
@@ -53,15 +55,11 @@ def EIC_biasE(_x, _B):
         _x_ast = bootstrap_sample(_x)
         _theta_ast = max_likelihood_est(_x_ast)
         _D_ast[i, 0] = log_likelihood(_x_ast, _theta_ast) - log_likelihood(_x_ast, _theta)
-        #_D_ast[i, 1] = log_likelihood(_x_ast, _theta) - log_likelihood(_x, _theta)
+        _D_ast[i, 1] = log_likelihood(_x_ast, _theta) - log_likelihood(_x, _theta)
         _D_ast[i, 2] = log_likelihood(_x, _theta) - log_likelihood(_x, _theta_ast)
 
     _b_b = np.mean(_D_ast[:, 0] + _D_ast[:, 2])
     _Dvar = np.var(_D_ast[:, 0] + _D_ast[:, 2])
-    #_b_b012 = np.mean(_D_ast[:, 0] + _D_ast[:, 1] + _D_ast[:, 2])
-    #_b_b0 = np.mean(_D_ast[:, 0])
-    #_b_b1 = np.mean(_D_ast[:, 1])
-    #_b_b2 = np.mean(_D_ast[:, 2])
     return [_b_b, _Dvar]
 
 #-----
