@@ -217,6 +217,7 @@ $$ 2\left( -\ell(\mathbf{x}_n|\hat\theta(\mathbf{x}_n)) + b_B(\hat G) \right) $$
 ---
 例1：ブートストラップ近似誤差
 =
+``` eic_ex1.py ```
 ![60%](eic_ex1-1.png) ![60%](eic_ex1-2.png)
 ![60%](eic_ex1-3.png) ![60%](eic_ex1-4.png)
 
@@ -233,7 +234,7 @@ $$ 2\left( -\ell(\mathbf{x}_n|\hat\theta(\mathbf{x}_n)) + b_B(\hat G) \right) $$
 分散減少法
 =
 $D^{*(i)}$の分散を減らすテクニック
-* $b(G) = E_{G(\mathbf{X}_n)} \left[ D(\mathbf{X}_n;G) \right]$ つまり
+* $b(G) = E_{G(\mathbf{X}_n)} \left[ D(\mathbf{X}_n;G) \right]$ とおく
   $$ D(\mathbf{X}_n;G) \equiv \log f(\mathbf{X}_n|\hat\theta(\mathbf{X}_n))
                            - n\int \log f(x|\hat\theta(\mathbf{X}_n))dG $$
 * $D=D_1+D_2+D_3$ と分解
@@ -270,18 +271,31 @@ $$ b_B(\hat G) = {1\over B}\sum_{i=1}^B \left[ D_1^{*(i)} + D_3^{*(i)} \right] $
 ---
 例2-1：例1と同じ条件で分散減少法を使用
 =
-
+``` eic_ex2-2.py ```
 ![60%](eic_ex2-1.png) ![60%](eic_ex2-2.png) ![60%](eic_ex2-3.png)
 
 ---
 例2-2：例1と同じ条件で分散減少法を使用、真の分布がラプラス分布の場合
 =
+``` eic_ex2-2.py ```
+![60%](eic_ex2-4.png) ![60%](eic_ex2-5.png)
+
+* 真のバイアス値は3.87, 3.57, 3.56, ?(n=1600)
+  * AICのバイアス値2より近い値になっている
 
 ---
-例2-2：例1と同じ条件で分散減少法を使用、パラメータ推定が最尤法でない場合
+例2-3：例1と同じ条件で分散減少法を使用、パラメータ推定がメジアン推定量の場合
 =
 メジアン推定量
 * $\mu\rightarrow\hat\mu_m=\mathrm{median}_i\{X_i\}$
 * $\sigma\rightarrow\hat\sigma_m=c^{-1}\mathrm{median}_i\{|X_i-\hat\mu_m|\}$
   * $c=\Phi^{-1}(0.75)$
     * $\Phi$：$N(0, 1)$の累積分布関数
+
+---
+例2-3：例1と同じ条件で分散減少法を使用、パラメータ推定がメジアン推定量の場合
+=
+``` eic_ex2-2.py ```
+![60%](eic_ex2-6.png) ![60%](eic_ex2-7.png)
+
+* 真のバイアス値は2.58, 2.12, 2.02, ?(n=1600)
