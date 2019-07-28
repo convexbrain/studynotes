@@ -2,6 +2,7 @@ import numpy as np
 import scipy.stats as sct
 import time
 import itertools
+import sys
 
 #----- normal distribution
 
@@ -11,19 +12,16 @@ def normal_model_log_prob(_x, _theta):
     _sigma_sq = _theta[1]
     #-- log probability
     _p = -(_x - _mu) ** 2 / (2 * _sigma_sq) - np.log(2 * np.pi * _sigma_sq) / 2
-    #print(_p)
     return _p
 
 def normal_max_likelihood_est(_x):
     _mu = np.mean(_x)
     _sigma_sq = np.var(_x)
     _theta = [_mu, _sigma_sq]
-    #print(_theta)
     return _theta
 
 def normal_log_likelihood(_x, _theta):
     _l = np.sum(normal_model_log_prob(_x, _theta))
-    #print(_l)
     return _l
 
 #-----
@@ -91,18 +89,14 @@ def bootstrap_residual(_x, _ids, _theta):
 
 def log_likelihood(_x, _theta):
     _l = np.sum(model_log_prob(_x, _theta))
-    #print(_l)
     return _l
 
 def bootstrap_sample(_x, _theta):
     _n = _x.size
     _ids = np.random.randint(0, _n, _n)
-    #print(_ids)
     _x_ast = _x[_ids]
-    #print(_x_ast)
 
     _x_ast_r = bootstrap_residual(_x_ast, _ids, _theta)
-    #print(_x_ast_r)
 
     return _x_ast_r
 
@@ -112,11 +106,9 @@ def EIC_biasE(_x, _k, _B):
     for i in range(_B):
         _x_ast = bootstrap_sample(_x, _theta)
         _theta_ast = max_likelihood_est(_x_ast, _k)
-        #print(_theta_ast)
         _D_ast[i, 0] = log_likelihood(_x_ast, _theta_ast) - log_likelihood(_x_ast, _theta)
         _D_ast[i, 1] = log_likelihood(_x, _theta) - log_likelihood(_x, _theta_ast)
 
-    #print(_D_ast)
     _b_b = np.mean(_D_ast[:, 0] + _D_ast[:, 1])
     return _b_b
 
@@ -126,11 +118,11 @@ def EIC_biasE(_x, _k, _B):
 
 if __name__ == '__main__':
 
-    T = 1 #100
+    T = 10 #100
 
     n = 100 #100
-    k = 2 #1, 2, 3
-    c = 1 #0, 0.5, 1, 2, 4, 8
+    k = 1 #1, 2, 3
+    c = 0 #0, 0.5, 1, 2, 4, 8
 
     B = 100 #100
 
@@ -142,7 +134,7 @@ if __name__ == '__main__':
         ut = time.time()
         if ut - prv_ut > 5.0:
             prv_ut = ut
-            print("---", t)
+            print("---", t, file=sys.stderr)
         
         #-- samples from true distribution
         x = np.random.normal(0.0, 1.0, n // 2)
@@ -154,8 +146,5 @@ if __name__ == '__main__':
         t_eic[t] = EIC_biasE(x, k, B)
 
     print("mean EIC bias:", np.mean(t_eic))
-    print("variance EIC bias:", np.var(t_eic))
-
     print("mean likelihood:", np.mean(t_l))
-    print("variance likelihood:", np.var(t_l))
 
