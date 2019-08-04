@@ -330,7 +330,7 @@ EIC適用例：変化点モデル
   1. 残差を$n$個リサンプリングして$\hat\varepsilon^*_\alpha$を生成し、ブートストラップサンプル$x^*_\alpha=\mu_j+\hat\varepsilon^*_\alpha$を生成
   1. $n^*_1,\ldots,n^*_{k-1}, \mu^*_j, \sigma^{2*}_j$を最尤推定
   1. iii., iv.を$B$回繰り返して、バイアスのブートストラップ推定値を求める
-* ※分割点の最尤推定は${}_{n-1}C_{k-1}$個の総当たり
+* ※分割点の最尤推定は${}_{n-1}C_{k-1}$の総当たり
 
 ---
 例3：変化点モデル
@@ -356,24 +356,85 @@ EIC適用例：変化点モデル
 =
 * 例えば$c=1$のとき
   * EIC：順に$156.47, 147.91, 171.40$（の2倍）で、真の$k=2$が選択
-  * AIC：仮に自由パラメータ数を$2, 4, 6$とすると順に$156.26, 141.76, 142.24$（の2倍）で、$k=2, 3$が微妙
-* $c$が小→バイアス推定値大
+  * AIC：仮に自由パラメータ数を$2, 4, 6$とすると順に$156.26, 141.76, 142.24$（の2倍）で、$k=2, 3$が釣り合い
+* $c\rightarrow0$
   * 分割が間違っていても、見かけのあてはまり（対数尤度）は良くなる
-  * 一方で真の分布からは乖離するので、それに整合してバイアスが大きくなる
+  * 一方で真の分布からは乖離するので、それに整合してバイアス推定値が大きくなる
 
-  $k=2\rightarrow3$についても同様で、整合してバイアス推定値が著しく大きくなっている
+  $k=2\rightarrow3$についても同様だが、バイアス推定値の増大が著しい
 
 ---
 適用例：部分回帰モデル
 =
-目的変数$Y$と$K$次元ベクトルの説明変数$X$
-* $n$個のデータ$\{(y_\alpha, x_{\alpha1}, \ldots, x_{\alpha K}); \alpha=1, 2, \ldots, n\}$
+目的変数$Y$と$\kappa$次元ベクトルの説明変数$X$
+* $n$個のデータ$\{(y_\alpha, x_{\alpha1}, \ldots, x_{\alpha\kappa}); \alpha=1, 2, \ldots, n\}$
 * 回帰モデル
-  $$ y_\alpha = \sum_{j=1}^K \beta_j x_{\alpha j} + \varepsilon_\alpha, \quad
+  $$ y_\alpha = \sum_{j=1}^\kappa \beta_j x_{\alpha j} + \varepsilon_\alpha, \quad
      \varepsilon_\alpha \sim N(0, \sigma^2) $$
-* ここで 変数選択：$K$個から$k$個選ぶ を考える
-  * ${}_KC_{k}$通り
-  * ※パラメータ数が$k+1$個と同じでも、変数選択のしかたによって当てはまりの良さが変わるが、AICのバイアス推定値には反映されない
+* ここで、変数選択（$\kappa$個から$k$個選ぶ）を考える
+  * ${}_\kappa C_{k}$通り
+  * ※変数選択のしかたによって当てはまりの良さが変わるが、AICのバイアス推定値（自由パラメータ数）に反映する方法が自明ではない
+
+---
+例4：部分回帰モデル
+=
+* $\kappa=20, n=100$ でデータ生成
+  * 真の$\beta_j=0$、真の$\sigma^2=1$（テキストでは不明）
+    * つまり$y_\alpha \sim N(0, 1)$
+  * $x_{\alpha j} \sim N(0, 1)$とする（テキストでは不明）
+* $k=0,\ldots,\kappa$ でブートストラップシミュレーション
+  * 以下の変数選択で$\beta_j, \sigma^2$を最尤推定
+    * EIC1：単に$x_{\alpha1},\ldots,x_{\alpha k}$を選択
+    * EIC2：${}_\kappa C_{k}$の総当たり
+  * $B=100$
+* 試行回数$T=1000$?
+
+---
+例4：部分回帰モデル
+=
+
+---
+補足：部分回帰モデルの最尤推定
+=
+$\beta=(\beta_1 \cdots \beta_k)^T, x_\alpha=(x_{\alpha1} \cdots x_{\alpha k})^T$ とおく
+
+対数尤度
+  $$\begin{aligned} \ell
+    &= \sum_\alpha \log p(y_\alpha, x_\alpha; \beta, \sigma^2)  \\
+    &= \sum_\alpha \log \left\{
+       {1\over\sqrt{2\pi\sigma^2}} \exp\left(-{(y_\alpha - x_\alpha^T \beta)^2 \over 2 \sigma^2}\right)
+       \right\}  \\
+  &= \sum_\alpha \log {1\over\sqrt{2\pi\sigma^2}}
+     - \sum_\alpha {(y_\alpha - x_\alpha^T \beta)^2 \over 2 \sigma^2}  \\
+  &= -{n \over 2} \log 2\pi\sigma^2
+     -{1 \over 2 \sigma^2} \sum_\alpha (y_\alpha - x_\alpha^T \beta)^2  \\
+    \end{aligned}$$
+
+---
+補足：部分回帰モデルの最尤推定
+=
+$y=(y_1 \cdots y_n)^T,
+ X = \left[ \begin{array}{ccc}
+ x_1^T \\ \vdots \\ x_n^T
+ \end{array} \right]$ とおく
+$$\begin{aligned} \ell
+  &= -{n \over 2} \log 2\pi\sigma^2
+     -{1 \over 2 \sigma^2} \|y - X\beta\|^2
+  \end{aligned}$$
+${\partial\ell\over\partial\beta}=0$より${\partial\over\partial\beta}\|y - X\beta\|^2=0$
+$${\partial\over\partial\beta}(y^2 -2y^T X\beta + \beta^T X^T X \beta)=0$$
+$$-2(y^T X)^T + 2 X^T X \beta=0$$
+
+---
+補足：部分回帰モデルの最尤推定
+=
+よって$X^T X \beta=X^T y$を線形ソルバで解けばよい
+* あるいは$\beta=(X^T X)^{-1}X^T y$（擬似逆行列）
+
+${\partial\ell\over\partial\sigma}=0$より
+$$ -{n \over 2} {2\sigma\over\sigma^2} +{1 \over \sigma^3} \|y - X\beta\|^2 = 0 $$
+$$ -n \sigma^2 + \|y - X\beta\|^2 = 0 $$
+よって$\sigma^2 = -{1 \over n}\|y - X\beta\|^2$
 
 ---
 Excuse
