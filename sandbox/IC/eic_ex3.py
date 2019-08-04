@@ -33,8 +33,6 @@ def model_log_prob(_x, _theta):
         #print(_theta_intvl)
         _theta = [_theta_intvl[0], _theta_intvl[1]]
         _prob = np.append(_prob, normal_model_log_prob(_x[_theta_intvl[2]:_theta_intvl[3]], _theta))
-    #print(_prob)
-    #print(_prob.size)
     return _prob
 
 def max_likelihood_est(_x, _k):
@@ -42,26 +40,23 @@ def max_likelihood_est(_x, _k):
     _n = _x.size
     #
     for _div in itertools.combinations(range(1, _n), _k - 1):
-        #print(_div)
-        _div_ = list(_div)
-        _div_.append(_n)
-        #print(_div_)
+        _div_a = list(_div)
+        _div_a.append(_n)
+
         _l = 0
         _theta = []
         _intvl_s = 0
         for _i in range(_k):
-            _theta_intvl = normal_max_likelihood_est(_x[_intvl_s:_div_[_i]])
+            _theta_intvl = normal_max_likelihood_est(_x[_intvl_s:_div_a[_i]])
             if _theta_intvl[1] < 0.1: # ???
                 _l = -float('inf')
             else:
-                _l += normal_log_likelihood(_x[_intvl_s:_div_[_i]], _theta_intvl)
+                _l += normal_log_likelihood(_x[_intvl_s:_div_a[_i]], _theta_intvl)
             _theta_intvl.append(_intvl_s)
-            _theta_intvl.append(_div_[_i])
+            _theta_intvl.append(_div_a[_i])
             _theta.append(_theta_intvl)
-            #print(_intvl_s, _div_[_i])
-            #print(_theta)
-            #print(_l)
-            _intvl_s = _div_[_i]
+            #
+            _intvl_s = _div_a[_i]
         #
         if _l > _max_l:
             _max_l = _l
@@ -74,9 +69,7 @@ def max_likelihood_est(_x, _k):
 def bootstrap_residual(_x, _ids, _theta):
     _x_r = np.zeros_like(_x)
     for _i in enumerate(_ids):
-        #print(_i)
         for _theta_intvl in _theta:
-            #print(_theta_intvl)
             if (_theta_intvl[2] <= _i[1]) and (_i[1] < _theta_intvl[3]):
                 _mu_sample = _theta_intvl[0]
             if (_theta_intvl[2] <= _i[0]) and (_i[0] < _theta_intvl[3]):
@@ -112,22 +105,11 @@ def EIC_biasE(_x, _k, _B):
     _b_b = np.mean(_D_ast[:, 0] + _D_ast[:, 1])
     return _b_b
 
-
 #-----
 
-
-if __name__ == '__main__':
-
-    T = 10 #100
-
-    n = 100 #100
-    k = 1 #1, 2, 3
-    c = 0 #0, 0.5, 1, 2, 4, 8
-
-    B = 100 #100
-
+def main(T, n, k, c, B):
     t_l = np.zeros(T)
-    t_eic = np.zeros(T)
+    t_bias = np.zeros(T)
 
     prv_ut = time.time()
     for t in range(T):
@@ -135,7 +117,7 @@ if __name__ == '__main__':
         if ut - prv_ut > 5.0:
             prv_ut = ut
             print("---", t, file=sys.stderr)
-        
+
         #-- samples from true distribution
         x = np.random.normal(0.0, 1.0, n // 2)
         x = np.append(x, np.random.normal(c, 1.0, n // 2))
@@ -143,8 +125,23 @@ if __name__ == '__main__':
         theta = max_likelihood_est(x, k)
         t_l[t] = log_likelihood(x, theta)
 
-        t_eic[t] = EIC_biasE(x, k, B)
+        t_bias[t] = EIC_biasE(x, k, B)
 
-    print("mean EIC bias:", np.mean(t_eic))
-    print("mean likelihood:", np.mean(t_l))
+    print(k, # k
+          c, # c
+          np.mean(t_bias), # bias, mean
+          np.mean(t_l), # likelihood, mean
+          )
 
+
+if __name__ == '__main__':
+
+    T = 10
+
+    n = 100
+
+    B = 100
+
+    for k in [1, 2, 3]:
+        for c in [0, 0.5, 1, 2, 4, 8]:
+            main(T, n, k, c, B)
