@@ -3,18 +3,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-a = np.loadtxt('slide/eic_ex4-1.log')
-fname = 'slide/eic_ex4-1.png'
+a = np.loadtxt('slide/eic_ex4-2.log')
+fname = 'slide/eic_ex4-4.png'
 labels = a[:, 0].astype(int)
-samples = a[:, 1]
-title = 'EIC1'
+samples = a[:, 2]
+title = 'EIC2'
 xtitle = 'k'
-ytitle = 'bias mean'
-#ytitle = 'log-likelihood mean'
+#ytitle = 'bias mean'
+ytitle = 'log-likelihood mean'
 yformat = '{:.2f}'
 fsz = 14
-ylim = [0, 36]
-#ylim = [-145, -125]
+#ylim = [0, 36]
+ylim = [-145, -125]
 
 #-----
 

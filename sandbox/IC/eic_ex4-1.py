@@ -2,6 +2,7 @@ import numpy as np
 import scipy.stats as sct
 import time
 import itertools
+import sys
 
 #----- normal distribution
 
@@ -85,7 +86,7 @@ def main(T, n, K, k, B):
         ut = time.time()
         if ut - prv_ut > 5.0:
             prv_ut = ut
-            print("---", t)
+            print("---", t, file=sys.stderr)
         
         #-- samples from true distribution
         #X = np.random.uniform(-1.0, 1.0, (n, K))
