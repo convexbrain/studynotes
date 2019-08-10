@@ -3,16 +3,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-a = np.loadtxt('slide/eic_ex3.log')
-fname = 'slide/eic_ex3-6.png'
-labels = a[6*2:6*3, 1]
-samples = a[6*2:6*3, 3]
-title = 'k=3'
-xtitle = 'c'
-ytitle = 'log-likelihood mean'
+a = np.loadtxt('slide/eic_ex4-1.log')
+fname = 'slide/eic_ex4-1.png'
+labels = a[:, 0].astype(int)
+samples = a[:, 1]
+title = 'EIC1'
+xtitle = 'k'
+ytitle = 'bias mean'
+#ytitle = 'log-likelihood mean'
 yformat = '{:.2f}'
-fsz = 20
-ylim = [-290, 0]
+fsz = 14
+ylim = [0, 36]
+#ylim = [-145, -125]
 
 #-----
 
@@ -48,5 +50,5 @@ fig.tight_layout()
 if 'ylim' in globals():
     plt.ylim(ylim)
 
-plt.show()
-#plt.savefig(fname)
+#plt.show()
+plt.savefig(fname)

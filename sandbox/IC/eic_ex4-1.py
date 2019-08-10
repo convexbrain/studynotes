@@ -74,23 +74,11 @@ def EIC_biasE(_x, _k, _B):
     _b_b = np.mean(_D_ast[:, 0] + _D_ast[:, 1])
     return _b_b
 
-
 #-----
 
-
-if __name__ == '__main__':
-
-    T = 10 #1000
-
-    n = 100 #100
-    K = 20
-
-    k = 2 #0, 1, ..., 20
-
-    B = 100 #100
-
+def main(T, n, K, k, B):
     t_l = np.zeros(T)
-    t_eic = np.zeros(T)
+    t_bias = np.zeros(T)
 
     prv_ut = time.time()
     for t in range(T):
@@ -108,10 +96,22 @@ if __name__ == '__main__':
         theta = max_likelihood_est(x, k)
         t_l[t] = log_likelihood(x, theta)
 
-        t_eic[t] = EIC_biasE(x, k, B)
+        t_bias[t] = EIC_biasE(x, k, B)
 
-    print("mean EIC bias:", np.mean(t_eic))
-    print("variance EIC bias:", np.var(t_eic))
+    print(k, # k
+          np.mean(t_bias), # bias, mean
+          np.mean(t_l), # likelihood, mean
+          )
 
-    print("mean likelihood:", np.mean(t_l))
-    print("variance likelihood:", np.var(t_l))
+
+if __name__ == '__main__':
+
+    T = 10 #1000
+
+    n = 100
+    K = 20
+
+    B = 100
+
+    for k in range(21):
+        main(T, n, K, k, B)
