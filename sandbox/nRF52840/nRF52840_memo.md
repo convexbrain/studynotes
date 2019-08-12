@@ -12,11 +12,6 @@
 
 ## 開発環境（ソフトウェア）
 
-### SparkFun Pro nRF52840 Mini
-* GitHub
-  * https://github.com/sparkfun/nRF52840_Breakout_MDBT50Q
-  * ```Firmware/nRF5_SDK/components/boards/``` に ```sparkfun_nrf52840_mini.h``` がある
-
 ### GNU Arm Embedded Toolchain
 * https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-rm/downloads
   * ダウンロードしてインストール
@@ -26,7 +21,7 @@
 * https://www.nordicsemi.com/Software-and-Tools/Software/nRF5-SDK
   * ダウンロードして解凍
     * ```nRF5_SDK_15.3.0_59ac345/components/```
-      * ```toolchain/gcc/Makefile.windows``` を編集
+      * ```toolchain/gcc/Makefile.windows``` をGNU Arm Embedded Toolchainのインストール先に合わせて編集
         ```
         GNU_INSTALL_ROOT := C:/Program Files (x86)/GNU Tools ARM Embedded/8 2019-q3-update/bin/
         GNU_VERSION := 8.3.1
@@ -40,7 +35,7 @@
   * MSYS/MSYS2/Cygwinなどで ```make``` を実行
   * 正常終了して ```DONE nrf52840_xxaa``` と出る
 * BSPをのせかえたもの：```examples/blinky/```
-  * （```sparkfun_nrf52840_mini.h``` を ```custom_board.h``` にリネームして使用している）
+  * （```custom_board.h``` は https://github.com/sparkfun/nRF52840_Breakout_MDBT50Q/blob/master/Firmware/nRF5_SDK/components/boards/sparkfun_nrf52840_mini.h をrenameして使用している）
   * ```spf52840_blank/armgcc/``` で ```make``` → ```DONE nrf52840_xxaa```
 
 ### nRF Command Line Tools
