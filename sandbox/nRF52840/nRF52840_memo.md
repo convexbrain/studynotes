@@ -38,8 +38,38 @@
   * （```custom_board.h``` は https://github.com/sparkfun/nRF52840_Breakout_MDBT50Q/blob/master/Firmware/nRF5_SDK/components/boards/sparkfun_nrf52840_mini.h をrenameして使用している）
   * ```spf52840_blank/armgcc/``` で ```make``` → ```DONE nrf52840_xxaa```
 
+### FLASH書き込みテスト
+
+* Bumpyを接続：https://docs.electronut.in/bumpy/#bluey
+  * 3.3-VDDの接続はしない（ボードには別途USB-Micro経由で給電する）
+* ```examples/blinky/spf52840_blank/armgcc/``` で
+  ```
+  $ /c/Program\ Files\ \(x86\)/GNU\ Tools\ ARM\ Embedded/8\ 2019-q3-update/bin/arm-none-eabi-gdb
+  (gdb) target extended-remote COM3
+  (gdb) monitor swdp_scan
+  (gdb) attach 1
+  (gdb) load _build/nrf52840_xxaa.hex
+  (gdb) run
+  ```
+  * ```COM3``` はBumpyをつないだ時に出るシリアルポート番号の若いほう
+  * ポート番号が10以上の場合は ```\\.\COM10``` とする
+
+---
+
 ### nRF Command Line Tools
 * https://www.nordicsemi.com/Software-and-Tools/Development-Tools/nRF-Command-Line-Tools/Download#infotabs
 
-### Bumpy
-* https://docs.electronut.in/bumpy/
+---
+
+### ToDo
+* SoftDeviceのテスト
+  * BLEのサンプル
+* デバッグ
+  * VSCodeでgdb起動
+  * Bumpy経由UART出力
+* Rust
+  * no-std ARM
+  * nRF5_SDK FFI
+  * panicなどをUARTから出す
+  * RTOS
+  * BLE通信
