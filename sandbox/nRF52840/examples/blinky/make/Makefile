@@ -2,8 +2,8 @@ PROJECT_NAME     := blinky_pca10056
 TARGETS          := nrf52840_xxaa
 OUTPUT_DIRECTORY := _build
 
-SDK_ROOT := ../../../../nRF5_SDK_15.3.0_59ac345
-PROJ_DIR := ../..
+SDK_ROOT := ../../../nRF5_SDK_15.3.0_59ac345
+PROJ_DIR := ..
 
 $(OUTPUT_DIRECTORY)/nrf52840_xxaa.out: \
   LINKER_SCRIPT  := blinky_gcc_nrf52.ld

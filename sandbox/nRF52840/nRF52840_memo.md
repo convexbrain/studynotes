@@ -22,7 +22,7 @@
   * ダウンロードして解凍
     * ```nRF5_SDK_15.3.0_59ac345/components/```
       * ```toolchain/gcc/Makefile.windows``` をGNU Arm Embedded Toolchainのインストール先に合わせて編集
-        ```
+        ```makefile
         GNU_INSTALL_ROOT := C:/Program Files (x86)/GNU Tools ARM Embedded/8 2019-q3-update/bin/
         GNU_VERSION := 8.3.1
         #GNU_INSTALL_ROOT := C:/Program Files (x86)/GNU Tools ARM Embedded/7 2018-q2-update/bin/
@@ -36,14 +36,14 @@
   * 正常終了して ```DONE nrf52840_xxaa``` と出る
 * BSPをのせかえたもの：```examples/blinky/```
   * （```custom_board.h``` は https://github.com/sparkfun/nRF52840_Breakout_MDBT50Q/blob/master/Firmware/nRF5_SDK/components/boards/sparkfun_nrf52840_mini.h をrenameして使用している）
-  * ```spf52840_blank/armgcc/``` で ```make``` → ```DONE nrf52840_xxaa```
+  * ```make/``` で ```make``` 実行 → ```DONE nrf52840_xxaa```
 
 ### FLASH書き込みテスト
 
 * Bumpyを接続：https://docs.electronut.in/bumpy/#bluey
   * 3.3-VDDの接続はしない（ボードには別途USB-Micro経由で給電する）
 * ```examples/blinky/spf52840_blank/armgcc/``` で
-  ```
+  ```sh
   $ /c/Program\ Files\ \(x86\)/GNU\ Tools\ ARM\ Embedded/8\ 2019-q3-update/bin/arm-none-eabi-gdb
   (gdb) target extended-remote COM3
   (gdb) monitor swdp_scan
@@ -53,6 +53,36 @@
   ```
   * ```COM3``` はBumpyをつないだ時に出るシリアルポート番号の若いほう
   * ポート番号が10以上の場合は ```\\.\COM10``` とする
+
+### VSCodeでの書き込みとデバッグ
+* Cortex-Debugをインストール https://marketplace.visualstudio.com/items?itemName=marus25.cortex-debug
+* ```examples/blinky/``` のフォルダを開く
+  * ```.vscode/launch.json``` を編集、```BMPGDBSerialPort``` と ```armToolchainPath``` は環境に合わせる
+    ```json
+    {
+        "version": "0.2.0",
+        "configurations": [
+            {
+                "type": "cortex-debug",
+                "request": "launch",
+                "name": "Debug (Bumpy)",
+
+                "servertype": "bmp",
+                "cwd": "${workspaceRoot}",
+                "device": "nRF52840_xxAA",
+                "executable": "./make/_build/nrf52840_xxaa.out",
+
+                "BMPGDBSerialPort": "COM3",
+                "interface": "swd",
+                "targetId": 1,
+
+                "runToMain": true,
+                "armToolchainPath": "C:/Program Files (x86)/GNU Tools ARM Embedded/8 2019-q3-update/bin"
+            }
+        ]
+    }
+    ```
+  * F5などでデバッグ開始
 
 ---
 
@@ -65,7 +95,6 @@
 * SoftDeviceのテスト
   * BLEのサンプル
 * デバッグ
-  * VSCodeでgdb起動
   * Bumpy経由UART出力
 * Rust
   * no-std ARM
