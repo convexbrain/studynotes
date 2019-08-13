@@ -1,0 +1,30 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "cortex-debug",
+            "request": "launch",
+            "name": "Debug (Bumpy)",
+
+            "servertype": "bmp",
+            "cwd": "${workspaceRoot}",
+            "device": "nRF52840_xxAA",
+            "executable": "./make/_build/nrf52840_xxaa.out",
+            /*
+            "preLaunchCommands": [
+                "load ../../nRF5_SDK_15.3.0_59ac345/components/softdevice/s140/hex/s140_nrf52_6.1.1_softdevice.hex"
+            ],
+            */
+
+            "BMPGDBSerialPort": "COM3",
+            "interface": "swd",
+            "targetId": 1,
+
+            "runToMain": true,
+            "armToolchainPath": "C:/Program Files (x86)/GNU Tools ARM Embedded/8 2019-q3-update/bin"
+        }
+    ]
+}
