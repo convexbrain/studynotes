@@ -12,7 +12,7 @@
             "servertype": "bmp",
             "cwd": "${workspaceRoot}",
             "device": "nRF52840_xxAA",
-            "executable": "./target/thumbv7em-none-eabihf/debug/armtest",
+            "executable": "./target/thumbv7em-none-eabihf/debug/led_switch",
 
             "BMPGDBSerialPort": "COM3",
             "interface": "swd",
