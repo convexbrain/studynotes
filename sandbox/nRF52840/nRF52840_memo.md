@@ -1,5 +1,7 @@
 # nRF52840メモ
 
+---
+
 ## 開発環境（ハードウェア）
 
 ### SparkFun Pro nRF52840 Mini
@@ -10,7 +12,9 @@
 ### Bumpy
 * https://www.switch-science.com/catalog/5557/
 
-## 開発環境（ソフトウェア）
+---
+
+## 開発環境（ソフトウェア on Windows10）
 
 ### GNU Arm Embedded Toolchain
 * https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-rm/downloads
@@ -30,8 +34,10 @@
   * （未使用）
 
 ### nRF Connect for Desktop
-https://www.nordicsemi.com/Software-and-Tools/Development-Tools/nRF-Connect-for-desktop
+* https://www.nordicsemi.com/Software-and-Tools/Development-Tools/nRF-Connect-for-desktop
   * （未使用）
+
+---
 
 ## ビルド～デバッグ
 
@@ -129,10 +135,33 @@ https://www.nordicsemi.com/Software-and-Tools/Development-Tools/nRF-Connect-for-
 
 ---
 
+## Rust
+
+### 準備
+
+* ターゲット Cortex-M4 w/ FPU の追加
+  * ```$ rustup target add thumbv7em-none-eabihf```
+
+### サンプル
+* ```rust/led_switch/```
+  * 使用クレート
+    * ```cortex-m```
+    * ```cortex-m-rt```
+    * ```nrf52840-hal```
+  * ```.cargo/config```
+    * ```arm-none-eabi-ld``` のパスは環境に合わせる
+    * （```link.x``` は ```cortex_m_rt``` クレート内にあり、これを経由して ```memory.x``` が読み込まれる）
+  * ```.vscode/launch.json```
+    * ```BMPGDBSerialPort``` と ```armToolchainPath``` は環境に合わせる
+  * ビルドとテスト
+    * ```cargo build```
+    * VSCode F5などでデバッグ開始
+
+---
+
 ### ToDo
 * Rust
-  * no-std ARM
-  * nRF5_SDK FFI
-  * panicなどをUARTから出す
+  * panicメッセージをUARTから出す
+  * 割り込み
   * RTOS
-  * BLE通信
+  * FFIでSoftDevice BLE
