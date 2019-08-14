@@ -1,0 +1,11 @@
+[package]
+name = "armtest"
+version = "0.1.0"
+authors = ["convexbrain <convexbrain@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+cortex-m = "*"
+cortex-m-rt = "*"
+nrf52840-hal = "*"
+embedded-hal = "*"
