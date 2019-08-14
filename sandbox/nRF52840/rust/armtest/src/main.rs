@@ -1,15 +1,15 @@
 #![no_main]
 #![no_std]
 
+//#![allow(deprecated)] // to suppress "warning: use of deprecated item ... Users should use the traits in digital::v2.""
+
 use core::panic::PanicInfo;
 use cortex_m::asm;
 use cortex_m_rt::entry;
 
 use nrf52840_hal::nrf52840_pac::Peripherals;
 use nrf52840_hal::gpio::*;
-//use nrf52840_hal::prelude::*;
-use embedded_hal::digital::v2::OutputPin;
-use embedded_hal::digital::v2::InputPin;
+use nrf52840_hal::prelude::*;
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
@@ -27,11 +27,11 @@ fn main() -> ! {
     let sw = port0.p0_13.into_floating_input();
 
     loop {
-        if sw.is_high().unwrap() {
-            led.set_low().unwrap();
+        if sw.is_high() {
+            led.set_low();
         }
         else {
-            led.set_high().unwrap();
+            led.set_high();
         }
     }
 }
