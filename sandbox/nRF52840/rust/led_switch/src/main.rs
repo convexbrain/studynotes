@@ -7,7 +7,7 @@ use core::panic::PanicInfo;
 use cortex_m::asm;
 use cortex_m_rt::entry;
 
-use nrf52840_hal::nrf52840_pac::Peripherals;
+use nrf52840_hal::target::Peripherals;
 use nrf52840_hal::gpio::*;
 use nrf52840_hal::prelude::*;
 

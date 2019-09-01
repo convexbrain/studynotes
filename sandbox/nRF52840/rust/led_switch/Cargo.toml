@@ -5,6 +5,6 @@ authors = ["convexbrain <convexbrain@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-cortex-m = "0.6.0"
+cortex-m = "0.6.1"
 cortex-m-rt = "0.6.10"
 nrf52840-hal = "0.8.1"
