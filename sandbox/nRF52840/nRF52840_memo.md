@@ -144,24 +144,32 @@
 
 ### サンプル
 * ```rust/led_switch/```
-  * 使用クレート
-    * ```cortex-m```
-    * ```cortex-m-rt```
-    * ```nrf52840-hal```
   * ```.cargo/config```
     * ```arm-none-eabi-ld``` のパスは環境に合わせる
-    * （```link.x``` は ```cortex_m_rt``` クレート内にあり、これを経由して ```memory.x``` が読み込まれる）
+    * （```link.x``` は ```cortex-m-rt``` クレート内にあり、これを経由して ```memory.x``` が読み込まれる）
   * ```.vscode/launch.json```
     * ```BMPGDBSerialPort``` と ```armToolchainPath``` は環境に合わせる
   * ビルドとテスト
     * ```cargo build```
     * VSCode F5などでデバッグ開始
 
+### リファレンス
+* [Rust Embedded](https://github.com/rust-embedded/wg)
+  * [cortex-m クレート](https://crates.io/crates/cortex-m)
+  * [cortex-m-rt クレート](https://crates.io/crates/cortex-m-rt)
+  * [svd2rust クレート](https://crates.io/crates/svd2rust)
+  * [The Embedded Rust Book](https://docs.rust-embedded.org/book/)
+* [nrf-rs](https://github.com/nrf-rs)
+  * [nrf52840-hal クレート](https://crates.io/crates/nrf52840-hal)
+  * [nrf52840-pac クレート](https://crates.io/crates/nrf52840-pac)
+
 ---
 
 ### ToDo
 * Rust
+  * タイマ割り込み
+  * ソフトウェア割り込み
+  * コンテキストスイッチ
   * panicメッセージをUARTから出す
-  * 割り込み
   * RTOS
   * FFIでSoftDevice BLE
