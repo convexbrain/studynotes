@@ -13,6 +13,7 @@ use nrf52840_hal::gpio::*;
 use nrf52840_hal::gpio::p0::*;
 use nrf52840_hal::prelude::*;
 use nrf52840_hal::target::interrupt;
+use nrf52840_hal::target::TIMER0;
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
@@ -23,6 +24,8 @@ fn panic(_info: &PanicInfo) -> ! {
 
 static mut O_LED: Option<P0_07<Output<PushPull>>> = None;
 static mut O_SW: Option<P0_13<Input<Floating>>> = None;
+static mut O_TIM: Option<TIMER0> = None;
+
 static mut LED_ST: bool = false;
 
 #[entry]
@@ -39,7 +42,13 @@ fn main() -> ! {
 
     let mut t = p.TIMER0.constrain();
     t.enable_interrupt(&mut cp.NVIC);
-    t.start(1000000u32);
+    t.start(100000u32);
+
+    unsafe {
+        let tim = t.free();
+        tim.shorts.write(|w| w.compare0_clear().enabled().compare0_stop().disabled());
+        O_TIM = Some(tim);
+    }
 
     loop {}
 }
@@ -57,5 +66,8 @@ fn TIMER0() -> ! {
             led.set_high();
             LED_ST = true;
         }
+
+        let tim = O_TIM.as_mut().unwrap();
+        tim.events_compare[0].write(|w| {w.events_compare().bit(false)});
     }
 }
