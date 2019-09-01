@@ -1,7 +1,7 @@
 #![no_main]
 #![no_std]
 
-#![allow(deprecated)] // to suppress "warning: use of deprecated item ... Users should use the traits in digital::v2.""
+//#![allow(deprecated)] // to suppress "warning: use of deprecated item ... Users should use the traits in digital::v2.""
 
 use core::panic::PanicInfo;
 use cortex_m::asm;
@@ -23,6 +23,7 @@ fn panic(_info: &PanicInfo) -> ! {
 
 static mut O_LED: Option<P0_07<Output<PushPull>>> = None;
 static mut O_SW: Option<P0_13<Input<Floating>>> = None;
+static mut LED_ST: bool = false;
 
 #[entry]
 fn main() -> ! {
@@ -47,15 +48,14 @@ fn main() -> ! {
 fn TIMER0() -> ! {
     unsafe {
         let led = O_LED.as_mut().unwrap();
-        let sw = O_SW.as_mut().unwrap();
 
-        loop {
-            if sw.is_high() {
-                led.set_low();
-            }
-            else {
-                led.set_high();
-            }
+        if LED_ST {
+            led.set_low();
+            LED_ST = false;
+        }
+        else {
+            led.set_high();
+            LED_ST = true;
         }
     }
 }
