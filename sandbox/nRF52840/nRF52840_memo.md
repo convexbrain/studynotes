@@ -112,7 +112,7 @@
                 "targetId": 1,
 
                 "svdFile": "../../nRF5_SDK_15.3.0_59ac345/modules/nrfx/mdk/nrf52840.svd",
-                
+
                 "runToMain": true,
                 "armToolchainPath": "C:/Program Files (x86)/GNU Tools ARM Embedded/8 2019-q3-update/bin"
             }
@@ -169,7 +169,7 @@
 
 ### ToDo
 * Rust
-  * タイマ割り込み
+  * HALクレート除外
   * ソフトウェア割り込み
   * コンテキストスイッチ
   * panicメッセージをUARTから出す
