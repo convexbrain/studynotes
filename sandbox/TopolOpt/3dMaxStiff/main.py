@@ -6,10 +6,50 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.colors import ListedColormap
 
 # x +:right, -:left
 # y +:back, -:front
 # z +:top, -:bottom
+
+#####################################################################
+def cuboid_data(pos, size=(1,1,1)):
+    # code taken from
+    # https://stackoverflow.com/a/35978146/4124317
+    # suppose axis direction: x: to left; y: to inside; z: to upper
+    # get the (left, outside, bottom) point
+    o = [a - b / 2 for a, b in zip(pos, size)]
+    # get the length, width, and height
+    l, w, h = size
+    x = [[o[0], o[0] + l, o[0] + l, o[0], o[0]],  
+         [o[0], o[0] + l, o[0] + l, o[0], o[0]],  
+         [o[0], o[0] + l, o[0] + l, o[0], o[0]],  
+         [o[0], o[0] + l, o[0] + l, o[0], o[0]]]  
+    y = [[o[1], o[1], o[1] + w, o[1] + w, o[1]],  
+         [o[1], o[1], o[1] + w, o[1] + w, o[1]],  
+         [o[1], o[1], o[1], o[1], o[1]],          
+         [o[1] + w, o[1] + w, o[1] + w, o[1] + w, o[1] + w]]   
+    z = [[o[2], o[2], o[2], o[2], o[2]],                       
+         [o[2] + h, o[2] + h, o[2] + h, o[2] + h, o[2] + h],   
+         [o[2], o[2], o[2] + h, o[2] + h, o[2]],               
+         [o[2], o[2], o[2] + h, o[2] + h, o[2]]]               
+    return np.array(x), np.array(y), np.array(z)
+
+def plotCubeAt(alpha, pos=(0,0,0), ax=None):
+    # Plotting a cube element at position pos
+    if ax !=None:
+        X, Y, Z = cuboid_data( pos )
+        ax.plot_surface(Z, Y, X, color=[0,0,1,alpha], edgecolor='none', rstride=1, cstride=1)
+
+def plotMatrix(ax, matrix, thr):
+    # plot a Matrix 
+    for i in range(matrix.shape[0]):
+        for j in range(matrix.shape[1]):
+            for k in range(matrix.shape[2]):
+                if matrix[i,j,k] >= thr:
+                    # to have the 
+                    plotCubeAt(matrix[i,j,k], pos=(i-0.5,j-0.5,k-0.5), ax=ax)
+#####################################################################
 
 class FeMat:
     #
@@ -102,22 +142,49 @@ class TopolOpt3D:
                 plt.imshow(um[self.nz / 2, :, :, 2]); plt.colorbar()
                 plt.show()
             if False:
-                plt.imshow(rho[self.nz / 2, :, :], vmin = 0.0, vmax = 1.0, cmap = cm.binary);
+                plt.imshow(rho[self.nz / 2, :, :], vmin = 0.0, vmax = 1.0, cmap = cm.binary)
                 plt.colorbar()
                 plt.show()
-            if i == max_i - 1:
+            if False: #i == max_i - 1:
                 for z in range(self.nz):
-                    plt.imshow(rho[z, :, :], vmin = 0.0, vmax = 1.0, cmap = cm.binary);
+                    plt.imshow(rho[z, :, :], vmin = 0.0, vmax = 1.0, cmap = cm.binary)
                     plt.colorbar()
                     plt.show()
-            if False:
-                voxels = rho > 0.2
-                #fig = plt.figure()
-                plt.gca(projection='3d')
-                #plt.
-                plt.voxels(voxels)
-                #plt.colorbar()
+            if i == max_i - 1:
+                fig = plt.figure()
+                ax = fig.gca(projection='3d')
+                ax.set_aspect('equal')
+                plotMatrix(ax, rho, 0.9)
                 plt.show()
+            if False: #i == max_i - 1:
+                #plt.imshow(rho[1, :, :], vmin = 0.0, vmax = 1.0, cmap = cm.binary)
+                #plt.colorbar()
+                #plt.show()
+
+                xx, yy = np.meshgrid(np.arange(self.nx + 1), np.arange(self.ny + 1))
+
+                # Choose colormap
+                cmap = plt.cm.binary
+                # Get the colormap colors
+                my_cmap = cmap(np.arange(cmap.N))
+                # Set alpha
+                my_cmap[:,-1] = np.linspace(0.2, 0.8, cmap.N)
+                # Create new colormap
+                my_cmap = ListedColormap(my_cmap)
+
+                fig = plt.figure()
+                ax = fig.add_subplot(111, projection='3d')
+
+                for z in range(self.nz):
+                    zz = np.zeros_like(xx) + z
+                    data = rho[z, :, :]
+                    ax.plot_surface(xx, yy, zz, rstride=1, cstride=1, facecolors=my_cmap(data), shade=False)
+
+                ax.set_xlim((0, self.nx))
+                ax.set_ylim((0, self.ny))
+                ax.set_zlim((0, self.nz))
+                plt.show()
+
             #
             rho = rho_new
             i = i + 1
