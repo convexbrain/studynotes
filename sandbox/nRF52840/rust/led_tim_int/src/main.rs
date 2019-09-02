@@ -1,19 +1,15 @@
 #![no_main]
 #![no_std]
 
-//#![allow(deprecated)] // to suppress "warning: use of deprecated item ... Users should use the traits in digital::v2.""
-
-use core::panic::PanicInfo;
 use cortex_m::asm;
 use cortex_m_rt::entry;
 
-use nrf52840_hal::target::Peripherals;
-use nrf52840_hal::target::CorePeripherals;
-use nrf52840_hal::gpio::*;
-use nrf52840_hal::gpio::p0::*;
-use nrf52840_hal::prelude::*;
-use nrf52840_hal::target::interrupt;
-use nrf52840_hal::target::TIMER0;
+use core::panic::PanicInfo;
+
+use nrf52840_hal::target::{
+    interrupt, Interrupt,
+    Peripherals, P0, TIMER0,
+    /*CorePeripherals,*/ NVIC};
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
@@ -22,52 +18,66 @@ fn panic(_info: &PanicInfo) -> ! {
     }
 }
 
-static mut O_LED: Option<P0_07<Output<PushPull>>> = None;
-static mut O_SW: Option<P0_13<Input<Floating>>> = None;
-static mut O_TIM: Option<TIMER0> = None;
+static mut O_P0: Option<P0> = None;
+static mut O_TIMER0: Option<TIMER0> = None;
 
 static mut LED_ST: bool = false;
 
 #[entry]
 fn main() -> ! {
-    let p = Peripherals::take().unwrap();
-    let port0 = p.P0.split();
+    let peri = Peripherals::take().unwrap();
+    //let cperi = CorePeripherals::take().unwrap();
 
-    unsafe {
-        O_LED = Some(port0.p0_07.into_push_pull_output(Level::Low));
-        O_SW = Some(port0.p0_13.into_floating_input());
+    {
+        let p0 = peri.P0;
+        p0.outclr.write(|w| w.pin7().set_bit());
+        p0.pin_cnf[7].write(|w| w
+            .dir().output()
+            .input().disconnect()
+            .pull().disabled()
+            .drive().s0s1()
+            .sense().disabled());
+        //
+        unsafe { O_P0 = Some(p0) }
     }
 
-    let mut cp = CorePeripherals::take().unwrap();
+    {
+        let timer0 = peri.TIMER0;
+        timer0.shorts.write(|w| w
+            .compare0_clear().enabled()
+            .compare0_stop().disabled());
+        timer0.prescaler.write(|w| unsafe { w.prescaler().bits(4) }); // 1 MHz
+        timer0.bitmode.write(|w| w.bitmode()._32bit());
+        timer0.intenset.modify(|_, w| w.compare0().set());
 
-    let mut t = p.TIMER0.constrain();
-    t.enable_interrupt(&mut cp.NVIC);
-    t.start(100000u32);
+        unsafe { NVIC::unmask(Interrupt::TIMER0) }
 
-    unsafe {
-        let tim = t.free();
-        tim.shorts.write(|w| w.compare0_clear().enabled().compare0_stop().disabled());
-        O_TIM = Some(tim);
+        let cycles = 500000u32;
+        timer0.cc[0].write(|w| unsafe { w.cc().bits(cycles) }); // 0.5 sec
+        timer0.tasks_clear.write(|w| w.tasks_clear().set_bit());
+        timer0.tasks_start.write(|w| w.tasks_start().set_bit());
+        //
+        unsafe { O_TIMER0 = Some(timer0) }
     }
 
     loop {}
 }
 
 #[interrupt]
-fn TIMER0() -> ! {
+fn TIMER0() {
     unsafe {
-        let led = O_LED.as_mut().unwrap();
+        let p0 = O_P0.as_mut().unwrap();
+        let timer0 = O_TIMER0.as_mut().unwrap();
 
         if LED_ST {
-            led.set_low();
+            p0.outclr.write(|w| w.pin7().set_bit());
             LED_ST = false;
         }
         else {
-            led.set_high();
+            p0.outset.write(|w| w.pin7().set_bit());
             LED_ST = true;
         }
 
-        let tim = O_TIM.as_mut().unwrap();
-        tim.events_compare[0].write(|w| {w.events_compare().bit(false)});
+        timer0.events_compare[0].write(|w| {w.events_compare().bit(false)});
     }
 }
