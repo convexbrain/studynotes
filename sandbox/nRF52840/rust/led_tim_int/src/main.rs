@@ -6,10 +6,15 @@ use cortex_m_rt::entry;
 
 use core::panic::PanicInfo;
 
-use nrf52840_hal::target::{
-    interrupt, Interrupt,
+use nrf52840_pac::{
     Peripherals, P0, TIMER0,
-    /*CorePeripherals,*/ NVIC};
+    /*CorePeripherals,*/ NVIC,
+    interrupt, Interrupt};
+
+static mut O_P0: Option<P0> = None;
+static mut O_TIMER0: Option<TIMER0> = None;
+
+static mut LED_ST: bool = false;
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
@@ -17,11 +22,6 @@ fn panic(_info: &PanicInfo) -> ! {
         asm::bkpt();
     }
 }
-
-static mut O_P0: Option<P0> = None;
-static mut O_TIMER0: Option<TIMER0> = None;
-
-static mut LED_ST: bool = false;
 
 #[entry]
 fn main() -> ! {
