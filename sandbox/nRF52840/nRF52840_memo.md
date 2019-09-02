@@ -169,9 +169,8 @@
 
 ### ToDo
 * Rust
-  * HALクレート除外
-  * ソフトウェア割り込み
   * コンテキストスイッチ
+  * UART出力
   * panicメッセージをUARTから出す
   * RTOS
   * FFIでSoftDevice BLE
