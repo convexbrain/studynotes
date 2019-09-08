@@ -1,0 +1,14 @@
+[package]
+name = "led_ctxtsw"
+version = "0.1.0"
+authors = ["convexbrain <convexbrain@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+cortex-m = "0.6.1"
+cortex-m-rt = "0.6.10"
+nrf52840-pac = "0.8.0"
+
+[features]
+rt = ["nrf52840-pac/rt"]
+default = ["rt"]

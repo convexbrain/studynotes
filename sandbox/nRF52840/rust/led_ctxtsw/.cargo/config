@@ -1,0 +1,10 @@
+[build]
+target = "thumbv7em-none-eabihf"
+
+[target.thumbv7em-none-eabihf]
+rustflags = [
+    "-C", "link-arg=kernel_asm/kernel_asm.o",
+    "-C", "link-arg=-Tlink.x",
+    "-C", "link-arg=-Map=target/link.map",
+    "-C", "linker=C:/Program Files (x86)/GNU Tools ARM Embedded/8 2019-q3-update/bin/arm-none-eabi-ld",
+]
