@@ -4,19 +4,25 @@
 
 use cortex_m::asm;
 use cortex_m_rt::entry;
-use cortex_m_rt::exception;
 
 use core::panic::PanicInfo;
 
 use nrf52840_pac::{
     Peripherals, P0, TIMER0,
-    /*CorePeripherals,*/ NVIC,
+    CorePeripherals, NVIC,
     interrupt, Interrupt};
 
 static mut O_P0: Option<P0> = None;
 static mut O_TIMER0: Option<TIMER0> = None;
 
-static mut LED_ST: bool = false;
+static mut LED_CNT: u32 = 64_000_000 / 2;
+
+struct Task
+{
+    f0: *const fn() -> !,
+    f1: *const fn() -> !,
+    f2: *const fn() -> !,
+}
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
@@ -27,11 +33,13 @@ fn panic(_info: &PanicInfo) -> ! {
 
 #[entry]
 fn main() -> ! {
-    // TODO: CONTROL.SPSEL = 0
-    // TODO: SVCall must have lowest priority
-
     let peri = Peripherals::take().unwrap();
-    //let cperi = CorePeripherals::take().unwrap();
+    let mut cperi = CorePeripherals::take().unwrap();
+
+    {
+        assert!(cortex_m::register::control::read().spsel().is_msp()); // CONTROL.SPSEL: SP_main
+        unsafe { cperi.SCB.set_priority(cortex_m::peripheral::scb::SystemHandler::SVCall, 255) } // SVCall: lowest priority
+    }
 
     {
         let p0 = peri.P0;
@@ -57,76 +65,78 @@ fn main() -> ! {
 
         unsafe { NVIC::unmask(Interrupt::TIMER0) }
 
-        let cycles = 500000u32;
-        timer0.cc[0].write(|w| unsafe { w.cc().bits(cycles) }); // 0.5 sec
+        let cycles = 1_000_000;
+        timer0.cc[0].write(|w| unsafe { w.cc().bits(cycles) }); // 1 sec
         timer0.tasks_clear.write(|w| w.tasks_clear().set_bit());
         timer0.tasks_start.write(|w| w.tasks_start().set_bit());
         //
         unsafe { O_TIMER0 = Some(timer0) }
     }
 
+    {
+        // TODO
+        let t = Task {
+            f0: led_tgl as *const fn() -> !,
+            f1: led_slow as *const fn() -> !,
+            f2: led_fast as *const fn() -> !,
+        };
+    }
+
     loop {}
 }
 
-fn led_int() {
-    unsafe {
-        let p0 = O_P0.as_mut().unwrap();
-        let timer0 = O_TIMER0.as_mut().unwrap();
-
-        if LED_ST {
-            p0.outclr.write(|w| w.pin7().set_bit());
-            LED_ST = false;
-        }
-        else {
-            p0.outset.write(|w| w.pin7().set_bit());
-            LED_ST = true;
-        }
-
-        timer0.events_compare[0].write(|w| {w.events_compare().bit(false)});
-    }
-}
-
-fn led_hoge() -> ! {
+fn led_tgl() -> !
+{
     loop {
         unsafe {
             let p0 = O_P0.as_mut().unwrap();
-            let timer0 = O_TIMER0.as_mut().unwrap();
 
-            if LED_ST {
-                p0.outclr.write(|w| w.pin7().set_bit());
-            }
-            else {
-                p0.outset.write(|w| w.pin7().set_bit());
-            }
+            p0.outclr.write(|w| w.pin7().set_bit());
+            asm::delay(LED_CNT);
+
+            p0.outset.write(|w| w.pin7().set_bit());
+            asm::delay(LED_CNT);
         }
     }
 }
 
-fn led_st_on() -> ! {
+fn led_slow() -> !
+{
     loop {
         unsafe {
-            LED_ST = true;
+            LED_CNT = 64_000_000 / 4;
         }
+
+        req_task_switch();
     }
 }
 
-fn led_st_off() -> ! {
+fn led_fast() -> !
+{
     loop {
         unsafe {
-            LED_ST = false;
+            LED_CNT = 64_000_000 / 8;
         }
+
+        req_task_switch();
     }
+}
+
+fn req_task_switch()
+{
+    unsafe { asm!("svc 0" : : : : "volatile") }
 }
 
 #[interrupt]
-fn TIMER0() {
+fn TIMER0()
+{
     unsafe {
         let timer0 = O_TIMER0.as_mut().unwrap();
 
         timer0.events_compare[0].write(|w| {w.events_compare().bit(false)});
     }
 
-    unsafe { asm!("svc 0" : : : : "volatile") }
+    req_task_switch();
 }
 
 #[no_mangle]
