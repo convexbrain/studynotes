@@ -143,6 +143,9 @@
 
 * ターゲット Cortex-M4 w/ FPU の追加
   * ```$ rustup target add thumbv7em-none-eabihf```
+* [cargo-binutils](https://crates.io/crates/cargo-binutils) をインストールしておくと便利
+  * ```$ cargo install cargo-binutils```
+  * ```$ rustup component add llvm-tools-preview```
 
 ### サンプル
 * ```rust/led_switch/```
