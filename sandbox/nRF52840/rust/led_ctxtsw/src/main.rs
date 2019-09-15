@@ -5,6 +5,7 @@
 #![feature(asm)]
 
 use cortex_m::asm;
+
 use cortex_m_rt::entry;
 
 use core::panic::PanicInfo;
@@ -39,15 +40,15 @@ impl TaskMgr
 {
     fn setup(self) -> Self
     {
-        let ret_addr = self.sp0 as usize + (8 + 7) * 4;
+        let ret_addr = self.sp0 as usize + (8 + 6) * 4;
         let ret_addr = ret_addr as *mut usize;
         unsafe { *ret_addr = self.f0 as usize }
 
-        let ret_addr = self.sp1 as usize + (8 + 7) * 4;
+        let ret_addr = self.sp1 as usize + (8 + 6) * 4;
         let ret_addr = ret_addr as *mut usize;
         unsafe { *ret_addr = self.f1 as usize }
 
-        let ret_addr = self.sp2 as usize + (8 + 7) * 4;
+        let ret_addr = self.sp2 as usize + (8 + 6) * 4;
         let ret_addr = ret_addr as *mut usize;
         unsafe { *ret_addr = self.f2 as usize }
 
@@ -123,6 +124,8 @@ fn main() -> ! {
         unsafe { O_TIMER0 = Some(timer0) }
     }
 
+    req_task_switch();
+
     loop {}
 }
 
@@ -181,6 +184,24 @@ fn TIMER0()
 
     req_task_switch();
 }
+
+/*
+use cortex_m_rt::exception;
+
+#[exception]
+fn SVCall()
+{
+    unsafe {
+        asm!("push {r4, r5, r6, r7, r8, r9, r10, r11}" : : : : "volatile");
+        let curr_sp;
+        asm!("mov $0, sp" : "=r"(curr_sp) : : : "volatile");
+        let next_sp = task_switch(curr_sp);
+        asm!("mov sp, $0" : : "r"(next_sp) : : "volatile");
+        asm!("pop {r4, r5, r6, r7, r8, r9, r10, r11}" : : : : "volatile");
+    }
+
+}
+*/
 
 #[no_mangle]
 pub extern fn task_switch(curr_sp: *mut usize) -> *mut usize
