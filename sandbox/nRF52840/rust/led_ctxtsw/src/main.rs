@@ -18,7 +18,7 @@ use nrf52840_pac::{
 static mut O_P0: Option<P0> = None;
 static mut O_TIMER0: Option<TIMER0> = None;
 
-static mut LED_CNT: u32 = 64_000_000 / 2;
+static mut LED_CNT: u32 = 64_000_000 / 4;
 
 static mut STACK0: [usize; 1024] = [0; 1024];
 static mut STACK1: [usize; 1024] = [0; 1024];
@@ -38,19 +38,23 @@ struct TaskMgr
 
 impl TaskMgr
 {
+    fn setup_sub(sp: *mut usize, f: *const fn() -> !)
+    {
+        let ret_addr = sp as usize + (8 + 6) * 4;
+        let ret_addr = ret_addr as *mut usize;
+        unsafe { *ret_addr = f as usize }
+
+        let xpsr = sp as usize + (8 + 7) * 4;
+        let xpsr = xpsr as *mut usize;
+        unsafe { *xpsr = 0x01000000 } // TODO xPSR
+    }
+
     fn setup(self) -> Self
     {
-        let ret_addr = self.sp0 as usize + (8 + 6) * 4;
-        let ret_addr = ret_addr as *mut usize;
-        unsafe { *ret_addr = self.f0 as usize }
-
-        let ret_addr = self.sp1 as usize + (8 + 6) * 4;
-        let ret_addr = ret_addr as *mut usize;
-        unsafe { *ret_addr = self.f1 as usize }
-
-        let ret_addr = self.sp2 as usize + (8 + 6) * 4;
-        let ret_addr = ret_addr as *mut usize;
-        unsafe { *ret_addr = self.f2 as usize }
+        // TODO: FPSCR
+        TaskMgr::setup_sub(self.sp0, self.f0);
+        TaskMgr::setup_sub(self.sp1, self.f1);
+        TaskMgr::setup_sub(self.sp2, self.f2);
 
         self
     }
@@ -78,7 +82,7 @@ fn main() -> ! {
                     sp1: &mut STACK1[1024 - 128],
                     sp2: &mut STACK2[1024 - 128],
                     tid: None,
-                    num_tasks: 3,
+                    num_tasks: 4,
                 }.setup()
             );
         }
@@ -135,11 +139,13 @@ fn led_tgl() -> !
         unsafe {
             let p0 = O_P0.as_mut().unwrap();
 
-            p0.outclr.write(|w| w.pin7().set_bit());
-            asm::delay(LED_CNT);
+            for _ in 0 .. 4 {
+                p0.outclr.write(|w| w.pin7().set_bit());
+                asm::delay(LED_CNT);
 
-            p0.outset.write(|w| w.pin7().set_bit());
-            asm::delay(LED_CNT);
+                p0.outset.write(|w| w.pin7().set_bit());
+                asm::delay(LED_CNT);
+            }
         }
         
         req_task_switch();
@@ -150,7 +156,7 @@ fn led_slow() -> !
 {
     loop {
         unsafe {
-            LED_CNT = 64_000_000 / 4;
+            LED_CNT = 64_000_000 / 8;
         }
 
         req_task_switch();
@@ -161,7 +167,7 @@ fn led_fast() -> !
 {
     loop {
         unsafe {
-            LED_CNT = 64_000_000 / 8;
+            LED_CNT = 64_000_000 / 16;
         }
 
         req_task_switch();
@@ -221,6 +227,9 @@ pub extern fn task_switch(curr_sp: *mut usize) -> *mut usize
                 t.sp1 = curr_sp;
             }
             else if curr_tid == 2 {
+                t.sp0 = curr_sp;
+            }
+            else if curr_tid == 3 {
                 t.sp2 = curr_sp;
             }
             else {
@@ -241,6 +250,9 @@ pub extern fn task_switch(curr_sp: *mut usize) -> *mut usize
             next_sp = t.sp1;
         }
         else if next_tid == 2 {
+            next_sp = t.sp0;
+        }
+        else if next_tid == 3 {
             next_sp = t.sp2;
         }
         else {

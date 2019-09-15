@@ -8,8 +8,6 @@
 .thumb_func
 
 SVCall:
-    push    {lr}
-
     push    {r4, r5, r6, r7}
     mov     r4, r8
     mov     r5, r9
@@ -17,10 +15,14 @@ SVCall:
     mov     r7, r11
     push    {r4, r5, r6, r7}
 
+    mov     r4, lr
+
     mov     r0, sp
     bl      task_switch
     mov     sp, r0
 
+    mov     lr, r4
+    
     pop     {r4, r5, r6, r7}
     mov     r8, r4
     mov     r9, r5
@@ -28,4 +30,4 @@ SVCall:
     mov     r11, r7
     pop     {r4, r5, r6, r7}
 
-    pop     {pc}
+    bx      lr
