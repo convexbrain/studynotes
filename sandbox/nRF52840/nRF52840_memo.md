@@ -141,6 +141,8 @@
 
 ### 準備
 
+* nightly版の使用
+  * ```$ rustup default nightly```
 * ターゲット Cortex-M4 w/ FPU の追加
   * ```$ rustup target add thumbv7em-none-eabihf```
 * [cargo-binutils](https://crates.io/crates/cargo-binutils) をインストールしておくと便利
@@ -173,6 +175,7 @@
 ### ToDo
 * Rust
   * コンテキストスイッチ
+    * クロージャの調査
   * UART出力
   * panicメッセージをUARTから出す
   * RTOS
