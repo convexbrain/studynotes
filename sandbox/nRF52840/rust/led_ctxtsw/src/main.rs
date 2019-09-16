@@ -76,8 +76,8 @@ fn main() -> ! {
             O_TASKMGR = Some(
                 TaskMgr {
                     f0: led_tgl as *const fn() -> !,
-                    f1: led_slow as *const fn() -> !,
-                    f2: led_fast as *const fn() -> !,
+                    f1: led_fast as *const fn() -> !,
+                    f2: led_slow as *const fn() -> !,
                     sp0: &mut STACK0[1024 - 128],
                     sp1: &mut STACK1[1024 - 128],
                     sp2: &mut STACK2[1024 - 128],
@@ -154,7 +154,7 @@ fn led_slow() -> !
 {
     loop {
         unsafe {
-            LED_CNT = 64_000_000 / 8; // 1/8 sec
+            LED_CNT = 64_000_000 / 4; // 1/4 sec
         }
         
         req_task_switch();
