@@ -46,7 +46,7 @@ impl TaskMgr
 
         let xpsr = sp as usize + (8 + 7) * 4;
         let xpsr = xpsr as *mut usize;
-        unsafe { *xpsr = 0x01000000 } // TODO xPSR
+        unsafe { *xpsr = 0x01000000 } // xPSR: set T-bit since Cortex-M has only Thumb instructions
     }
 
     fn setup(self) -> Self
