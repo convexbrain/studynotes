@@ -51,7 +51,6 @@ impl TaskMgr
 
     fn setup(self) -> Self
     {
-        // TODO: FPSCR
         TaskMgr::setup_sub(self.sp0, self.f0);
         TaskMgr::setup_sub(self.sp1, self.f1);
         TaskMgr::setup_sub(self.sp2, self.f2);
