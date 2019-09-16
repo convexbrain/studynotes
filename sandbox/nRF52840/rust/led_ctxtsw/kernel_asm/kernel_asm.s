@@ -1,13 +1,13 @@
 # LLD requires that the section flags are explicitly set here
 .section .KernelAsm, "ax"
-.global SVCall
+.global PendSV
 
 # .type and .thumb_func are both required; otherwise its Thumb bit does not
 # get set and an invalid vector table is generated
-.type SVCall,%function
+.type PendSV,%function
 .thumb_func
 
-SVCall:
+PendSV:
     push    {r4, r5, r6, r7}
     mov     r4, r8
     mov     r5, r9

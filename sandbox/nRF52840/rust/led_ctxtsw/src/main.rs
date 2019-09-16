@@ -12,7 +12,7 @@ use core::panic::PanicInfo;
 
 use nrf52840_pac::{
     Peripherals, P0, TIMER0,
-    CorePeripherals, NVIC,
+    CorePeripherals, NVIC, SCB,
     interrupt, Interrupt};
 
 static mut O_P0: Option<P0> = None;
@@ -93,7 +93,7 @@ fn main() -> ! {
 
     {
         assert!(cortex_m::register::control::read().spsel().is_msp()); // CONTROL.SPSEL: SP_main
-        unsafe { cperi.SCB.set_priority(cortex_m::peripheral::scb::SystemHandler::SVCall, 255) } // SVCall: lowest priority
+        unsafe { cperi.SCB.set_priority(cortex_m::peripheral::scb::SystemHandler::PendSV, 255) } // PendSV: lowest priority
     }
 
     {
@@ -176,7 +176,7 @@ fn led_fast() -> !
 
 fn req_task_switch()
 {
-    unsafe { asm!("svc 0" : : : : "volatile") }
+    SCB::set_pendsv();
 }
 
 #[interrupt]
@@ -191,27 +191,11 @@ fn TIMER0()
     req_task_switch();
 }
 
-/*
-use cortex_m_rt::exception;
-
-#[exception]
-fn SVCall()
-{
-    unsafe {
-        asm!("push {r4, r5, r6, r7, r8, r9, r10, r11}" : : : : "volatile");
-        let curr_sp;
-        asm!("mov $0, sp" : "=r"(curr_sp) : : : "volatile");
-        let next_sp = task_switch(curr_sp);
-        asm!("mov sp, $0" : : "r"(next_sp) : : "volatile");
-        asm!("pop {r4, r5, r6, r7, r8, r9, r10, r11}" : : : : "volatile");
-    }
-
-}
-*/
-
 #[no_mangle]
 pub extern fn task_switch(curr_sp: *mut usize) -> *mut usize
 {
+    SCB::clear_pendsv();
+
     let next_sp;
 
     unsafe {
