@@ -5,20 +5,20 @@
 #![feature(asm)]
 
 use cortex_m::asm;
+use cortex_m::peripheral::{NVIC, SCB};
 
 use cortex_m_rt::entry;
 
 use core::panic::PanicInfo;
 
 use nrf52840_pac::{
-    Peripherals, P0, TIMER0,
-    CorePeripherals, NVIC, SCB,
+    P0, TIMER0,
     interrupt, Interrupt};
 
 static mut O_P0: Option<P0> = None;
 static mut O_TIMER0: Option<TIMER0> = None;
 
-static mut LED_CNT: u32 = 64_000_000 / 4;
+static mut LED_CNT: u32 = 64_000_000 / 4; // 1/4 sec
 
 static mut STACK0: [usize; 1024] = [0; 1024];
 static mut STACK1: [usize; 1024] = [0; 1024];
@@ -88,12 +88,14 @@ fn main() -> ! {
         }
     }
 
-    let peri = Peripherals::take().unwrap();
-    let mut cperi = CorePeripherals::take().unwrap();
+    let peri = nrf52840_pac::Peripherals::take().unwrap();
 
     {
-        assert!(cortex_m::register::control::read().spsel().is_msp()); // CONTROL.SPSEL: SP_main
-        unsafe { cperi.SCB.set_priority(cortex_m::peripheral::scb::SystemHandler::PendSV, 255) } // PendSV: lowest priority
+        let control = cortex_m::register::control::read();
+        assert!(control.spsel().is_msp()); // CONTROL.SPSEL: SP_main
+
+        let mut cmperi = cortex_m::Peripherals::take().unwrap();
+        unsafe { cmperi.SCB.set_priority(cortex_m::peripheral::scb::SystemHandler::PendSV, 255) } // PendSV: lowest priority
     }
 
     {
@@ -152,7 +154,7 @@ fn led_slow() -> !
 {
     loop {
         unsafe {
-            LED_CNT = 64_000_000 / 8;
+            LED_CNT = 64_000_000 / 8; // 1/8 sec
         }
         
         req_task_switch();
@@ -163,7 +165,7 @@ fn led_fast() -> !
 {
     loop {
         unsafe {
-            LED_CNT = 64_000_000 / 16;
+            LED_CNT = 64_000_000 / 16; // 1/16 sec
         }
 
         req_task_switch();
