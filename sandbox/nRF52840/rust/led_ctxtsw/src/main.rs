@@ -120,10 +120,10 @@ fn main() -> ! {
 
         unsafe { NVIC::unmask(Interrupt::TIMER0) }
 
-        let cycles = 1_000_000;
-        timer0.cc[0].write(|w| unsafe { w.cc().bits(cycles) }); // 1 sec
+        let cycles = 1_000_000 * 2;
+        timer0.cc[0].write(|w| unsafe { w.cc().bits(cycles) }); // 2 sec
         timer0.tasks_clear.write(|w| w.tasks_clear().set_bit());
-        //timer0.tasks_start.write(|w| w.tasks_start().set_bit()); // TODO
+        timer0.tasks_start.write(|w| w.tasks_start().set_bit());
         //
         unsafe { O_TIMER0 = Some(timer0) }
     }
@@ -139,16 +139,12 @@ fn led_tgl() -> !
         unsafe {
             let p0 = O_P0.as_mut().unwrap();
 
-            for _ in 0 .. 4 {
-                p0.outclr.write(|w| w.pin7().set_bit());
-                asm::delay(LED_CNT);
+            p0.outclr.write(|w| w.pin7().set_bit());
+            asm::delay(LED_CNT);
 
-                p0.outset.write(|w| w.pin7().set_bit());
-                asm::delay(LED_CNT);
-            }
+            p0.outset.write(|w| w.pin7().set_bit());
+            asm::delay(LED_CNT);
         }
-        
-        req_task_switch();
     }
 }
 
@@ -158,7 +154,7 @@ fn led_slow() -> !
         unsafe {
             LED_CNT = 64_000_000 / 8;
         }
-
+        
         req_task_switch();
     }
 }
