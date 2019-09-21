@@ -2,7 +2,8 @@
 
 #![no_main]
 #![no_std]
-#![feature(asm)]
+//#![feature(asm)]
+#![feature(alloc_error_handler)]
 
 use cortex_m::asm;
 use cortex_m::peripheral::{NVIC, SCB};
@@ -14,6 +15,21 @@ use core::panic::PanicInfo;
 use nrf52840_pac::{
     P0, TIMER0,
     interrupt, Interrupt};
+
+extern crate alloc;
+use alloc::boxed::Box;
+use alloc_cortex_m::CortexMHeap;
+
+
+#[global_allocator]
+static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
+
+#[alloc_error_handler]
+pub fn alloc_error_handler(_layout: core::alloc::Layout) -> !
+{
+    panic!();
+}
+
 
 static mut O_P0: Option<P0> = None;
 static mut O_TIMER0: Option<TIMER0> = None;
@@ -70,6 +86,12 @@ fn panic(_info: &PanicInfo) -> ! {
 
 #[entry]
 fn main() -> ! {
+    {
+        let start = cortex_m_rt::heap_start() as usize;
+        let size = 1024; // in bytes
+        unsafe { ALLOCATOR.init(start, size) }
+    }
+
     {
         unsafe {
             O_TASKMGR = Some(
