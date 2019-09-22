@@ -54,6 +54,17 @@ fn task_start(a0: usize, a1: usize) -> !
     loop {}
 }
 
+struct RefFnOnce
+{
+    data: *const u8,
+    vtbl: *const usize
+}
+
+fn infloop() -> !
+{
+    loop {}
+}
+
 struct TaskMgr
 {
     sp0: *mut usize,
@@ -109,6 +120,72 @@ impl TaskMgr
 
         self
     }
+
+    fn setup_task_rfo(sp: usize, data: usize, call_once: usize)
+    {
+        let fn_infloop = infloop as *const fn() -> !;
+
+        let r0 = sp as usize + (8 + 0) * 4;
+        let r0 = r0 as *mut usize;
+        unsafe { *r0 = data as usize }
+
+        let lr = sp as usize + (8 + 5) * 4;
+        let lr = lr as *mut usize;
+        unsafe { *lr = fn_infloop as usize }
+
+        let ret_addr = sp as usize + (8 + 6) * 4;
+        let ret_addr = ret_addr as *mut usize;
+        unsafe { *ret_addr = call_once }
+
+        let xpsr = sp as usize + (8 + 7) * 4;
+        let xpsr = xpsr as *mut usize;
+        unsafe { *xpsr = 0x01000000 } // xPSR: set T-bit since Cortex-M has only Thumb instructions
+    }
+
+    fn register_rfo<T>(mut self, tid: usize, t: T) -> Self
+    where T: FnOnce() + Send + 'static
+    {
+        let sz = core::mem::size_of::<T>();
+        let rfo = unsafe { core::mem::transmute::<&dyn FnOnce(), RefFnOnce>(&t) };
+
+        let sp = if tid == 0 {
+            self.sp0
+        } else if tid == 1 {
+            self.sp1
+        } else if tid == 2 {
+            self.sp2
+        } else if tid == 3 {
+            self.sp3
+        } else {
+            panic!();
+        } as usize;
+
+        let sp = sp - sz;
+        let data = sp;
+        unsafe {
+            core::intrinsics::copy(rfo.data, data as *mut u8, sz)
+        }
+
+        let call_once_addr = ((rfo.vtbl as usize) + core::mem::size_of::<usize>() * 3) as *const usize;
+        let call_once = unsafe {*call_once_addr};
+
+        let sp = sp - 128;
+        TaskMgr::setup_task_rfo(sp, data, call_once);
+
+        if tid == 0 {
+            self.sp0 = sp as *mut usize;
+        } else if tid == 1 {
+            self.sp1 = sp as *mut usize;
+        } else if tid == 2 {
+            self.sp2 = sp as *mut usize;
+        } else if tid == 3 {
+            self.sp3 = sp as *mut usize;
+        } else {
+            panic!();
+        };
+
+        self
+    }
 }
 
 static mut O_TASKMGR: Option<TaskMgr> = None;
@@ -129,6 +206,7 @@ fn main() -> ! {
     }
 
     {
+        let v = 64_000_000 / 32;
         unsafe {
             O_TASKMGR = Some(
                 TaskMgr {
@@ -140,7 +218,8 @@ fn main() -> ! {
                     num_tasks: 4,
                 }
                 .register(0, move || led_tgl())
-                .register(1, move || led_cnt(64_000_000 / 16 /*1/16sec*/))
+                //.register(1, move || led_cnt(64_000_000 / 16 /*1/16sec*/))
+                .register_rfo(1, move || led_cnt(v))
                 .register(2, move || led_cnt(64_000_000 / 4 /*1/4sec*/))
             );
         }
