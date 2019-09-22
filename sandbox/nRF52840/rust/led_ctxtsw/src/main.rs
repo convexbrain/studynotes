@@ -39,37 +39,73 @@ static mut LED_CNT: u32 = 64_000_000 / 4; // 1/4 sec
 static mut STACK0: [usize; 1024] = [0; 1024];
 static mut STACK1: [usize; 1024] = [0; 1024];
 static mut STACK2: [usize; 1024] = [0; 1024];
+static mut STACK3: [usize; 1024] = [0; 1024];
+
+struct BoxedFnOnce(usize, usize);
+
+fn task_start(a0: usize, a1: usize) -> !
+{
+    let bfo = BoxedFnOnce(a0, a1);
+
+    let bf = unsafe { core::mem::transmute::<BoxedFnOnce, Box<dyn FnOnce()>>(bfo) };
+
+    bf();
+
+    loop {}
+}
 
 struct TaskMgr
 {
-    f0: *const fn() -> !,
-    f1: *const fn() -> !,
-    f2: *const fn() -> !,
     sp0: *mut usize,
     sp1: *mut usize,
     sp2: *mut usize,
+    sp3: *mut usize,
     tid: Option<usize>,
     num_tasks: usize,
 }
 
 impl TaskMgr
 {
-    fn setup_sub(sp: *mut usize, f: *const fn() -> !)
+    fn setup_task(sp: *mut usize, bfo: BoxedFnOnce)
     {
+        let fn_task_strart = task_start as *const fn(usize, usize) -> !;
+
+        let r0 = sp as usize + (8 + 0) * 4;
+        let r0 = r0 as *mut usize;
+        unsafe { *r0 = bfo.0 }
+
+        let r1 = sp as usize + (8 + 1) * 4;
+        let r1 = r1 as *mut usize;
+        unsafe { *r1 = bfo.1 }
+
         let ret_addr = sp as usize + (8 + 6) * 4;
         let ret_addr = ret_addr as *mut usize;
-        unsafe { *ret_addr = f as usize }
+        unsafe { *ret_addr = fn_task_strart as usize }
 
         let xpsr = sp as usize + (8 + 7) * 4;
         let xpsr = xpsr as *mut usize;
         unsafe { *xpsr = 0x01000000 } // xPSR: set T-bit since Cortex-M has only Thumb instructions
     }
 
-    fn setup(self) -> Self
+    fn register<T>(self, tid: usize, t: T) -> Self
+    where T: FnOnce() + Send + 'static
     {
-        TaskMgr::setup_sub(self.sp0, self.f0);
-        TaskMgr::setup_sub(self.sp1, self.f1);
-        TaskMgr::setup_sub(self.sp2, self.f2);
+        let bf: Box<dyn FnOnce()> = Box::new(t);
+        let bfo = unsafe { core::mem::transmute::<Box<dyn FnOnce()>, BoxedFnOnce>(bf) };
+
+        let sp = if tid == 0 {
+            self.sp0
+        } else if tid == 1 {
+            self.sp1
+        } else if tid == 2 {
+            self.sp2
+        } else if tid == 3 {
+            self.sp3
+        } else {
+            panic!();
+        };
+
+        TaskMgr::setup_task(sp, bfo);
 
         self
     }
@@ -96,15 +132,16 @@ fn main() -> ! {
         unsafe {
             O_TASKMGR = Some(
                 TaskMgr {
-                    f0: led_tgl as *const fn() -> !,
-                    f1: led_fast as *const fn() -> !,
-                    f2: led_slow as *const fn() -> !,
                     sp0: &mut STACK0[1024 - 128],
                     sp1: &mut STACK1[1024 - 128],
                     sp2: &mut STACK2[1024 - 128],
+                    sp3: &mut STACK3[1024 - 128],
                     tid: None,
                     num_tasks: 4,
-                }.setup()
+                }
+                .register(0, move || led_tgl())
+                .register(1, move || led_cnt(64_000_000 / 16 /*1/16sec*/))
+                .register(2, move || led_cnt(64_000_000 / 4 /*1/4sec*/))
             );
         }
     }
@@ -156,7 +193,7 @@ fn main() -> ! {
     loop {}
 }
 
-fn led_tgl() -> !
+fn led_tgl()
 {
     loop {
         unsafe {
@@ -171,25 +208,14 @@ fn led_tgl() -> !
     }
 }
 
-fn led_slow() -> !
+fn led_cnt(cnt: u32)
 {
     loop {
         unsafe {
-            LED_CNT = 64_000_000 / 4; // 1/4 sec
+            LED_CNT = cnt;
         }
         
-        req_task_switch();
-    }
-}
-
-fn led_fast() -> !
-{
-    loop {
-        unsafe {
-            LED_CNT = 64_000_000 / 16; // 1/16 sec
-        }
-
-        req_task_switch();
+        //req_task_switch();
     }
 }
 
