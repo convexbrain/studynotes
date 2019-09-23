@@ -174,9 +174,13 @@
 
 ### ToDo
 * Rust
-  * コンテキストスイッチ
-    * クロージャの調査
+  * マルチタスク
+    * メッセージキュー
+    * ラウンドロビン
+    * タスク状態
+    * 割り込み連携
+    * 優先度つきラウンドロビン
   * UART出力
   * panicメッセージをUARTから出す
-  * RTOS
   * FFIでSoftDevice BLE
+  * TCP/IP over BLE
