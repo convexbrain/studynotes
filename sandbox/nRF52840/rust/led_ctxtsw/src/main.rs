@@ -6,7 +6,7 @@
 #![feature(alloc_error_handler)]
 
 use cortex_m::asm;
-use cortex_m::peripheral::{NVIC, SCB};
+use cortex_m::peripheral::NVIC;
 
 use cortex_m_rt::entry;
 
@@ -16,10 +16,13 @@ use nrf52840_pac::{
     P0, TIMER0,
     interrupt, Interrupt};
 
-extern crate alloc;
-use alloc::boxed::Box;
-use alloc_cortex_m::CortexMHeap;
 
+#[macro_use] // TODO: use instead macro_use
+pub mod minimult;
+use minimult::{Minimult, MTStack};
+
+
+use alloc_cortex_m::CortexMHeap;
 
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
@@ -36,159 +39,6 @@ static mut O_TIMER0: Option<TIMER0> = None;
 
 static mut LED_CNT: u32 = 64_000_000 / 4; // 1/4 sec
 
-static mut STACK0: [usize; 1024] = [0; 1024];
-static mut STACK1: [usize; 1024] = [0; 1024];
-static mut STACK2: [usize; 1024] = [0; 1024];
-static mut STACK3: [usize; 1024] = [0; 1024];
-
-struct BoxedFnOnce(usize, usize);
-
-fn task_start(a0: usize, a1: usize) -> !
-{
-    let bfo = BoxedFnOnce(a0, a1);
-
-    let bf = unsafe { core::mem::transmute::<BoxedFnOnce, Box<dyn FnOnce()>>(bfo) };
-
-    bf();
-
-    loop {}
-}
-
-struct RefFnOnce
-{
-    data: *const u8,
-    vtbl: *const usize
-}
-
-fn infloop() -> !
-{
-    loop {}
-}
-
-struct TaskMgr
-{
-    sp0: *mut usize,
-    sp1: *mut usize,
-    sp2: *mut usize,
-    sp3: *mut usize,
-    tid: Option<usize>,
-    num_tasks: usize,
-}
-
-impl TaskMgr
-{
-    fn setup_task(sp: *mut usize, bfo: BoxedFnOnce)
-    {
-        let fn_task_strart = task_start as *const fn(usize, usize) -> !;
-
-        let r0 = sp as usize + (8 + 0) * 4;
-        let r0 = r0 as *mut usize;
-        unsafe { *r0 = bfo.0 }
-
-        let r1 = sp as usize + (8 + 1) * 4;
-        let r1 = r1 as *mut usize;
-        unsafe { *r1 = bfo.1 }
-
-        let ret_addr = sp as usize + (8 + 6) * 4;
-        let ret_addr = ret_addr as *mut usize;
-        unsafe { *ret_addr = fn_task_strart as usize }
-
-        let xpsr = sp as usize + (8 + 7) * 4;
-        let xpsr = xpsr as *mut usize;
-        unsafe { *xpsr = 0x01000000 } // xPSR: set T-bit since Cortex-M has only Thumb instructions
-    }
-
-    fn register<T>(self, tid: usize, t: T) -> Self
-    where T: FnOnce() + Send + 'static
-    {
-        let bf: Box<dyn FnOnce()> = Box::new(t);
-        let bfo = unsafe { core::mem::transmute::<Box<dyn FnOnce()>, BoxedFnOnce>(bf) };
-
-        let sp = if tid == 0 {
-            self.sp0
-        } else if tid == 1 {
-            self.sp1
-        } else if tid == 2 {
-            self.sp2
-        } else if tid == 3 {
-            self.sp3
-        } else {
-            panic!();
-        };
-
-        TaskMgr::setup_task(sp, bfo);
-
-        self
-    }
-
-    fn setup_task_rfo(sp: usize, data: usize, call_once: usize)
-    {
-        let fn_infloop = infloop as *const fn() -> !;
-
-        let r0 = sp as usize + (8 + 0) * 4;
-        let r0 = r0 as *mut usize;
-        unsafe { *r0 = data as usize }
-
-        let lr = sp as usize + (8 + 5) * 4;
-        let lr = lr as *mut usize;
-        unsafe { *lr = fn_infloop as usize }
-
-        let ret_addr = sp as usize + (8 + 6) * 4;
-        let ret_addr = ret_addr as *mut usize;
-        unsafe { *ret_addr = call_once }
-
-        let xpsr = sp as usize + (8 + 7) * 4;
-        let xpsr = xpsr as *mut usize;
-        unsafe { *xpsr = 0x01000000 } // xPSR: set T-bit since Cortex-M has only Thumb instructions
-    }
-
-    fn register_rfo<T>(mut self, tid: usize, t: T) -> Self
-    where T: FnOnce() + Send + 'static
-    {
-        let sz = core::mem::size_of::<T>();
-        let rfo = unsafe { core::mem::transmute::<&dyn FnOnce(), RefFnOnce>(&t) };
-
-        let sp = if tid == 0 {
-            self.sp0
-        } else if tid == 1 {
-            self.sp1
-        } else if tid == 2 {
-            self.sp2
-        } else if tid == 3 {
-            self.sp3
-        } else {
-            panic!();
-        } as usize;
-
-        let sp = sp - sz;
-        let data = sp;
-        unsafe {
-            core::intrinsics::copy(rfo.data, data as *mut u8, sz)
-        }
-
-        let call_once_addr = ((rfo.vtbl as usize) + core::mem::size_of::<usize>() * 3) as *const usize;
-        let call_once = unsafe {*call_once_addr};
-
-        let sp = sp - 128;
-        TaskMgr::setup_task_rfo(sp, data, call_once);
-
-        if tid == 0 {
-            self.sp0 = sp as *mut usize;
-        } else if tid == 1 {
-            self.sp1 = sp as *mut usize;
-        } else if tid == 2 {
-            self.sp2 = sp as *mut usize;
-        } else if tid == 3 {
-            self.sp3 = sp as *mut usize;
-        } else {
-            panic!();
-        };
-
-        self
-    }
-}
-
-static mut O_TASKMGR: Option<TaskMgr> = None;
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
@@ -205,35 +55,25 @@ fn main() -> ! {
         unsafe { ALLOCATOR.init(start, size) }
     }
 
-    {
-        let v = 64_000_000 / 32;
-        unsafe {
-            O_TASKMGR = Some(
-                TaskMgr {
-                    sp0: &mut STACK0[1024 - 128],
-                    sp1: &mut STACK1[1024 - 128],
-                    sp2: &mut STACK2[1024 - 128],
-                    sp3: &mut STACK3[1024 - 128],
-                    tid: None,
-                    num_tasks: 4,
-                }
-                .register(0, move || led_tgl())
-                //.register(1, move || led_cnt(64_000_000 / 16 /*1/16sec*/))
-                .register_rfo(1, move || led_cnt(v))
-                .register(2, move || led_cnt(64_000_000 / 4 /*1/4sec*/))
-            );
-        }
-    }
+    //
+
+    let mut cmperi = cortex_m::Peripherals::take().unwrap();
+
+    let mut stack0 = minimult_stack!(1024);
+    let mut stack1 = minimult_stack!(1024);
+    let mut stack2 = minimult_stack!(1024);
+
+    let v1 = 64_000_000 / 16 /*1/16sec*/;
+    let v2 = 64_000_000 / 4 /*1/4sec*/;
+
+    let mt = Minimult::create(&mut cmperi)
+        .register(0, &mut stack0, move || led_tgl())
+        .register(1, &mut stack1, move || led_cnt(v1))
+        .register(2, &mut stack2, move || led_cnt(v2));
+
+    //
 
     let peri = nrf52840_pac::Peripherals::take().unwrap();
-
-    {
-        let control = cortex_m::register::control::read();
-        assert!(control.spsel().is_msp()); // CONTROL.SPSEL: SP_main
-
-        let mut cmperi = cortex_m::Peripherals::take().unwrap();
-        unsafe { cmperi.SCB.set_priority(cortex_m::peripheral::scb::SystemHandler::PendSV, 255) } // PendSV: lowest priority
-    }
 
     {
         let p0 = peri.P0;
@@ -267,9 +107,9 @@ fn main() -> ! {
         unsafe { O_TIMER0 = Some(timer0) }
     }
 
-    req_task_switch();
+    //
 
-    loop {}
+    mt.start()
 }
 
 fn led_tgl()
@@ -294,13 +134,8 @@ fn led_cnt(cnt: u32)
             LED_CNT = cnt;
         }
         
-        //req_task_switch();
+        //MinMT::req_task_switch();
     }
-}
-
-fn req_task_switch()
-{
-    SCB::set_pendsv();
 }
 
 #[interrupt]
@@ -312,61 +147,5 @@ fn TIMER0()
         timer0.events_compare[0].write(|w| {w.events_compare().bit(false)});
     }
 
-    req_task_switch();
-}
-
-#[no_mangle]
-pub extern fn task_switch(curr_sp: *mut usize) -> *mut usize
-{
-    SCB::clear_pendsv();
-
-    let next_sp;
-
-    unsafe {
-        let mut t = O_TASKMGR.as_mut().unwrap();
-
-        let next_tid;
-
-        if let Some(curr_tid) = t.tid {
-            if curr_tid == 0 {
-                t.sp0 = curr_sp;
-            }
-            else if curr_tid == 1 {
-                t.sp1 = curr_sp;
-            }
-            else if curr_tid == 2 {
-                t.sp0 = curr_sp;
-            }
-            else if curr_tid == 3 {
-                t.sp2 = curr_sp;
-            }
-            else {
-                panic!();
-            }
-
-            next_tid = if curr_tid + 1 < t.num_tasks {curr_tid + 1} else {0};
-        }
-        else {
-            next_tid = 0;
-        };
-
-        t.tid = Some(next_tid);
-        if next_tid == 0 {
-            next_sp = t.sp0;
-        }
-        else if next_tid == 1 {
-            next_sp = t.sp1;
-        }
-        else if next_tid == 2 {
-            next_sp = t.sp0;
-        }
-        else if next_tid == 3 {
-            next_sp = t.sp2;
-        }
-        else {
-            panic!();
-        }
-    }
-
-    next_sp
+    Minimult::req_task_switch();
 }
