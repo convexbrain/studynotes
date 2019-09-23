@@ -249,6 +249,7 @@ macro_rules! minimult_stack {
 
 pub struct Minimult<'a>
 {
+    tm: TaskMgr,
     phantom: core::marker::PhantomData<&'a ()>
 }
 
@@ -256,22 +257,14 @@ impl<'a> Minimult<'a>
 {
     pub fn create(cmperi: &mut cortex_m::Peripherals) -> Self
     {
-        unsafe {
-            if O_TASKMGR.is_some() {
-                panic!(); // TODO: some message
-            }
-
-            O_TASKMGR = Some(
-                TaskMgr {
-                    sp0: 0,
-                    sp1: 0,
-                    sp2: 0,
-                    sp3: 0,
-                    tid: None,
-                    num_tasks: 4,
-                }
-            );
-        }
+        let tm = TaskMgr {
+            sp0: 0,
+            sp1: 0,
+            sp2: 0,
+            sp3: 0,
+            tid: None,
+            num_tasks: 4,
+        };
 
         let control = cortex_m::register::control::read();
         assert!(control.spsel().is_msp()); // CONTROL.SPSEL: SP_main
@@ -281,33 +274,34 @@ impl<'a> Minimult<'a>
         }
 
         Minimult {
+            tm,
             phantom: core::marker::PhantomData
         }
     }
 
-    pub fn register_box<T, S>(self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
+    pub fn register_box<T, S>(mut self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
     where T: FnOnce() + Send + 'static
     {
-        let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
         let sp = stack.head() + stack.size();
-        tm.register_box(tid, sp, t);
+        self.tm.register_box(tid, sp, t);
 
         self
     }
 
-    pub fn register<T, S>(self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
+    pub fn register<T, S>(mut self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
     where T: FnOnce() + Send + 'static
     {
-        let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
         let sp = stack.head() + stack.size();
-        tm.register(tid, sp, t);
+        self.tm.register(tid, sp, t);
 
         self
     }
 
     pub fn start(self) -> !
     {
-        // TODO: taskmgr state
+        unsafe {
+            O_TASKMGR = Some(self.tm);
+        }
         
         Minimult::req_task_switch();
 
@@ -316,7 +310,11 @@ impl<'a> Minimult<'a>
 
     pub fn req_task_switch()
     {
-        // TODO: taskmgr state
+        unsafe {
+            if O_TASKMGR.is_none() {
+                return;
+            }
+        }
 
         SCB::set_pendsv();
     }
