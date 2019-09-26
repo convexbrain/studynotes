@@ -57,8 +57,6 @@ fn main() -> ! {
 
     //
 
-    let mut cmperi = cortex_m::Peripherals::take().unwrap();
-
     let mut stack0 = minimult_stack!(1024);
     let mut stack1 = minimult_stack!(1024);
     let mut stack2 = minimult_stack!(1024);
@@ -66,7 +64,7 @@ fn main() -> ! {
     let v1 = 64_000_000 / 16 /*1/16sec*/;
     let v2 = 64_000_000 / 4 /*1/4sec*/;
 
-    let mt = Minimult::create(&mut cmperi)
+    let mt = Minimult::create()
         .register(0, &mut stack0, move || led_tgl())
         .register(1, &mut stack1, move || led_cnt(v1))
         .register(2, &mut stack2, move || led_cnt(v2));
@@ -74,6 +72,7 @@ fn main() -> ! {
     //
 
     let peri = nrf52840_pac::Peripherals::take().unwrap();
+    //let mut cmperi = cortex_m::Peripherals::take().unwrap();
 
     {
         let p0 = peri.P0;

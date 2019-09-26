@@ -255,7 +255,7 @@ pub struct Minimult<'a>
 
 impl<'a> Minimult<'a>
 {
-    pub fn create(cmperi: &mut cortex_m::Peripherals) -> Self
+    pub fn create() -> Self
     {
         let tm = TaskMgr {
             sp0: 0,
@@ -265,13 +265,6 @@ impl<'a> Minimult<'a>
             tid: None,
             num_tasks: 4,
         };
-
-        let control = cortex_m::register::control::read();
-        assert!(control.spsel().is_msp()); // CONTROL.SPSEL: SP_main
-
-        unsafe {
-            cmperi.SCB.set_priority(cortex_m::peripheral::scb::SystemHandler::PendSV, 255) // PendSV: lowest priority
-        }
 
         Minimult {
             tm,
@@ -299,6 +292,14 @@ impl<'a> Minimult<'a>
 
     pub fn start(self) -> !
     {
+        let control = cortex_m::register::control::read();
+        assert!(control.spsel().is_msp()); // CONTROL.SPSEL: SP_main
+
+        let scb_ptr = SCB::ptr();
+        unsafe {
+            (*scb_ptr).aircr.write(0x05fa0700); // PRIGROUP: 7 - no exception preempts each other
+        }
+
         unsafe {
             O_TASKMGR = Some(self.tm);
         }
