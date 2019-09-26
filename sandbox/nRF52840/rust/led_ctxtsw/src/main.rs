@@ -17,7 +17,6 @@ use nrf52840_pac::{
     interrupt, Interrupt};
 
 
-#[macro_use] // TODO: use instead macro_use
 pub mod minimult;
 use minimult::{Minimult, MTStack};
 
@@ -57,16 +56,16 @@ fn main() -> ! {
 
     //
 
-    let mut stack0 = minimult_stack!(1024);
-    let mut stack1 = minimult_stack!(1024);
-    let mut stack2 = minimult_stack!(1024);
+    let mut stack0 = MTStack::<[usize; 1024]>::new();
+    let mut stack1 = MTStack::<[usize; 1024]>::new();
+    let mut stack2 = MTStack::<[usize; 1024]>::new();
 
     let v1 = 64_000_000 / 16 /*1/16sec*/;
     let v2 = 64_000_000 / 4 /*1/4sec*/;
 
     let mt = Minimult::create()
-        .register(0, &mut stack0, move || led_tgl())
-        .register(1, &mut stack1, move || led_cnt(v1))
+        .register_box(0, &mut stack0, move || led_tgl())
+        .register_once(1, &mut stack1, move || led_cnt(v1))
         .register(2, &mut stack2, move || led_cnt(v2));
 
     //
@@ -133,7 +132,7 @@ fn led_cnt(cnt: u32)
             LED_CNT = cnt;
         }
         
-        //MinMT::req_task_switch();
+        //MinMT::schedule();
     }
 }
 

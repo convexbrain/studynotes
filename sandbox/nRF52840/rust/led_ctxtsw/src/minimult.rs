@@ -31,10 +31,19 @@ fn infloop() -> !
     loop {}
 }
 
-fn align(x: usize) -> usize
+fn align_up(x: usize) -> usize
 {
-    let y = (x + core::mem::size_of::<usize>() - 1) / core::mem::size_of::<usize>();
-    let y = y * core::mem::size_of::<usize>();
+    let size = core::mem::size_of::<usize>();
+    let y = (x + size - 1) / size;
+    let y = y * size;
+    y
+}
+
+fn align_down(x: usize) -> usize
+{
+    let size = core::mem::size_of::<usize>();
+    let y = x / size;
+    let y = y * size;
     y
 }
 
@@ -100,7 +109,7 @@ impl TaskMgr
         let bf: Box<dyn FnOnce()> = Box::new(t);
         let bfo = unsafe { core::mem::transmute::<Box<dyn FnOnce()>, BoxedFnOnce>(bf) };
 
-        let sp = sp - align(128); // TODO: magic number
+        let sp = align_down(sp) - align_up(128); // TODO: magic number
         TaskMgr::setup_task_box(sp, bfo);
 
         if tid == 0 {
@@ -143,7 +152,7 @@ impl TaskMgr
         let sz = core::mem::size_of::<T>();
         let rfo = unsafe { core::mem::transmute::<&dyn FnOnce(), RefFnOnce>(&t) };
 
-        let sp = sp - align(sz);
+        let sp = align_down(sp) - align_up(sz);
         let data = sp;
         unsafe {
             core::intrinsics::copy(rfo.data as *const u8, data as *mut u8, sz)
@@ -152,7 +161,7 @@ impl TaskMgr
         let call_once_addr = (rfo.vtbl + core::mem::size_of::<usize>() * 3) as *const usize; // TODO: magic number
         let call_once = unsafe {*call_once_addr};
 
-        let sp = sp - align(128); // TODO: magic number
+        let sp = sp - align_up(128); // TODO: magic number
         TaskMgr::setup_task_once(sp, data, call_once);
 
         if tid == 0 {
@@ -195,13 +204,13 @@ impl TaskMgr
         let sz = core::mem::size_of::<T>();
         let rfo = unsafe { core::mem::transmute::<&mut dyn FnMut(), RefFnMut>(&mut t) };
 
-        let sp = sp - align(sz);
+        let sp = align_down(sp) - align_up(sz);
         let data = sp;
         unsafe {
             core::intrinsics::copy(rfo.data as *const u8, data as *mut u8, sz)
         }
 
-        let sp = sp - align(128); // TODO: magic number
+        let sp = sp - align_up(128); // TODO: magic number
         TaskMgr::setup_task_mut(sp, data, rfo.vtbl);
 
         if tid == 0 {
@@ -305,13 +314,6 @@ impl<S> MTStack<S>
         let ptr = ptr as usize;
         ptr
     }
-}
-
-#[macro_export]
-macro_rules! minimult_stack {
-    ($size:expr) => {
-        MTStack::<[usize; ($size + core::mem::size_of::<usize>() - 1) / core::mem::size_of::<usize>()]>::new()
-    };
 }
 
 
