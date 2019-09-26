@@ -7,7 +7,7 @@ use alloc::boxed::Box;
 
 struct BoxedFnOnce(usize, usize);
 
-fn task_start(a0: usize, a1: usize) -> !
+fn task_start_box(a0: usize, a1: usize) -> !
 {
     let bfo = BoxedFnOnce(a0, a1);
 
@@ -28,8 +28,6 @@ struct RefFnOnce
 
 fn infloop() -> !
 {
-    // TODO: task state
-
     loop {}
 }
 
@@ -38,6 +36,27 @@ fn align(x: usize) -> usize
     let y = (x + core::mem::size_of::<usize>() - 1) / core::mem::size_of::<usize>();
     let y = y * core::mem::size_of::<usize>();
     y
+}
+
+struct RefFnMut
+{
+    data: usize,
+    vtbl: usize
+}
+
+fn task_start_mut(data: usize, vtbl: usize) -> !
+{
+    let rfo = RefFnMut {
+        data,
+        vtbl
+    };
+
+    let rf = unsafe { core::mem::transmute::<RefFnMut, &mut dyn FnMut()>(rfo) };
+
+    loop {
+        // TODO: task state
+        rf();
+    }
 }
 
 //
@@ -67,8 +86,8 @@ impl TaskMgr
 
         let ret_addr = sp + (8 + 6) * 4;
         let ret_addr = ret_addr as *mut usize;
-        let fn_task_strart = task_start as *const fn(usize, usize) -> !;
-        unsafe { *ret_addr = fn_task_strart as usize }
+        let fn_task_start = task_start_box as *const fn(usize, usize) -> !;
+        unsafe { *ret_addr = fn_task_start as usize }
 
         let xpsr = sp + (8 + 7) * 4;
         let xpsr = xpsr as *mut usize;
@@ -97,7 +116,7 @@ impl TaskMgr
         }
     }
 
-    fn setup_task(sp: usize, data: usize, call_once: usize)
+    fn setup_task_once(sp: usize, data: usize, call_once: usize)
     {
         // TODO: magic number
         let r0 = sp + (8 + 0) * 4;
@@ -118,7 +137,7 @@ impl TaskMgr
         unsafe { *xpsr = 0x01000000 } // xPSR: set T-bit since Cortex-M has only Thumb instructions
     }
 
-    fn register<T>(&mut self, tid: usize, sp: usize, t: T)
+    fn register_once<T>(&mut self, tid: usize, sp: usize, t: T)
     where T: FnOnce() + Send + 'static
     {
         let sz = core::mem::size_of::<T>();
@@ -134,7 +153,56 @@ impl TaskMgr
         let call_once = unsafe {*call_once_addr};
 
         let sp = sp - align(128); // TODO: magic number
-        TaskMgr::setup_task(sp, data, call_once);
+        TaskMgr::setup_task_once(sp, data, call_once);
+
+        if tid == 0 {
+            self.sp0 = sp;
+        } else if tid == 1 {
+            self.sp1 = sp;
+        } else if tid == 2 {
+            self.sp2 = sp;
+        } else if tid == 3 {
+            self.sp3 = sp;
+        } else {
+            panic!();
+        }
+    }
+
+    fn setup_task_mut(sp: usize, data: usize, vtbl: usize)
+    {
+        // TODO: magic number
+        let r0 = sp + (8 + 0) * 4;
+        let r0 = r0 as *mut usize;
+        unsafe { *r0 = data as usize }
+
+        let r1 = sp + (8 + 1) * 4;
+        let r1 = r1 as *mut usize;
+        unsafe { *r1 = vtbl as usize }
+
+        let ret_addr = sp + (8 + 6) * 4;
+        let ret_addr = ret_addr as *mut usize;
+        let fn_task_start = task_start_mut as *const fn(usize, usize) -> !;
+        unsafe { *ret_addr = fn_task_start as usize }
+
+        let xpsr = sp + (8 + 7) * 4;
+        let xpsr = xpsr as *mut usize;
+        unsafe { *xpsr = 0x01000000 } // xPSR: set T-bit since Cortex-M has only Thumb instructions
+    }
+
+    fn register_mut<T>(&mut self, tid: usize, sp: usize, mut t: T)
+    where T: FnMut() + Send + 'static
+    {
+        let sz = core::mem::size_of::<T>();
+        let rfo = unsafe { core::mem::transmute::<&mut dyn FnMut(), RefFnMut>(&mut t) };
+
+        let sp = sp - align(sz);
+        let data = sp;
+        unsafe {
+            core::intrinsics::copy(rfo.data as *const u8, data as *mut u8, sz)
+        }
+
+        let sp = sp - align(128); // TODO: magic number
+        TaskMgr::setup_task_mut(sp, data, rfo.vtbl);
 
         if tid == 0 {
             self.sp0 = sp;
@@ -281,16 +349,25 @@ impl<'a> Minimult<'a>
         self
     }
 
-    pub fn register<T, S>(mut self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
+    pub fn register_once<T, S>(mut self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
     where T: FnOnce() + Send + 'static
     {
         let sp = stack.head() + stack.size();
-        self.tm.register(tid, sp, t);
+        self.tm.register_once(tid, sp, t);
 
         self
     }
 
-    pub fn start(self) -> !
+    pub fn register<T, S>(mut self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
+    where T: FnMut() + Send + 'static
+    {
+        let sp = stack.head() + stack.size();
+        self.tm.register_mut(tid, sp, t);
+
+        self
+    }
+
+    pub fn loops(self) -> !
     {
         let control = cortex_m::register::control::read();
         assert!(control.spsel().is_msp()); // CONTROL.SPSEL: SP_main
@@ -304,12 +381,12 @@ impl<'a> Minimult<'a>
             O_TASKMGR = Some(self.tm);
         }
         
-        Minimult::req_task_switch();
+        Minimult::schedule();
 
         loop {}
     }
 
-    pub fn req_task_switch()
+    pub fn schedule()
     {
         unsafe {
             if O_TASKMGR.is_none() {

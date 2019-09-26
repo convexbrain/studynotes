@@ -108,7 +108,7 @@ fn main() -> ! {
 
     //
 
-    mt.start()
+    mt.loops()
 }
 
 fn led_tgl()
@@ -146,5 +146,5 @@ fn TIMER0()
         timer0.events_compare[0].write(|w| {w.events_compare().bit(false)});
     }
 
-    Minimult::req_task_switch();
+    Minimult::schedule();
 }
