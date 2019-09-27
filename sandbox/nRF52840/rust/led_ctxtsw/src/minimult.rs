@@ -49,6 +49,13 @@ fn align_down(x: usize) -> usize
     y
 }
 
+fn ex_countup(exc: &mut usize) // TODO: use asm LDREX,STREX,CLREX
+{
+    *exc = exc.wrapping_add(1);
+}
+
+//
+
 struct RefFnMut
 {
     data: usize,
@@ -65,25 +72,42 @@ fn task_start_mut(data: usize, vtbl: usize) -> !
     let rf = unsafe { core::mem::transmute::<RefFnMut, &mut dyn FnMut()>(rfo) };
 
     loop {
-        // TODO: task state
         rf();
+
+        let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
+        tm.idle();
+        
+        Minimult::schedule();
     }
 }
 
 //
 
-struct TaskMgr
+const NUM_TASKS: usize = 4;
+
+#[derive(Clone, Copy)]
+enum MTState
 {
-    sp0: usize,
-    sp1: usize,
-    sp2: usize,
-    sp3: usize,
-    tid: Option<usize>,
-    num_tasks: usize,
+    None,
+    Idle,
+    Ready
 }
 
-impl TaskMgr
+struct MTTaskMgr
 {
+    // TODO: better data structure
+    sp_loops: usize,
+    sp: [usize; NUM_TASKS],
+    trigger_exc: [usize; NUM_TASKS],
+    start_cnt: [usize; NUM_TASKS],
+    state: [MTState; NUM_TASKS],
+    tid: Option<usize>
+}
+
+impl MTTaskMgr
+{
+    // Main context
+
     /* TODO: delete soon
 
     fn setup_task_box(sp: usize, bfo: BoxedFnOnce)
@@ -217,95 +241,83 @@ impl TaskMgr
         }
 
         let sp = sp - align_up(128); // TODO: magic number
-        TaskMgr::setup_task_mut(sp, data, rfo.vtbl);
+        MTTaskMgr::setup_task_mut(sp, data, rfo.vtbl);
 
-        if tid == 0 {
-            self.sp0 = sp;
-        } else if tid == 1 {
-            self.sp1 = sp;
-        } else if tid == 2 {
-            self.sp2 = sp;
-        } else if tid == 3 {
-            self.sp3 = sp;
-        } else {
-            panic!();
+        self.sp[tid] = sp;
+        self.state[tid] = MTState::Idle;
+    }
+
+    // Task context
+
+    fn idle(&mut self)
+    {
+        self.state[self.tid.unwrap()] = MTState::Idle;
+    }
+
+    // Interrupt context
+
+    fn task_switch(&mut self, curr_sp: usize) -> usize
+    {
+        SCB::clear_pendsv();
+
+        for i in 0.. NUM_TASKS {
+            if let MTState::Idle = self.state[i] {
+                if self.trigger_exc[i] > self.start_cnt[i] {
+                    self.start_cnt[i] = self.start_cnt[i].wrapping_add(1);
+                    self.state[i] = MTState::Ready;
+                }
+            }
         }
+
+        if let Some(curr_tid) = self.tid {
+            self.sp[curr_tid] = curr_sp;
+        }
+        else {
+            self.sp_loops = curr_sp;
+        }
+
+        let mut next_tid = None;
+        let mut next_sp = self.sp_loops;
+        for i in 0.. NUM_TASKS { // TODO: task priority
+            if let MTState::Ready = self.state[i] {
+                next_tid = Some(i);
+                next_sp = self.sp[i];
+            }
+        }
+
+        self.tid = next_tid;
+
+        next_sp
+    }
+
+    // Task and Interrupt context
+
+    fn trigger(&mut self, tid: usize)
+    {
+        ex_countup(&mut self.trigger_exc[tid]);
     }
 }
 
 //
 
-static mut O_TASKMGR: Option<TaskMgr> = None;
+static mut O_TASKMGR: Option<MTTaskMgr> = None;
 
 #[no_mangle]
 pub extern fn task_switch(curr_sp: usize) -> usize
 {
-    SCB::clear_pendsv();
-
-    let next_sp;
-
-    unsafe {
-        let mut t = O_TASKMGR.as_mut().unwrap();
-
-        let next_tid;
-
-        if let Some(curr_tid) = t.tid {
-            if curr_tid == 0 {
-                t.sp0 = curr_sp;
-            }
-            else if curr_tid == 1 {
-                t.sp1 = curr_sp;
-            }
-            else if curr_tid == 2 {
-                t.sp0 = curr_sp;
-            }
-            else if curr_tid == 3 {
-                t.sp2 = curr_sp;
-            }
-            else {
-                panic!();
-            }
-
-            next_tid = if curr_tid + 1 < t.num_tasks {curr_tid + 1} else {0};
-        }
-        else {
-            next_tid = 0;
-        };
-
-        t.tid = Some(next_tid);
-        if next_tid == 0 {
-            next_sp = t.sp0;
-        }
-        else if next_tid == 1 {
-            next_sp = t.sp1;
-        }
-        else if next_tid == 2 {
-            next_sp = t.sp0;
-        }
-        else if next_tid == 3 {
-            next_sp = t.sp2;
-        }
-        else {
-            panic!();
-        }
-    }
-
-    next_sp
+    let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
+    tm.task_switch(curr_sp)
 }
 
+//
 
-pub struct MTStack<S>
-{
-    mem: S
-}
+pub struct MTStack<S>(S);
 
 impl<S> MTStack<S>
 {
     pub fn new() -> MTStack<S>
     {
-        MTStack {
-            mem: unsafe { core::mem::MaybeUninit::<S>::uninit().assume_init() }
-        }
+        MTStack(unsafe { core::mem::MaybeUninit::<S>::uninit().assume_init() })
     }
 
     fn size(&self) -> usize
@@ -315,7 +327,7 @@ impl<S> MTStack<S>
 
     fn head(&self) -> usize
     {
-        let ptr = &self.mem;
+        let ptr = &self.0;
         let ptr = ptr as *const S;
         let ptr = ptr as usize;
         ptr
@@ -325,7 +337,7 @@ impl<S> MTStack<S>
 
 pub struct Minimult<'a>
 {
-    tm: TaskMgr,
+    tm: MTTaskMgr,
     phantom: core::marker::PhantomData<&'a ()>
 }
 
@@ -333,13 +345,13 @@ impl<'a> Minimult<'a>
 {
     pub fn create() -> Self
     {
-        let tm = TaskMgr {
-            sp0: 0,
-            sp1: 0,
-            sp2: 0,
-            sp3: 0,
-            tid: None,
-            num_tasks: 4,
+        let tm = MTTaskMgr {
+            sp_loops: 0,
+            sp: [0; NUM_TASKS],
+            trigger_exc: [0; NUM_TASKS],
+            start_cnt: [0; NUM_TASKS],
+            state: [MTState::None; NUM_TASKS],
+            tid: None
         };
 
         Minimult {
@@ -370,13 +382,26 @@ impl<'a> Minimult<'a>
 
     */
 
-    pub fn register<T, S>(mut self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
+    fn register_mut<T, S>(mut self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
     where T: FnMut() + Send + 'static
     {
         let sp = stack.head() + stack.size();
         self.tm.register_mut(tid, sp, t);
 
         self
+    }
+
+    pub fn register<T, S>(self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
+    where T: FnMut() + Send + 'static
+    {
+        self.register_mut(tid, stack, t)
+    }
+
+    pub fn register_ready<T, S>(mut self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
+    where T: FnMut() + Send + 'static
+    {
+        self.tm.trigger(tid);
+        self.register_mut(tid, stack, t)
     }
 
     pub fn loops(self) -> !
@@ -395,7 +420,9 @@ impl<'a> Minimult<'a>
         
         Minimult::schedule();
 
-        loop {}
+        loop {
+            // TODO: sleep to wait interrupt
+        }
     }
 
     pub fn schedule()
@@ -407,5 +434,18 @@ impl<'a> Minimult<'a>
         }
 
         SCB::set_pendsv();
+    }
+
+    pub fn trigger(tid: usize)
+    {
+        unsafe {
+            if O_TASKMGR.is_none() {
+                return;
+            }
+
+            O_TASKMGR.as_mut().unwrap().trigger(tid);
+        }
+
+        Minimult::schedule();
     }
 }

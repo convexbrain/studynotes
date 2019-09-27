@@ -64,9 +64,9 @@ fn main() -> ! {
     let v2 = 64_000_000 / 4 /*1/4sec*/;
 
     let mt = Minimult::create()
-        .register(0, &mut stack0, move || led_tgl())
-        .register(1, &mut stack1, move || led_cnt(v1))
-        .register(2, &mut stack2, move || led_cnt(v2));
+        .register(0, &mut stack0, move || led_cnt(v1))
+        .register(1, &mut stack1, move || led_cnt(v2))
+        .register_ready(2, &mut stack2, move || led_tgl());
 
     //
 
@@ -127,14 +127,12 @@ fn led_tgl()
 
 fn led_cnt(cnt: u32)
 {
-    loop {
-        unsafe {
-            LED_CNT = cnt;
-        }
-        
-        //MinMT::schedule();
+    unsafe {
+        LED_CNT = cnt;
     }
 }
+
+static mut FLAG: bool = false;
 
 #[interrupt]
 fn TIMER0()
@@ -145,5 +143,14 @@ fn TIMER0()
         timer0.events_compare[0].write(|w| {w.events_compare().bit(false)});
     }
 
-    Minimult::schedule();
+    unsafe {
+        if FLAG {
+            FLAG = false;
+            Minimult::trigger(0);
+        }
+        else {
+            FLAG = true;
+            Minimult::trigger(1);
+        }
+    }
 }
