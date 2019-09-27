@@ -64,8 +64,8 @@ fn main() -> ! {
     let v2 = 64_000_000 / 4 /*1/4sec*/;
 
     let mt = Minimult::create()
-        .register_box(0, &mut stack0, move || led_tgl())
-        .register_once(1, &mut stack1, move || led_cnt(v1))
+        .register(0, &mut stack0, move || led_tgl())
+        .register(1, &mut stack1, move || led_cnt(v1))
         .register(2, &mut stack2, move || led_cnt(v2));
 
     //

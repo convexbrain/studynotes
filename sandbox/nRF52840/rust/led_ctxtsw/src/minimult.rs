@@ -1,6 +1,6 @@
 use cortex_m::peripheral::SCB;
 
-//
+/* TODO: delete soon
 
 extern crate alloc;
 use alloc::boxed::Box;
@@ -30,6 +30,8 @@ fn infloop() -> !
 {
     loop {}
 }
+
+*/
 
 fn align_up(x: usize) -> usize
 {
@@ -82,6 +84,8 @@ struct TaskMgr
 
 impl TaskMgr
 {
+    /* TODO: delete soon
+
     fn setup_task_box(sp: usize, bfo: BoxedFnOnce)
     {
         // TODO: magic number
@@ -176,6 +180,8 @@ impl TaskMgr
             panic!();
         }
     }
+
+    */
 
     fn setup_task_mut(sp: usize, data: usize, vtbl: usize)
     {
@@ -342,6 +348,8 @@ impl<'a> Minimult<'a>
         }
     }
 
+    /* TODO: delete soon
+
     pub fn register_box<T, S>(mut self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
     where T: FnOnce() + Send + 'static
     {
@@ -359,6 +367,8 @@ impl<'a> Minimult<'a>
 
         self
     }
+
+    */
 
     pub fn register<T, S>(mut self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
     where T: FnMut() + Send + 'static
