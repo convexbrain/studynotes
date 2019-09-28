@@ -1,37 +1,5 @@
 use cortex_m::peripheral::SCB;
 
-/* TODO: delete soon
-
-extern crate alloc;
-use alloc::boxed::Box;
-
-struct BoxedFnOnce(usize, usize);
-
-fn task_start_box(a0: usize, a1: usize) -> !
-{
-    let bfo = BoxedFnOnce(a0, a1);
-
-    let bf = unsafe { core::mem::transmute::<BoxedFnOnce, Box<dyn FnOnce()>>(bfo) };
-
-    bf();
-
-    infloop()
-}
-
-//
-
-struct RefFnOnce
-{
-    data: usize,
-    vtbl: usize
-}
-
-fn infloop() -> !
-{
-    loop {}
-}
-
-*/
 
 fn align_up(x: usize) -> usize
 {
@@ -51,6 +19,24 @@ fn align_down(x: usize) -> usize
 
 extern "C" {
     fn ex_countup(exc: &mut usize);
+}
+
+//
+
+struct RefFnOnce
+{
+    data: usize,
+    vtbl: usize
+}
+
+fn idle_loop() -> !
+{
+    loop {
+        let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
+        tm.idle();
+        
+        Minimult::schedule();
+    }
 }
 
 //
@@ -82,6 +68,7 @@ fn task_start_mut(data: usize, vtbl: usize) -> !
 
 //
 
+// TODO: macro
 const NUM_TASKS: usize = 4;
 
 #[derive(Clone, Copy)]
@@ -107,51 +94,6 @@ impl MTTaskMgr
 {
     // Main context
 
-    /* TODO: delete soon
-
-    fn setup_task_box(sp: usize, bfo: BoxedFnOnce)
-    {
-        // TODO: magic number
-        let r0 = sp + (8 + 0) * 4;
-        let r0 = r0 as *mut usize;
-        unsafe { *r0 = bfo.0 }
-
-        let r1 = sp + (8 + 1) * 4;
-        let r1 = r1 as *mut usize;
-        unsafe { *r1 = bfo.1 }
-
-        let ret_addr = sp + (8 + 6) * 4;
-        let ret_addr = ret_addr as *mut usize;
-        let fn_task_start = task_start_box as *const fn(usize, usize) -> !;
-        unsafe { *ret_addr = fn_task_start as usize }
-
-        let xpsr = sp + (8 + 7) * 4;
-        let xpsr = xpsr as *mut usize;
-        unsafe { *xpsr = 0x01000000 } // xPSR: set T-bit since Cortex-M has only Thumb instructions
-    }
-
-    fn register_box<T>(&mut self, tid: usize, sp: usize, t: T)
-    where T: FnOnce() + Send + 'static
-    {
-        let bf: Box<dyn FnOnce()> = Box::new(t);
-        let bfo = unsafe { core::mem::transmute::<Box<dyn FnOnce()>, BoxedFnOnce>(bf) };
-
-        let sp = align_down(sp) - align_up(128); // TODO: magic number
-        TaskMgr::setup_task_box(sp, bfo);
-
-        if tid == 0 {
-            self.sp0 = sp;
-        } else if tid == 1 {
-            self.sp1 = sp;
-        } else if tid == 2 {
-            self.sp2 = sp;
-        } else if tid == 3 {
-            self.sp3 = sp;
-        } else {
-            panic!();
-        }
-    }
-
     fn setup_task_once(sp: usize, data: usize, call_once: usize)
     {
         // TODO: magic number
@@ -161,7 +103,7 @@ impl MTTaskMgr
 
         let lr = sp + (8 + 5) * 4;
         let lr = lr as *mut usize;
-        let fn_infloop = infloop as *const fn() -> !;
+        let fn_infloop = idle_loop as *const fn() -> !;
         unsafe { *lr = fn_infloop as usize }
 
         let ret_addr = sp + (8 + 6) * 4;
@@ -189,22 +131,11 @@ impl MTTaskMgr
         let call_once = unsafe {*call_once_addr};
 
         let sp = sp - align_up(128); // TODO: magic number
-        TaskMgr::setup_task_once(sp, data, call_once);
+        MTTaskMgr::setup_task_once(sp, data, call_once);
 
-        if tid == 0 {
-            self.sp0 = sp;
-        } else if tid == 1 {
-            self.sp1 = sp;
-        } else if tid == 2 {
-            self.sp2 = sp;
-        } else if tid == 3 {
-            self.sp3 = sp;
-        } else {
-            panic!();
-        }
+        self.sp[tid] = sp;
+        self.state[tid] = MTState::Idle;
     }
-
-    */
 
     fn setup_task_mut(sp: usize, data: usize, vtbl: usize)
     {
@@ -311,6 +242,7 @@ impl MTTaskMgr
 //
 
 static mut O_TASKMGR: Option<MTTaskMgr> = None;
+static mut LOOP_STARTED: bool = false;
 
 #[no_mangle]
 pub extern fn task_switch(curr_sp: usize) -> usize
@@ -347,7 +279,6 @@ impl<S> MTStack<S>
 
 pub struct Minimult<'a>
 {
-    tm: MTTaskMgr,
     phantom: core::marker::PhantomData<&'a ()>
 }
 
@@ -366,54 +297,35 @@ impl<'a> Minimult<'a>
             tid: None
         };
 
+        unsafe {
+            O_TASKMGR = Some(tm);
+        }
+
         Minimult {
-            tm,
             phantom: core::marker::PhantomData
         }
     }
 
-    /* TODO: delete soon
-
-    pub fn register_box<T, S>(mut self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
+    pub fn register_once<T, S>(self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
     where T: FnOnce() + Send + 'static
     {
+        let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
+
         let sp = stack.head() + stack.size();
-        self.tm.register_box(tid, sp, t);
+        tm.register_once(tid, sp, t);
 
         self
     }
 
-    pub fn register_once<T, S>(mut self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
-    where T: FnOnce() + Send + 'static
+    pub fn register_mut<T, S>(self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
+    where T: FnMut() + Send + 'static
     {
+        let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
+
         let sp = stack.head() + stack.size();
-        self.tm.register_once(tid, sp, t);
+        tm.register_mut(tid, sp, t);
 
         self
-    }
-
-    */
-
-    fn register_mut<T, S>(mut self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
-    where T: FnMut() + Send + 'static
-    {
-        let sp = stack.head() + stack.size();
-        self.tm.register_mut(tid, sp, t);
-
-        self
-    }
-
-    pub fn register<T, S>(self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
-    where T: FnMut() + Send + 'static
-    {
-        self.register_mut(tid, stack, t)
-    }
-
-    pub fn register_ready<T, S>(mut self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
-    where T: FnMut() + Send + 'static
-    {
-        self.tm.trigger(tid);
-        self.register_mut(tid, stack, t)
     }
 
     pub fn loops(self) -> !
@@ -427,9 +339,9 @@ impl<'a> Minimult<'a>
         }
 
         unsafe {
-            O_TASKMGR = Some(self.tm);
+            LOOP_STARTED = true;
         }
-        
+
         Minimult::schedule();
 
         loop {
@@ -442,7 +354,7 @@ impl<'a> Minimult<'a>
     pub fn schedule()
     {
         unsafe {
-            if O_TASKMGR.is_none() {
+            if !LOOP_STARTED {
                 return;
             }
         }
@@ -453,11 +365,9 @@ impl<'a> Minimult<'a>
     pub fn trigger(tid: usize)
     {
         unsafe {
-            if O_TASKMGR.is_none() {
-                return;
+            if let Some(tm) = O_TASKMGR.as_mut() {
+                tm.trigger(tid);
             }
-
-            O_TASKMGR.as_mut().unwrap().trigger(tid);
         }
     }
 }

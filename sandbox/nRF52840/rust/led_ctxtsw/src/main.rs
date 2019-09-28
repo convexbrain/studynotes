@@ -21,6 +21,7 @@ pub mod minimult;
 use minimult::{Minimult, MTStack};
 
 
+// TODO: remove if not necessary
 use alloc_cortex_m::CortexMHeap;
 
 #[global_allocator]
@@ -34,10 +35,7 @@ pub fn alloc_error_handler(_layout: core::alloc::Layout) -> !
 
 
 // TODO: remove static mut
-static mut O_P0: Option<P0> = None;
-static mut O_TIMER0: Option<TIMER0> = None;
 static mut LED_CNT: u32 = 64_000_000 / 4; // 1/4 sec
-static mut FLAG: bool = false;
 
 
 #[panic_handler]
@@ -55,101 +53,96 @@ fn main() -> ! {
         unsafe { ALLOCATOR.init(start, size) }
     }
 
-    //
+    // ----- ----- ----- ----- -----
 
     let mut stack0 = MTStack::<[usize; 1024]>::new();
-    let mut stack1 = MTStack::<[usize; 1024]>::new();
-    let mut stack2 = MTStack::<[usize; 1024]>::new();
+    let mut stack3 = MTStack::<[usize; 1024]>::new();
 
-    let v1 = 64_000_000 / 16 /*1/16sec*/;
-    let v2 = 64_000_000 / 8 /*1/8sec*/;
+    let mt = Minimult::create();
 
-    let mt = Minimult::create()
-        .register(0, &mut stack0, move || led_cnt(v1))
-        .register(1, &mut stack1, move || led_cnt(v2))
-        .register_ready(2, &mut stack2, move || led_tgl());
-
-    //
+    // ----- ----- ----- ----- -----
 
     let peri = nrf52840_pac::Peripherals::take().unwrap();
     //let mut cmperi = cortex_m::Peripherals::take().unwrap();
 
-    {
-        let p0 = peri.P0;
-        p0.outclr.write(|w| w.pin7().set_bit());
-        p0.pin_cnf[7].write(|w| w
-            .dir().output()
-            .input().disconnect()
-            .pull().disabled()
-            .drive().s0s1()
-            .sense().disabled());
-        //
-        unsafe { O_P0 = Some(p0) }
-    }
+    // ----- ----- ----- ----- -----
 
-    {
-        let timer0 = peri.TIMER0;
-        timer0.shorts.write(|w| w
-            .compare0_clear().enabled()
-            .compare0_stop().disabled());
-        timer0.prescaler.write(|w| unsafe { w.prescaler().bits(4) }); // 1 MHz
-        timer0.bitmode.write(|w| w.bitmode()._32bit());
-        timer0.intenset.modify(|_, w| w.compare0().set());
+    let p0 = peri.P0;
+    p0.outclr.write(|w| w.pin7().set_bit());
+    p0.pin_cnf[7].write(|w| w
+        .dir().output()
+        .input().disconnect()
+        .pull().disabled()
+        .drive().s0s1()
+        .sense().disabled());
 
-        unsafe { NVIC::unmask(Interrupt::TIMER0) }
+    // ----- ----- ----- ----- -----
 
-        let cycles = 1_000_000 * 2;
-        timer0.cc[0].write(|w| unsafe { w.cc().bits(cycles) }); // 2 sec
-        timer0.tasks_clear.write(|w| w.tasks_clear().set_bit());
-        timer0.tasks_start.write(|w| w.tasks_start().set_bit());
-        //
-        unsafe { O_TIMER0 = Some(timer0) }
-    }
+    let mut timer0 = peri.TIMER0;
+    timer0.shorts.write(|w| w
+        .compare0_clear().enabled()
+        .compare0_stop().disabled());
+    timer0.prescaler.write(|w| unsafe { w.prescaler().bits(4) }); // 1 MHz
+    timer0.bitmode.write(|w| w.bitmode()._32bit());
+    timer0.intenset.modify(|_, w| w.compare0().set());
 
-    //
+    unsafe { NVIC::unmask(Interrupt::TIMER0) }
+
+    let cycles = 1_000_000 * 2;
+    timer0.cc[0].write(|w| unsafe { w.cc().bits(cycles) }); // 2 sec
+    timer0.tasks_clear.write(|w| w.tasks_clear().set_bit());
+    timer0.tasks_start.write(|w| w.tasks_start().set_bit());
+
+    // ----- ----- ----- ----- -----
+
+    let v1 = 64_000_000 / 16 /*1/16sec*/;
+    let v2 = 64_000_000 / 8 /*1/8sec*/;
+    let mut flag = false;
+
+    let mt = mt
+        .register_mut(0, &mut stack0, move || led_cnt(&mut timer0, &mut flag, v1, v2))
+        .register_once(3, &mut stack3, move || led_tgl(p0));
+
+    Minimult::trigger(3);
+    
+    // ----- ----- ----- ----- -----
 
     mt.loops()
 }
 
-fn led_tgl()
+fn led_tgl(p0: P0)
 {
     loop {
-        unsafe {
-            let p0 = O_P0.as_mut().unwrap();
+        p0.outclr.write(|w| w.pin7().set_bit());
+        unsafe { asm::delay(LED_CNT) }
 
-            p0.outclr.write(|w| w.pin7().set_bit());
-            asm::delay(LED_CNT);
-
-            p0.outset.write(|w| w.pin7().set_bit());
-            asm::delay(LED_CNT);
-        }
+        p0.outset.write(|w| w.pin7().set_bit());
+        unsafe { asm::delay(LED_CNT) }
     }
 }
 
-fn led_cnt(cnt: u32)
+fn led_cnt(timer0: &mut TIMER0, flag: &mut bool, cnt_t: u32, cnt_f: u32)
 {
-    unsafe {
-        LED_CNT = cnt;
+    timer0.events_compare[0].write(|w| {w.events_compare().bit(false)});
+    NVIC::unpend(Interrupt::TIMER0);
+    unsafe { NVIC::unmask(Interrupt::TIMER0) }
+
+    //
+
+    if *flag {
+        *flag = false;
+        unsafe { LED_CNT = cnt_t; }
+    }
+    else {
+        *flag = true;
+        unsafe { LED_CNT = cnt_f; }
     }
 }
 
 #[interrupt]
 fn TIMER0()
 {
-    unsafe {
-        let timer0 = O_TIMER0.as_mut().unwrap();
-
-        timer0.events_compare[0].write(|w| {w.events_compare().bit(false)});
-    }
-
-    unsafe {
-        if FLAG {
-            FLAG = false;
-            Minimult::trigger(0);
-        }
-        else {
-            FLAG = true;
-            Minimult::trigger(1);
-        }
-    }
+    NVIC::mask(Interrupt::TIMER0);
+    
+    Minimult::trigger(0);
 }
