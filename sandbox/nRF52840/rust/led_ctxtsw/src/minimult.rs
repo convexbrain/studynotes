@@ -49,9 +49,8 @@ fn align_down(x: usize) -> usize
     y
 }
 
-fn ex_countup(exc: &mut usize) // TODO: use asm LDREX,STREX,CLREX
-{
-    *exc = exc.wrapping_add(1);
+extern "C" {
+    fn ex_countup(exc: &mut usize);
 }
 
 //
@@ -295,10 +294,12 @@ impl MTTaskMgr
 
     fn trigger(&mut self, tid: usize)
     {
-        ex_countup(&mut self.trigger_exc[tid]);
+        unsafe {
+            ex_countup(&mut self.trigger_exc[tid]);
+        }
 
         if let Some(curr_tid) = self.tid {
-            if curr_tid <= tid { // TODO: priority
+            if curr_tid <= tid { // TODO: task priority
                 return;
             }
         }
@@ -432,7 +433,7 @@ impl<'a> Minimult<'a>
         Minimult::schedule();
 
         loop {
-            // TODO: sleep to wait interrupt
+            cortex_m::asm::wfi(); // sleep to wait interrupt
         }
     }
 

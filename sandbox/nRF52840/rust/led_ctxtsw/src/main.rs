@@ -33,10 +33,11 @@ pub fn alloc_error_handler(_layout: core::alloc::Layout) -> !
 }
 
 
+// TODO: remove static mut
 static mut O_P0: Option<P0> = None;
 static mut O_TIMER0: Option<TIMER0> = None;
-
 static mut LED_CNT: u32 = 64_000_000 / 4; // 1/4 sec
+static mut FLAG: bool = false;
 
 
 #[panic_handler]
@@ -131,8 +132,6 @@ fn led_cnt(cnt: u32)
         LED_CNT = cnt;
     }
 }
-
-static mut FLAG: bool = false;
 
 #[interrupt]
 fn TIMER0()

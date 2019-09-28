@@ -1,6 +1,7 @@
 # LLD requires that the section flags are explicitly set here
 .section .KernelAsm, "ax"
 .global PendSV
+.global ex_countup
 
 # .type and .thumb_func are both required; otherwise its Thumb bit does not
 # get set and an invalid vector table is generated
@@ -31,3 +32,30 @@ PendSV:
     pop     {r4, r5, r6, r7}
 
     bx      lr
+
+
+.type ex_countup,%function
+.thumb_func
+
+.ifdef V6
+
+ex_countup:
+    cpsid   i
+    ldr     r1, [r0]
+    add     r1, #1
+    str     r1, [r0]
+    cpsie   i
+    bx      lr
+
+.else
+
+ex_countup:
+    ldrex   r1, [r0]
+    add     r1, #1
+    strex   r2, r1, [r0]
+    cmp     r2, #0
+    bne     ex_countup
+    bx      lr
+
+.endif
+
