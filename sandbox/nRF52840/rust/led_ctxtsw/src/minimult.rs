@@ -282,6 +282,7 @@ impl MTTaskMgr
             if let MTState::Ready = self.state[i] {
                 next_tid = Some(i);
                 next_sp = self.sp[i];
+                break;
             }
         }
 
@@ -295,6 +296,14 @@ impl MTTaskMgr
     fn trigger(&mut self, tid: usize)
     {
         ex_countup(&mut self.trigger_exc[tid]);
+
+        if let Some(curr_tid) = self.tid {
+            if curr_tid <= tid { // TODO: priority
+                return;
+            }
+        }
+
+        Minimult::schedule();
     }
 }
 
@@ -343,6 +352,8 @@ pub struct Minimult<'a>
 
 impl<'a> Minimult<'a>
 {
+    // Main context
+
     pub fn create() -> Self
     {
         let tm = MTTaskMgr {
@@ -425,6 +436,8 @@ impl<'a> Minimult<'a>
         }
     }
 
+    // Task and Interrupt context
+
     pub fn schedule()
     {
         unsafe {
@@ -445,7 +458,5 @@ impl<'a> Minimult<'a>
 
             O_TASKMGR.as_mut().unwrap().trigger(tid);
         }
-
-        Minimult::schedule();
     }
 }

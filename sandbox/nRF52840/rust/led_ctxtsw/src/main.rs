@@ -61,7 +61,7 @@ fn main() -> ! {
     let mut stack2 = MTStack::<[usize; 1024]>::new();
 
     let v1 = 64_000_000 / 16 /*1/16sec*/;
-    let v2 = 64_000_000 / 4 /*1/4sec*/;
+    let v2 = 64_000_000 / 8 /*1/8sec*/;
 
     let mt = Minimult::create()
         .register(0, &mut stack0, move || led_cnt(v1))
