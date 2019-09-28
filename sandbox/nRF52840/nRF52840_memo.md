@@ -84,7 +84,7 @@
 * BumpyのUARTを接続 https://docs.electronut.in/bumpy/#using-the-uart-via-usb-on-bumpy
   * Rx-P17
   * Tx-P15
-  * COM4をTeraTermなどで開く
+  * COM4（Bumpyをつないだ時に出るシリアルポート番号の大きいほう）をTeraTermなどで開く
 
 ### VSCodeでのデバッグ
 * Cortex-Debugをインストール https://marketplace.visualstudio.com/items?itemName=marus25.cortex-debug
@@ -121,7 +121,7 @@
     ```
   * F5などでデバッグ開始
     * ```preLaunchCommands``` はFLASH Eraseなどしない限り二度目以降は不要
-    * COM4に ```UART started.``` と表示される
+    * COM4ターミナルに ```UART started.``` と表示される
 
 ### Bluetooth LE Explorerによるテスト
 * ```Start```を押してスキャン
@@ -129,10 +129,10 @@
   * ```6E400002-B5A3-F393-E0A9-E50E24DCCA9E``` (RX Characteristic) を選択
     * ```UTF8``` をチェック
     * ```Write Value``` に文字を入力し ```Write``` を押す
-    * COM4に、入力した文字が表示される
+    * COM4ターミナルに、入力した文字が表示される
   * ```6E400003-B5A3-F393-E0A9-E50E24DCCA9E``` (TX Characteristic) を選択
     * ```UTF8``` をチェック、 ```Noitfy``` をオン
-    * COM4に文字を入力し、最後にEnterで```\n```を入力
+    * COM4ターミナルに文字を入力し、最後にEnterで```\n```を入力
     * ```Read Value``` に、入力した文字が表示される
 
 ---
@@ -176,10 +176,7 @@
 * Rust
   * マルチタスク
     * メッセージキュー
-    * ラウンドロビン
-    * タスク状態
-    * 割り込み連携
-    * 優先度つきラウンドロビン
+    * タスク優先度ラウンドロビン
   * UART出力
   * panicメッセージをUARTから出す
   * FFIでSoftDevice BLE
