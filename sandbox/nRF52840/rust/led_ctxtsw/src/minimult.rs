@@ -29,14 +29,14 @@ struct RefFnOnce
     vtbl: usize
 }
 
-fn idle_loop() -> !
+fn inf_loop() -> !
 {
-    loop {
-        let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
-        tm.idle();
-        
-        Minimult::schedule();
-    }
+    let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
+    tm.none();
+    
+    Minimult::schedule();
+
+    loop {}
 }
 
 //
@@ -76,7 +76,8 @@ enum MTState
 {
     None,
     Idle,
-    Ready
+    Ready,
+    Waiting
 }
 
 struct MTTaskMgr
@@ -84,8 +85,8 @@ struct MTTaskMgr
     // TODO: better data structure
     sp_loops: usize,
     sp: [usize; NUM_TASKS],
-    trigger_exc: [usize; NUM_TASKS],
-    start_cnt: [usize; NUM_TASKS],
+    kick_excnt: [usize; NUM_TASKS],
+    wakeup_cnt: [usize; NUM_TASKS],
     state: [MTState; NUM_TASKS],
     tid: Option<usize>
 }
@@ -93,6 +94,18 @@ struct MTTaskMgr
 impl MTTaskMgr
 {
     // Main context
+
+    fn new() -> MTTaskMgr
+    {
+        MTTaskMgr {
+            sp_loops: 0,
+            sp: [0; NUM_TASKS],
+            kick_excnt: [0; NUM_TASKS],
+            wakeup_cnt: [0; NUM_TASKS],
+            state: [MTState::None; NUM_TASKS],
+            tid: None
+        }
+    }
 
     fn setup_task_once(sp: usize, data: usize, call_once: usize)
     {
@@ -103,7 +116,7 @@ impl MTTaskMgr
 
         let lr = sp + (8 + 5) * 4;
         let lr = lr as *mut usize;
-        let fn_infloop = idle_loop as *const fn() -> !;
+        let fn_infloop = inf_loop as *const fn() -> !;
         unsafe { *lr = fn_infloop as usize }
 
         let ret_addr = sp + (8 + 6) * 4;
@@ -184,6 +197,11 @@ impl MTTaskMgr
         self.state[self.tid.unwrap()] = MTState::Idle;
     }
 
+    fn none(&mut self)
+    {
+        self.state[self.tid.unwrap()] = MTState::None;
+    }
+
     // Interrupt context
 
     fn task_switch(&mut self, curr_sp: usize) -> usize
@@ -192,8 +210,8 @@ impl MTTaskMgr
 
         for i in 0.. NUM_TASKS {
             if let MTState::Idle = self.state[i] {
-                if self.trigger_exc[i] > self.start_cnt[i] {
-                    self.start_cnt[i] = self.start_cnt[i].wrapping_add(1);
+                if self.kick_excnt[i] > self.wakeup_cnt[i] {
+                    self.wakeup_cnt[i] = self.wakeup_cnt[i].wrapping_add(1);
                     self.state[i] = MTState::Ready;
                 }
             }
@@ -223,10 +241,10 @@ impl MTTaskMgr
 
     // Task and Interrupt context
 
-    fn trigger(&mut self, tid: usize)
+    fn kick(&mut self, tid: usize)
     {
         unsafe {
-            ex_countup(&mut self.trigger_exc[tid]);
+            ex_countup(&mut self.kick_excnt[tid]);
         }
 
         if let Some(curr_tid) = self.tid {
@@ -288,17 +306,8 @@ impl<'a> Minimult<'a>
 
     pub fn create() -> Self
     {
-        let tm = MTTaskMgr {
-            sp_loops: 0,
-            sp: [0; NUM_TASKS],
-            trigger_exc: [0; NUM_TASKS],
-            start_cnt: [0; NUM_TASKS],
-            state: [MTState::None; NUM_TASKS],
-            tid: None
-        };
-
         unsafe {
-            O_TASKMGR = Some(tm);
+            O_TASKMGR = Some(MTTaskMgr::new());
         }
 
         Minimult {
@@ -362,11 +371,11 @@ impl<'a> Minimult<'a>
         SCB::set_pendsv();
     }
 
-    pub fn trigger(tid: usize)
+    pub fn kick(tid: usize)
     {
         unsafe {
             if let Some(tm) = O_TASKMGR.as_mut() {
-                tm.trigger(tid);
+                tm.kick(tid);
             }
         }
     }
