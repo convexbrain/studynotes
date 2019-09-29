@@ -1,5 +1,8 @@
 use cortex_m::peripheral::SCB;
 
+use core::mem::MaybeUninit;
+use core::marker::PhantomData;
+
 
 fn align_up(x: usize) -> usize
 {
@@ -34,8 +37,6 @@ fn inf_loop() -> !
     let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
     tm.none();
     
-    Minimult::schedule();
-
     loop {}
 }
 
@@ -61,8 +62,6 @@ fn task_start_mut(data: usize, vtbl: usize) -> !
 
         let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
         tm.idle();
-        
-        Minimult::schedule();
     }
 }
 
@@ -87,6 +86,8 @@ struct MTTaskMgr
     sp: [usize; NUM_TASKS],
     kick_excnt: [usize; NUM_TASKS],
     wakeup_cnt: [usize; NUM_TASKS],
+    signal_excnt: [usize; NUM_TASKS],
+    wait_cnt: [usize; NUM_TASKS],
     state: [MTState; NUM_TASKS],
     tid: Option<usize>
 }
@@ -102,6 +103,8 @@ impl MTTaskMgr
             sp: [0; NUM_TASKS],
             kick_excnt: [0; NUM_TASKS],
             wakeup_cnt: [0; NUM_TASKS],
+            signal_excnt: [0; NUM_TASKS],
+            wait_cnt: [0; NUM_TASKS],
             state: [MTState::None; NUM_TASKS],
             tid: None
         }
@@ -195,11 +198,37 @@ impl MTTaskMgr
     fn idle(&mut self)
     {
         self.state[self.tid.unwrap()] = MTState::Idle;
+        
+        Minimult::schedule();
     }
 
     fn none(&mut self)
     {
         self.state[self.tid.unwrap()] = MTState::None;
+        
+        Minimult::schedule();
+    }
+
+    fn wait(&mut self)
+    {
+        self.state[self.tid.unwrap()] = MTState::Waiting;
+        
+        Minimult::schedule();
+    }
+
+    fn signal(&mut self, tid: usize)
+    {
+        unsafe {
+            ex_countup(&mut self.signal_excnt[tid]);
+        }
+
+        if let Some(curr_tid) = self.tid {
+            if curr_tid <= tid { // TODO: task priority
+                return;
+            }
+        }
+
+        Minimult::schedule();
     }
 
     // Interrupt context
@@ -209,11 +238,20 @@ impl MTTaskMgr
         SCB::clear_pendsv();
 
         for i in 0.. NUM_TASKS {
-            if let MTState::Idle = self.state[i] {
-                if self.kick_excnt[i] > self.wakeup_cnt[i] {
-                    self.wakeup_cnt[i] = self.wakeup_cnt[i].wrapping_add(1);
-                    self.state[i] = MTState::Ready;
-                }
+            match self.state[i] {
+                MTState::Idle => {
+                    if self.kick_excnt[i] != self.wakeup_cnt[i] {
+                        self.wakeup_cnt[i] = self.wakeup_cnt[i].wrapping_add(1);
+                        self.state[i] = MTState::Ready;
+                    }
+                },
+                MTState::Waiting => {
+                    if self.signal_excnt[i] != self.wait_cnt[i] {
+                        self.wait_cnt[i] = self.signal_excnt[i];
+                        self.state[i] = MTState::Ready;
+                    }
+                },
+                _ => {}
             }
         }
 
@@ -277,7 +315,7 @@ impl<S> MTStack<S>
 {
     pub fn new() -> MTStack<S>
     {
-        MTStack(unsafe { core::mem::MaybeUninit::<S>::uninit().assume_init() })
+        MTStack(unsafe { MaybeUninit::<S>::uninit().assume_init() })
     }
 
     fn size(&self) -> usize
@@ -297,7 +335,7 @@ impl<S> MTStack<S>
 
 pub struct Minimult<'a>
 {
-    phantom: core::marker::PhantomData<&'a ()>
+    phantom: PhantomData<&'a ()>
 }
 
 impl<'a> Minimult<'a>
@@ -311,7 +349,7 @@ impl<'a> Minimult<'a>
         }
 
         Minimult {
-            phantom: core::marker::PhantomData
+            phantom: PhantomData
         }
     }
 
@@ -379,4 +417,161 @@ impl<'a> Minimult<'a>
             }
         }
     }
+
+    pub fn signal(tid: usize)
+    {
+        unsafe {
+            if let Some(tm) = O_TASKMGR.as_mut() {
+                tm.signal(tid);
+            }
+        }
+    }
+
+    pub fn wait()
+    {
+        unsafe {
+            if let Some(tm) = O_TASKMGR.as_mut() {
+                tm.wait();
+            }
+        }
+    }
+
+    pub fn curr_tid() -> Option<usize>
+    {
+        unsafe {
+            if let Some(tm) = O_TASKMGR.as_ref() {
+                tm.tid
+            }
+            else {
+                None
+            }
+        }
+    }
 }
+
+//
+
+// TODO: macro
+const DEPTH: usize = 8;
+
+pub struct MTMsgQueue<M>
+{
+    wr_idx: usize,
+    rd_idx: usize,
+    wr_tid: Option<usize>,
+    rd_tid: Option<usize>,
+    a: [MaybeUninit<Option<M>>; DEPTH]
+}
+
+impl<M> MTMsgQueue<M>
+{
+    pub fn new() -> MTMsgQueue<M>
+    {
+        MTMsgQueue {
+            wr_idx: 0,
+            rd_idx: 0,
+            wr_tid: None,
+            rd_tid: None,
+            a: unsafe { MaybeUninit::uninit().assume_init() },
+        }
+    }
+
+    fn send(&mut self, v: M)
+    {
+        self.wr_tid = Minimult::curr_tid();
+
+        let curr_wr_idx = self.wr_idx;
+        let next_wr_idx = curr_wr_idx.wrapping_add(1);
+
+        loop {
+            if next_wr_idx == self.rd_idx {
+                Minimult::wait();
+            }
+            else {
+                break;
+            }
+        }
+
+        self.a[curr_wr_idx] = MaybeUninit::new(Some(v));
+
+        self.wr_idx = next_wr_idx;
+
+        if let Some(rd_tid) = self.rd_tid {
+            Minimult::signal(rd_tid);
+        }
+    }
+
+    fn receive<F>(&mut self, f: F)
+    where F: FnOnce(&M)
+    {
+        self.rd_tid = Minimult::curr_tid();
+
+        let curr_rd_idx = self.rd_idx;
+        let next_rd_idx = curr_rd_idx.wrapping_add(1);
+
+        loop {
+            if curr_rd_idx == self.wr_idx {
+                Minimult::wait();
+            }
+            else {
+                break;
+            }
+        }
+
+        let rp = unsafe { core::mem::transmute::<_, &mut Option<M>>(self.a[curr_rd_idx].as_mut_ptr()) };
+        f(rp.as_ref().unwrap());
+        rp.take().unwrap();
+
+        self.rd_idx = next_rd_idx;
+
+        if let Some(wr_tid) = self.wr_tid {
+            Minimult::signal(wr_tid);
+        }
+    }
+
+    pub fn accessor<'a>(&'a mut self) -> (MTMsgSender<'a, M>, MTMsgReceiver<'a, M>)
+    {
+        let s = MTMsgSender {
+            queue: self,
+            phantom: PhantomData
+        };
+
+        let r = MTMsgReceiver {
+            queue: self,
+            phantom: PhantomData
+        };
+
+        (s, r)
+    }
+}
+
+pub struct MTMsgSender<'a, M>
+{
+    queue: *mut MTMsgQueue<M>,
+    phantom: PhantomData<&'a ()>
+}
+
+pub struct MTMsgReceiver<'a, M>
+{
+    queue: *mut MTMsgQueue<M>,
+    phantom: PhantomData<&'a ()>
+}
+
+impl<'a, M> MTMsgSender<'a, M>
+{
+    pub fn send(&mut self, v: M)
+    {
+        let q = unsafe { self.queue.as_mut().unwrap() };
+        q.send(v);
+    }
+} 
+
+impl<'a, M> MTMsgReceiver<'a, M>
+{
+    pub fn receive<F>(&mut self, f: F)
+    where F: FnOnce(&M)
+    {
+        let q = unsafe { self.queue.as_mut().unwrap() };
+        q.receive(f);
+    }
+} 
