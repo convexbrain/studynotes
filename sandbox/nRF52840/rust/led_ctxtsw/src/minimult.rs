@@ -454,7 +454,30 @@ impl<'a> Minimult<'a>
 // TODO: macro
 const DEPTH: usize = 8;
 
-pub struct MTMsgQueue<M>
+pub fn msg_queue<M>() -> (MTMsgSender<M>, MTMsgReceiver<M>)
+{
+    let mut q = MTMsgSender {
+        wr_idx: 0,
+        rd_idx: 0,
+        wr_tid: None,
+        rd_tid: None,
+        a: unsafe { MaybeUninit::uninit().assume_init() },
+    };
+
+    let r = MTMsgReceiver {
+        sender: &mut q
+    };
+
+    (q, r)
+}
+
+fn wrap_inc(x: usize, bound: usize) -> usize
+{
+    let y = x + 1;
+    if y < bound {y} else {0}
+}
+
+pub struct MTMsgSender<M>
 {
     wr_idx: usize,
     rd_idx: usize,
@@ -463,25 +486,14 @@ pub struct MTMsgQueue<M>
     a: [MaybeUninit<Option<M>>; DEPTH]
 }
 
-impl<M> MTMsgQueue<M>
+impl<M> MTMsgSender<M>
 {
-    pub fn new() -> MTMsgQueue<M>
-    {
-        MTMsgQueue {
-            wr_idx: 0,
-            rd_idx: 0,
-            wr_tid: None,
-            rd_tid: None,
-            a: unsafe { MaybeUninit::uninit().assume_init() },
-        }
-    }
-
-    fn send(&mut self, v: M)
+    pub fn send(&mut self, v: M)
     {
         self.wr_tid = Minimult::curr_tid();
 
         let curr_wr_idx = self.wr_idx;
-        let next_wr_idx = curr_wr_idx.wrapping_add(1);
+        let next_wr_idx = wrap_inc(curr_wr_idx, self.a.len());
 
         loop {
             if next_wr_idx == self.rd_idx {
@@ -500,17 +512,29 @@ impl<M> MTMsgQueue<M>
             Minimult::signal(rd_tid);
         }
     }
+}
 
-    fn receive<F>(&mut self, f: F)
+pub struct MTMsgReceiver<M>
+{
+    sender: *mut MTMsgSender<M>,
+}
+
+unsafe impl<M> Send for MTMsgReceiver<M> {}
+
+impl<M> MTMsgReceiver<M>
+{
+    pub fn receive<F>(&mut self, f: F)
     where F: FnOnce(&M)
     {
-        self.rd_tid = Minimult::curr_tid();
+        let snd = unsafe { self.sender.as_mut().unwrap() };
 
-        let curr_rd_idx = self.rd_idx;
-        let next_rd_idx = curr_rd_idx.wrapping_add(1);
+        snd.rd_tid = Minimult::curr_tid();
+
+        let curr_rd_idx = snd.rd_idx;
+        let next_rd_idx = wrap_inc(curr_rd_idx, snd.a.len());
 
         loop {
-            if curr_rd_idx == self.wr_idx {
+            if curr_rd_idx == snd.wr_idx {
                 Minimult::wait();
             }
             else {
@@ -518,60 +542,14 @@ impl<M> MTMsgQueue<M>
             }
         }
 
-        let rp = unsafe { core::mem::transmute::<_, &mut Option<M>>(self.a[curr_rd_idx].as_mut_ptr()) };
+        let rp = unsafe { core::mem::transmute::<_, &mut Option<M>>(snd.a[curr_rd_idx].as_mut_ptr()) };
         f(rp.as_ref().unwrap());
         rp.take().unwrap();
 
-        self.rd_idx = next_rd_idx;
+        snd.rd_idx = next_rd_idx;
 
-        if let Some(wr_tid) = self.wr_tid {
+        if let Some(wr_tid) = snd.wr_tid {
             Minimult::signal(wr_tid);
         }
-    }
-
-    pub fn accessor<'a>(&'a mut self) -> (MTMsgSender<'a, M>, MTMsgReceiver<'a, M>)
-    {
-        let s = MTMsgSender {
-            queue: self,
-            phantom: PhantomData
-        };
-
-        let r = MTMsgReceiver {
-            queue: self,
-            phantom: PhantomData
-        };
-
-        (s, r)
-    }
-}
-
-pub struct MTMsgSender<'a, M>
-{
-    queue: *mut MTMsgQueue<M>,
-    phantom: PhantomData<&'a ()>
-}
-
-pub struct MTMsgReceiver<'a, M>
-{
-    queue: *mut MTMsgQueue<M>,
-    phantom: PhantomData<&'a ()>
-}
-
-impl<'a, M> MTMsgSender<'a, M>
-{
-    pub fn send(&mut self, v: M)
-    {
-        let q = unsafe { self.queue.as_mut().unwrap() };
-        q.send(v);
-    }
-} 
-
-impl<'a, M> MTMsgReceiver<'a, M>
-{
-    pub fn receive<F>(&mut self, f: F)
-    where F: FnOnce(&M)
-    {
-        let q = unsafe { self.queue.as_mut().unwrap() };
-        q.receive(f);
     }
 } 

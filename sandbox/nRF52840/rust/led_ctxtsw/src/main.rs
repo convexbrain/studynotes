@@ -18,7 +18,7 @@ use nrf52840_pac::{
 
 
 pub mod minimult;
-use minimult::{Minimult, MTStack};
+use minimult::{Minimult, MTStack, MTMsgSender, MTMsgReceiver};
 
 
 // TODO: remove if not necessary
@@ -100,13 +100,15 @@ fn main() -> ! {
     let mut stack0 = MTStack::<[usize; 1024]>::new();
     let mut stack3 = MTStack::<[usize; 1024]>::new();
 
+    let (mut snd, rcv) = minimult::msg_queue::<u32>();
+
     let v1 = 64_000_000 / 16 /*1/16sec*/;
     let v2 = 64_000_000 / 4 /*1/4sec*/;
     let mut flag = false;
 
     let mt = mt
-        .register_mut(0, &mut stack0, move || led_cnt(&mut timer0, &mut flag, v1, v2))
-        .register_once(3, &mut stack3, move || led_tgl(p0));
+        .register_mut(0, &mut stack0, move || led_cnt(&mut timer0, &mut flag, &mut snd, v1, v2))
+        .register_once(3, &mut stack3, move || led_tgl(p0, rcv));
 
     Minimult::kick(3);
     
@@ -115,22 +117,26 @@ fn main() -> ! {
     mt.loops()
 }
 
-fn led_tgl(p0: P0)
+fn led_tgl(p0: P0, mut rcv: MTMsgReceiver<u32>)
 {
+    let mut cnt = 64_000_000 / 64; // 1/64 sec
+
     loop {
+        //rcv.receive(|v| {cnt = *v});
+
         p0.outset.write(|w| w.pin7().set_bit());
 
-        let led_cnt = unsafe { LED_CNT };
-        asm::delay(led_cnt);
+        let cnt = unsafe { LED_CNT };
+        asm::delay(cnt);
 
         p0.outclr.write(|w| w.pin7().set_bit());
 
-        let led_cnt = unsafe { LED_CNT };
-        asm::delay(led_cnt);
+        let cnt = unsafe { LED_CNT };
+        asm::delay(cnt);
     }
 }
 
-fn led_cnt(timer0: &mut TIMER0, flag: &mut bool, cnt_t: u32, cnt_f: u32)
+fn led_cnt(timer0: &mut TIMER0, flag: &mut bool, snd: &mut MTMsgSender<u32>, cnt_t: u32, cnt_f: u32)
 {
     timer0.events_compare[0].write(|w| {w.events_compare().bit(false)});
     NVIC::unpend(Interrupt::TIMER0);
@@ -141,10 +147,12 @@ fn led_cnt(timer0: &mut TIMER0, flag: &mut bool, cnt_t: u32, cnt_f: u32)
     if *flag {
         *flag = false;
         unsafe { LED_CNT = cnt_t; }
+        //snd.send(cnt_t);
     }
     else {
         *flag = true;
         unsafe { LED_CNT = cnt_f; }
+        //snd.send(cnt_f);
     }
 }
 
