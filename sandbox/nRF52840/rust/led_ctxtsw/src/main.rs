@@ -1,9 +1,8 @@
 // UNDER DEVELOPMENT AND EXPERIMENT
+// TODO: make it stable is enough
 
 #![no_main]
 #![no_std]
-//#![feature(asm)]
-#![feature(alloc_error_handler)]
 
 use cortex_m::asm;
 use cortex_m::peripheral::NVIC;
@@ -18,22 +17,7 @@ use nrf52840_pac::{
 
 
 pub mod minimult;
-use minimult::{Minimult, MTStack, MTMsgSender, MTMsgReceiver};
-
-
-// TODO: remove if not necessary
-/*
-use alloc_cortex_m::CortexMHeap;
-
-#[global_allocator]
-static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
-
-#[alloc_error_handler]
-pub fn alloc_error_handler(_layout: core::alloc::Layout) -> !
-{
-    panic!();
-}
-*/
+use minimult::{Minimult, MTStack, MTMemory, MTMsgSender, MTMsgReceiver};
 
 
 // TODO: remove static mut
@@ -49,23 +33,12 @@ fn panic(_info: &PanicInfo) -> ! {
 
 #[entry]
 fn main() -> ! {
-    // TODO: remove if not necessary
-    /*
-    {
-        let start = cortex_m_rt::heap_start() as usize;
-        let size = 1024; // in bytes
-        unsafe { ALLOCATOR.init(start, size) }
-    }
-    */
-
-    // ----- ----- ----- ----- -----
-
-    let mt = Minimult::create();
+    let mut mem: MTMemory<[u8; 4096]> = MTMemory::new();
+    let mt = Minimult::create(&mut mem);
 
     // ----- ----- ----- ----- -----
 
     let peri = nrf52840_pac::Peripherals::take().unwrap();
-    //let mut cmperi = cortex_m::Peripherals::take().unwrap();
 
     // ----- ----- ----- ----- -----
 
@@ -80,7 +53,7 @@ fn main() -> ! {
 
     // ----- ----- ----- ----- -----
 
-    let mut timer0 = peri.TIMER0;
+    let timer0 = peri.TIMER0;
     timer0.shorts.write(|w| w
         .compare0_clear().enabled()
         .compare0_stop().disabled());
@@ -105,20 +78,17 @@ fn main() -> ! {
 
     let v1 = 64_000_000 / 16 /*1/16sec*/;
     let v2 = 64_000_000 / 4 /*1/4sec*/;
-    let mut flag = false;
 
     let mt = mt
-        .register_mut(0, &mut stack0, move || led_cnt(&mut timer0, &mut flag, &mut snd, v1, v2))
-        .register_once(3, &mut stack3, move || led_tgl(p0, rcv));
-
-    Minimult::kick(3);
+        .register(0, &mut stack0, move || led_cnt(timer0, snd, v1, v2))
+        .register(3, &mut stack3, move || led_tgl(p0, rcv));
     
     // ----- ----- ----- ----- -----
 
     mt.loops()
 }
 
-fn led_tgl(p0: P0, mut rcv: MTMsgReceiver<u32>)
+fn led_tgl(p0: P0, rcv: MTMsgReceiver<u32>)
 {
     let mut cnt = 64_000_000 / 64; // 1/64 sec
 
@@ -137,23 +107,30 @@ fn led_tgl(p0: P0, mut rcv: MTMsgReceiver<u32>)
     }
 }
 
-fn led_cnt(timer0: &mut TIMER0, flag: &mut bool, snd: &mut MTMsgSender<u32>, cnt_t: u32, cnt_f: u32)
+fn led_cnt(timer0: TIMER0, snd: MTMsgSender<u32>, cnt_t: u32, cnt_f: u32)
 {
-    timer0.events_compare[0].write(|w| {w.events_compare().bit(false)});
-    NVIC::unpend(Interrupt::TIMER0);
-    unsafe { NVIC::unmask(Interrupt::TIMER0) }
+    let mut flag = false;
 
-    //
+    loop {
+        Minimult::idle();
 
-    if *flag {
-        *flag = false;
-        unsafe { LED_CNT = cnt_t; }
-        //snd.send(cnt_t);
-    }
-    else {
-        *flag = true;
-        unsafe { LED_CNT = cnt_f; }
-        //snd.send(cnt_f);
+        //
+
+        timer0.events_compare[0].write(|w| {w.events_compare().bit(false)});
+        NVIC::unpend(Interrupt::TIMER0);
+        unsafe { NVIC::unmask(Interrupt::TIMER0) }
+
+        //
+
+        if flag {
+            unsafe { LED_CNT = cnt_t; }
+            //snd.send(cnt_t);
+        }
+        else {
+            unsafe { LED_CNT = cnt_f; }
+            //snd.send(cnt_f);
+        }
+        flag = !flag;
     }
 }
 

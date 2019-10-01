@@ -42,6 +42,7 @@ fn inf_loop() -> !
 
 //
 
+/* TODO: remove soon
 struct RefFnMut
 {
     data: usize,
@@ -64,6 +65,7 @@ fn task_start_mut(data: usize, vtbl: usize) -> !
         tm.idle();
     }
 }
+*/
 
 //
 
@@ -150,9 +152,10 @@ impl MTTaskMgr
         MTTaskMgr::setup_task_once(sp, data, call_once);
 
         self.sp[tid] = sp;
-        self.state[tid] = MTState::Idle;
+        self.state[tid] = MTState::Ready;
     }
 
+    /* TODO: remove soon
     fn setup_task_mut(sp: usize, data: usize, vtbl: usize)
     {
         // TODO: magic number
@@ -190,8 +193,9 @@ impl MTTaskMgr
         MTTaskMgr::setup_task_mut(sp, data, rfo.vtbl);
 
         self.sp[tid] = sp;
-        self.state[tid] = MTState::Idle;
+        self.state[tid] = MTState::Ready;
     }
+    */
 
     // Task context
 
@@ -235,6 +239,14 @@ impl MTTaskMgr
 
     fn task_switch(&mut self, curr_sp: usize) -> usize
     {
+        // TODO: sp underflow check
+        if let Some(curr_tid) = self.tid {
+            self.sp[curr_tid] = curr_sp;
+        }
+        else {
+            self.sp_loops = curr_sp;
+        }
+
         SCB::clear_pendsv();
 
         for i in 0.. NUM_TASKS {
@@ -253,13 +265,6 @@ impl MTTaskMgr
                 },
                 _ => {}
             }
-        }
-
-        if let Some(curr_tid) = self.tid {
-            self.sp[curr_tid] = curr_sp;
-        }
-        else {
-            self.sp_loops = curr_sp;
         }
 
         let mut next_tid = None;
@@ -332,9 +337,33 @@ impl<S> MTStack<S>
     }
 }
 
+pub struct MTMemory<S>(MaybeUninit<S>);
+
+impl<S> MTMemory<S>
+{
+    pub const fn new() -> MTMemory<S>
+    {
+        MTMemory(MaybeUninit::<S>::uninit())
+    }
+
+    fn size(&self) -> usize
+    {
+        core::mem::size_of::<S>()
+    }
+
+    fn head(&mut self) -> usize
+    {
+        let ptr = self.0.as_mut_ptr();
+        let ptr = ptr as usize;
+        ptr
+    }
+}
+
 
 pub struct Minimult<'a>
 {
+    mem_head: usize,
+    mem_size: usize,
     phantom: PhantomData<&'a ()>
 }
 
@@ -342,18 +371,20 @@ impl<'a> Minimult<'a>
 {
     // Main context
 
-    pub fn create() -> Self
+    pub fn create<M>(mem: &'a mut MTMemory<M>) -> Minimult<'a>
     {
         unsafe {
             O_TASKMGR = Some(MTTaskMgr::new());
         }
 
         Minimult {
-            phantom: PhantomData
+            phantom: PhantomData,
+            mem_head: mem.head(),
+            mem_size: mem.size()
         }
     }
 
-    pub fn register_once<T, S>(self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
+    pub fn register<T, S>(self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
     where T: FnOnce() + Send + 'static
     {
         let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
@@ -364,6 +395,7 @@ impl<'a> Minimult<'a>
         self
     }
 
+    /* TODO: remove
     pub fn register_mut<T, S>(self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
     where T: FnMut() + Send + 'static
     {
@@ -374,6 +406,7 @@ impl<'a> Minimult<'a>
 
         self
     }
+    */
 
     pub fn loops(self) -> !
     {
@@ -414,6 +447,15 @@ impl<'a> Minimult<'a>
         unsafe {
             if let Some(tm) = O_TASKMGR.as_mut() {
                 tm.kick(tid);
+            }
+        }
+    }
+
+    pub fn idle()
+    {
+        unsafe {
+            if let Some(tm) = O_TASKMGR.as_mut() {
+                tm.idle();
             }
         }
     }
