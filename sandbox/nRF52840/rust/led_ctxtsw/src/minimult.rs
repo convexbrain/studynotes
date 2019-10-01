@@ -454,23 +454,6 @@ impl<'a> Minimult<'a>
 // TODO: macro
 const DEPTH: usize = 8;
 
-pub fn msg_queue<M>() -> (MTMsgSender<M>, MTMsgReceiver<M>)
-{
-    let mut q = MTMsgSender {
-        wr_idx: 0,
-        rd_idx: 0,
-        wr_tid: None,
-        rd_tid: None,
-        a: unsafe { MaybeUninit::uninit().assume_init() },
-    };
-
-    let r = MTMsgReceiver {
-        sender: &mut q
-    };
-
-    (q, r)
-}
-
 fn wrap_inc(x: usize, bound: usize) -> usize
 {
     let y = x + 1;
@@ -488,6 +471,24 @@ pub struct MTMsgSender<M>
 
 impl<M> MTMsgSender<M>
 {
+    pub fn new() -> MTMsgSender<M>
+    {
+        MTMsgSender {
+            wr_idx: 0,
+            rd_idx: 0,
+            wr_tid: None,
+            rd_tid: None,
+            a: unsafe { MaybeUninit::uninit().assume_init() },
+        }
+    }
+
+    pub fn receiver(&mut self) -> MTMsgReceiver<M>
+    {
+        MTMsgReceiver {
+            sender: self
+        }
+    }
+
     pub fn send(&mut self, v: M)
     {
         self.wr_tid = Minimult::curr_tid();
@@ -516,7 +517,7 @@ impl<M> MTMsgSender<M>
 
 pub struct MTMsgReceiver<M>
 {
-    sender: *mut MTMsgSender<M>,
+    sender: *mut MTMsgSender<M>
 }
 
 unsafe impl<M> Send for MTMsgReceiver<M> {}

@@ -100,7 +100,8 @@ fn main() -> ! {
     let mut stack0 = MTStack::<[usize; 1024]>::new();
     let mut stack3 = MTStack::<[usize; 1024]>::new();
 
-    let (mut snd, rcv) = minimult::msg_queue::<u32>();
+    let mut snd = MTMsgSender::<u32>::new();
+    let rcv = snd.receiver();
 
     let v1 = 64_000_000 / 16 /*1/16sec*/;
     let v2 = 64_000_000 / 4 /*1/4sec*/;
