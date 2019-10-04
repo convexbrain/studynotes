@@ -17,11 +17,11 @@ use nrf52840_pac::{
 
 
 pub mod minimult;
-use minimult::{Minimult, MTStack, MTMemory, MTMsgSender, MTMsgReceiver};
+use minimult::{Minimult, MTMsgSender, MTMsgReceiver};
 
 
 // TODO: remove static mut
-static mut LED_CNT: u32 = 64_000_000 / 64; // 1/64 sec
+//static mut LED_CNT: u32 = 64_000_000 / 64; // 1/64 sec
 
 
 #[panic_handler]
@@ -33,8 +33,8 @@ fn panic(_info: &PanicInfo) -> ! {
 
 #[entry]
 fn main() -> ! {
-    let mut mem: MTMemory<[u8; 4096]> = MTMemory::new();
-    let mt = Minimult::create(&mut mem);
+    let mut mem = Minimult::memory::<[u8; 4096]>();
+    let mut mt = Minimult::create(&mut mem);
 
     // ----- ----- ----- ----- -----
 
@@ -70,44 +70,39 @@ fn main() -> ! {
 
     // ----- ----- ----- ----- -----
 
-    let mut stack0 = MTStack::<[usize; 1024]>::new();
-    let mut stack3 = MTStack::<[usize; 1024]>::new();
-
-    let mut snd = MTMsgSender::<u32>::new();
-    let rcv = snd.receiver();
+    let (snd, rcv) = mt.msg_queue::<u32>(4);
 
     let v1 = 64_000_000 / 16 /*1/16sec*/;
     let v2 = 64_000_000 / 4 /*1/4sec*/;
 
-    let mt = mt
-        .register(0, &mut stack0, move || led_cnt(timer0, snd, v1, v2))
-        .register(3, &mut stack3, move || led_tgl(p0, rcv));
+    mt.register(0, 256, move || led_cnt(timer0, snd, v1, v2));
+    mt.register(3, 256, move || led_tgl(p0, rcv));
     
     // ----- ----- ----- ----- -----
 
     mt.loops()
 }
 
-fn led_tgl(p0: P0, rcv: MTMsgReceiver<u32>)
+fn led_tgl(p0: P0, mut rcv: MTMsgReceiver<u32>)
 {
     let mut cnt = 64_000_000 / 64; // 1/64 sec
 
     loop {
-        //rcv.receive(|v| {cnt = *v});
+        rcv.receive(|v| {cnt = *v});
 
         p0.outset.write(|w| w.pin7().set_bit());
 
-        let cnt = unsafe { LED_CNT };
+        //let cnt = unsafe { LED_CNT };
         asm::delay(cnt);
 
         p0.outclr.write(|w| w.pin7().set_bit());
 
-        let cnt = unsafe { LED_CNT };
+        //let cnt = unsafe { LED_CNT };
         asm::delay(cnt);
     }
 }
 
-fn led_cnt(timer0: TIMER0, snd: MTMsgSender<u32>, cnt_t: u32, cnt_f: u32)
+fn led_cnt(timer0: TIMER0, mut snd: MTMsgSender<u32>, cnt_t: u32, cnt_f: u32)
 {
     let mut flag = false;
 
@@ -123,12 +118,12 @@ fn led_cnt(timer0: TIMER0, snd: MTMsgSender<u32>, cnt_t: u32, cnt_f: u32)
         //
 
         if flag {
-            unsafe { LED_CNT = cnt_t; }
-            //snd.send(cnt_t);
+            //unsafe { LED_CNT = cnt_t; }
+            snd.send(cnt_t);
         }
         else {
-            unsafe { LED_CNT = cnt_f; }
-            //snd.send(cnt_f);
+            //unsafe { LED_CNT = cnt_f; }
+            snd.send(cnt_f);
         }
         flag = !flag;
     }
