@@ -45,7 +45,7 @@ fn inf_loop() -> !
 
 //
 
-const NUM_TASKS: usize = 4; // TODO: macro
+const NUM_TASKS: usize = 4; // TODO: use alloc
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum MTState
@@ -56,16 +56,22 @@ enum MTState
     Waiting
 }
 
+#[derive(Clone, Copy, Debug)] // TODO: use alloc
+struct MTTask
+{
+    sp: *mut usize,
+    kick_excnt: usize,
+    wakeup_cnt: usize,
+    signal_excnt: usize,
+    wait_cnt: usize,
+    state: MTState
+}
+
 struct MTTaskMgr
 {
     // TODO: better data structure
+    tasks: [MTTask; NUM_TASKS],
     sp_loops: *mut usize,
-    sp: [*mut usize; NUM_TASKS],
-    kick_excnt: [usize; NUM_TASKS],
-    wakeup_cnt: [usize; NUM_TASKS],
-    signal_excnt: [usize; NUM_TASKS],
-    wait_cnt: [usize; NUM_TASKS],
-    state: [MTState; NUM_TASKS],
     tid: Option<usize>
 }
 
@@ -76,13 +82,16 @@ impl MTTaskMgr
     fn new() -> MTTaskMgr
     {
         MTTaskMgr {
+            tasks: [
+                MTTask {
+                    sp: core::ptr::null_mut(),
+                    kick_excnt: 0,
+                    wakeup_cnt: 0,
+                    signal_excnt: 0,
+                    wait_cnt: 0,
+                    state: MTState::None
+                }; NUM_TASKS],
             sp_loops: core::ptr::null_mut(),
-            sp: [core::ptr::null_mut(); NUM_TASKS],
-            kick_excnt: [0; NUM_TASKS],
-            wakeup_cnt: [0; NUM_TASKS],
-            signal_excnt: [0; NUM_TASKS],
-            wait_cnt: [0; NUM_TASKS],
-            state: [MTState::None; NUM_TASKS],
             tid: None
         }
     }
@@ -109,7 +118,7 @@ impl MTTaskMgr
     fn register_once<T>(&mut self, tid: usize, sp: *mut usize, t: T)
     where T: FnOnce() + Send + 'static
     {
-        assert_eq!(self.state[tid], MTState::None); // TODO: better message
+        assert_eq!(self.tasks[tid].state, MTState::None); // TODO: better message
 
         let sz = size_of::<T>();
         let rfo = unsafe { transmute::<&dyn FnOnce(), RefFnOnce>(&t) };
@@ -130,29 +139,29 @@ impl MTTaskMgr
 
         MTTaskMgr::setup_task_once(sp, data, call_once);
 
-        self.sp[tid] = sp;
-        self.state[tid] = MTState::Ready;
+        self.tasks[tid].sp = sp;
+        self.tasks[tid].state = MTState::Ready;
     }
 
     // Task context
 
     fn idle(&mut self)
     {
-        self.state[self.tid.unwrap()] = MTState::Idle;
+        self.tasks[self.tid.unwrap()].state = MTState::Idle;
         
         Minimult::schedule();
     }
 
     fn none(&mut self)
     {
-        self.state[self.tid.unwrap()] = MTState::None;
+        self.tasks[self.tid.unwrap()].state = MTState::None;
         
         Minimult::schedule();
     }
 
     fn wait(&mut self)
     {
-        self.state[self.tid.unwrap()] = MTState::Waiting;
+        self.tasks[self.tid.unwrap()].state = MTState::Waiting;
         
         Minimult::schedule();
     }
@@ -160,7 +169,7 @@ impl MTTaskMgr
     fn signal(&mut self, tid: usize)
     {
         unsafe {
-            ex_countup(&mut self.signal_excnt[tid]);
+            ex_countup(&mut self.tasks[tid].signal_excnt);
         }
 
         if let Some(curr_tid) = self.tid {
@@ -178,7 +187,7 @@ impl MTTaskMgr
     {
         // TODO: sp underflow check
         if let Some(curr_tid) = self.tid {
-            self.sp[curr_tid] = curr_sp;
+            self.tasks[curr_tid].sp = curr_sp;
         }
         else {
             self.sp_loops = curr_sp;
@@ -187,17 +196,17 @@ impl MTTaskMgr
         SCB::clear_pendsv();
 
         for i in 0.. NUM_TASKS {
-            match self.state[i] {
+            match self.tasks[i].state {
                 MTState::Idle => {
-                    if self.kick_excnt[i] != self.wakeup_cnt[i] {
-                        self.wakeup_cnt[i] = self.wakeup_cnt[i].wrapping_add(1);
-                        self.state[i] = MTState::Ready;
+                    if self.tasks[i].kick_excnt != self.tasks[i].wakeup_cnt {
+                        self.tasks[i].wakeup_cnt = self.tasks[i].wakeup_cnt.wrapping_add(1);
+                        self.tasks[i].state = MTState::Ready;
                     }
                 },
                 MTState::Waiting => {
-                    if self.signal_excnt[i] != self.wait_cnt[i] {
-                        self.wait_cnt[i] = self.signal_excnt[i];
-                        self.state[i] = MTState::Ready;
+                    if self.tasks[i].signal_excnt != self.tasks[i].wait_cnt {
+                        self.tasks[i].wait_cnt = self.tasks[i].signal_excnt;
+                        self.tasks[i].state = MTState::Ready;
                     }
                 },
                 _ => {}
@@ -207,9 +216,9 @@ impl MTTaskMgr
         let mut next_tid = None;
         let mut next_sp = self.sp_loops;
         for i in 0.. NUM_TASKS { // TODO: task priority
-            if let MTState::Ready = self.state[i] {
+            if let MTState::Ready = self.tasks[i].state {
                 next_tid = Some(i);
-                next_sp = self.sp[i];
+                next_sp = self.tasks[i].sp;
                 break;
             }
         }
@@ -224,7 +233,7 @@ impl MTTaskMgr
     fn kick(&mut self, tid: usize)
     {
         unsafe {
-            ex_countup(&mut self.kick_excnt[tid]);
+            ex_countup(&mut self.tasks[tid].kick_excnt);
         }
 
         if let Some(curr_tid) = self.tid {
