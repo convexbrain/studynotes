@@ -1,8 +1,11 @@
+// TODO: module
+
 use cortex_m::peripheral::SCB;
 
 use core::mem::{MaybeUninit, size_of, align_of, transmute};
 use core::marker::PhantomData;
 
+//
 
 fn align_up<T>(x: usize) -> usize
 {
@@ -42,35 +45,7 @@ fn inf_loop() -> !
 
 //
 
-/* TODO: remove soon
-struct RefFnMut
-{
-    data: usize,
-    vtbl: usize
-}
-
-fn task_start_mut(data: usize, vtbl: usize) -> !
-{
-    let rfo = RefFnMut {
-        data,
-        vtbl
-    };
-
-    let rf = unsafe { core::mem::transmute::<RefFnMut, &mut dyn FnMut()>(rfo) };
-
-    loop {
-        rf();
-
-        let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
-        tm.idle();
-    }
-}
-*/
-
-//
-
-// TODO: macro
-const NUM_TASKS: usize = 4;
+const NUM_TASKS: usize = 4; // TODO: macro
 
 #[derive(Clone, Copy)]
 enum MTState
@@ -154,48 +129,6 @@ impl MTTaskMgr
         self.sp[tid] = sp;
         self.state[tid] = MTState::Ready;
     }
-
-    /* TODO: remove soon
-    fn setup_task_mut(sp: usize, data: usize, vtbl: usize)
-    {
-        // TODO: magic number
-        let r0 = sp + (8 + 0) * 4;
-        let r0 = r0 as *mut usize;
-        unsafe { *r0 = data as usize }
-
-        let r1 = sp + (8 + 1) * 4;
-        let r1 = r1 as *mut usize;
-        unsafe { *r1 = vtbl as usize }
-
-        let ret_addr = sp + (8 + 6) * 4;
-        let ret_addr = ret_addr as *mut usize;
-        let fn_task_start = task_start_mut as *const fn(usize, usize) -> !;
-        unsafe { *ret_addr = fn_task_start as usize }
-
-        let xpsr = sp + (8 + 7) * 4;
-        let xpsr = xpsr as *mut usize;
-        unsafe { *xpsr = 0x01000000 } // xPSR: set T-bit since Cortex-M has only Thumb instructions
-    }
-
-    fn register_mut<T>(&mut self, tid: usize, sp: usize, mut t: T)
-    where T: FnMut() + Send + 'static
-    {
-        let sz = core::mem::size_of::<T>();
-        let rfo = unsafe { core::mem::transmute::<&mut dyn FnMut(), RefFnMut>(&mut t) };
-
-        let sp = align_down(sp) - align_up(sz);
-        let data = sp;
-        unsafe {
-            core::intrinsics::copy(rfo.data as *const u8, data as *mut u8, sz)
-        }
-
-        let sp = sp - align_up(128); // TODO: magic number
-        MTTaskMgr::setup_task_mut(sp, data, rfo.vtbl);
-
-        self.sp[tid] = sp;
-        self.state[tid] = MTState::Ready;
-    }
-    */
 
     // Task context
 
@@ -334,6 +267,7 @@ impl<M> MTMemory<M>
     }
 }
 
+//
 
 struct MTAlloc<'a>
 {
@@ -368,6 +302,8 @@ impl<'a> MTAlloc<'a>
     }
 }
 
+//
+
 pub struct Minimult<'a>
 {
     alloc: MTAlloc<'a>
@@ -396,7 +332,7 @@ impl<'a> Minimult<'a>
     pub fn msg_queue<L>(&mut self, len: usize) -> (MTMsgSender<L>, MTMsgReceiver<L>)
     {
         let q = self.alloc.get::<MTMsgQueue<L>>(1);
-        let mem = self.alloc.get::<L>(len);
+        let mem = self.alloc.get::<Option<L>>(len);
 
         unsafe {
             *q = MTMsgQueue::new(mem, len);
@@ -414,19 +350,6 @@ impl<'a> Minimult<'a>
         let sp = sp + size_of::<usize>() * stack_len;
         tm.register_once(tid, sp, t);
     }
-
-    /* TODO: remove
-    pub fn register_mut<T, S>(self, tid: usize, stack: &'a mut MTStack<S>, t: T) -> Minimult<'a>
-    where T: FnMut() + Send + 'static
-    {
-        let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
-
-        let sp = stack.head() + stack.size();
-        tm.register_mut(tid, sp, t);
-
-        self
-    }
-    */
 
     pub fn loops(self) -> !
     {
@@ -519,9 +442,21 @@ fn wrap_inc(x: usize, bound: usize) -> usize
     if y < bound {y} else {0}
 }
 
+fn wrap_diff(x: usize, y: usize, bound: usize) -> usize
+{
+    if x >= y {
+        x - y
+    }
+    else {
+        x + (bound - y)
+    }
+}
+
+//
+
 pub struct MTMsgQueue<L>
 {
-    mem_head: *mut L,
+    mem_head: *mut Option<L>,
     mem_len: usize,
     wr_idx: usize,
     rd_idx: usize,
@@ -531,7 +466,7 @@ pub struct MTMsgQueue<L>
 
 impl<L> MTMsgQueue<L>
 {
-    fn new(mem_head: *mut L, mem_len: usize) -> MTMsgQueue<L>
+    fn new(mem_head: *mut Option<L>, mem_len: usize) -> MTMsgQueue<L>
     {
         MTMsgQueue {
             mem_head,
@@ -542,7 +477,17 @@ impl<L> MTMsgQueue<L>
             rd_tid: None
         }
     }
+
+    fn index(&mut self, idx: usize) -> *mut Option<L>
+    {
+        let ptr = self.mem_head as usize;
+        let ptr = ptr + size_of::<Option<L>>() * idx;
+        let ptr = ptr as *mut Option<L>;
+        ptr
+    }
 }
+
+//
 
 pub struct MTMsgSender<L>(*mut MTMsgQueue<L>);
 
@@ -550,6 +495,13 @@ unsafe impl<L> Send for MTMsgSender<L> {}
 
 impl<L> MTMsgSender<L>
 {
+    pub fn vacant(&self) -> usize
+    {
+        let q = unsafe { self.0.as_mut().unwrap() };
+
+        wrap_diff(q.rd_idx, wrap_inc(q.wr_idx, q.mem_len), q.mem_len)
+    }
+
     pub fn send(&mut self, v: L)
     {
         let q = unsafe { self.0.as_mut().unwrap() };
@@ -568,9 +520,8 @@ impl<L> MTMsgSender<L>
             }
         }
 
-        let ptr = q.mem_head as usize;
-        let ptr = ptr + size_of::<Option<L>>() * curr_wr_idx;
-        let ptr = ptr as *mut Option<L>;
+        let ptr = q.index(curr_wr_idx);
+
         unsafe {
             *ptr = Some(v);
         }
@@ -583,12 +534,21 @@ impl<L> MTMsgSender<L>
     }
 }
 
+//
+
 pub struct MTMsgReceiver<L>(*mut MTMsgQueue<L>);
 
 unsafe impl<L> Send for MTMsgReceiver<L> {}
 
 impl<L> MTMsgReceiver<L>
 {
+    pub fn available(&self) -> usize
+    {
+        let q = unsafe { self.0.as_mut().unwrap() };
+
+        wrap_diff(q.wr_idx, q.rd_idx, q.mem_len)
+    }
+
     pub fn receive<F>(&mut self, f: F)
     where F: FnOnce(&L)
     {
@@ -608,9 +568,7 @@ impl<L> MTMsgReceiver<L>
             }
         }
 
-        let ptr = q.mem_head as usize;
-        let ptr = ptr + size_of::<Option<L>>() * curr_rd_idx;
-        let ptr = ptr as *mut Option<L>;
+        let ptr = q.index(curr_rd_idx);
         let ptr = unsafe { ptr.as_mut().unwrap() };
 
         f(ptr.as_ref().unwrap());
