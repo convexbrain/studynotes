@@ -29,7 +29,7 @@ fn panic(_info: &PanicInfo) -> ! {
 
 #[entry]
 fn main() -> ! {
-    let mut mem = Minimult::memory::<[u8; 4096]>();
+    let mut mem = Minimult::memory::<[u8; 4096]>(); // TODO: check mem size
     let mut mt = Minimult::create(&mut mem);
 
     // ----- ----- ----- ----- -----

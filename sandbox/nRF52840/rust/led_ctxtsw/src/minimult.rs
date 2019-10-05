@@ -31,8 +31,8 @@ extern "C" {
 
 struct RefFnOnce
 {
-    data: usize,
-    vtbl: usize
+    data: *const u8,
+    vtbl: *const usize
 }
 
 fn inf_loop() -> !
@@ -47,7 +47,7 @@ fn inf_loop() -> !
 
 const NUM_TASKS: usize = 4; // TODO: macro
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 enum MTState
 {
     None,
@@ -59,8 +59,8 @@ enum MTState
 struct MTTaskMgr
 {
     // TODO: better data structure
-    sp_loops: usize,
-    sp: [usize; NUM_TASKS],
+    sp_loops: *mut usize,
+    sp: [*mut usize; NUM_TASKS],
     kick_excnt: [usize; NUM_TASKS],
     wakeup_cnt: [usize; NUM_TASKS],
     signal_excnt: [usize; NUM_TASKS],
@@ -76,8 +76,8 @@ impl MTTaskMgr
     fn new() -> MTTaskMgr
     {
         MTTaskMgr {
-            sp_loops: 0,
-            sp: [0; NUM_TASKS],
+            sp_loops: core::ptr::null_mut(),
+            sp: [core::ptr::null_mut(); NUM_TASKS],
             kick_excnt: [0; NUM_TASKS],
             wakeup_cnt: [0; NUM_TASKS],
             signal_excnt: [0; NUM_TASKS],
@@ -87,43 +87,47 @@ impl MTTaskMgr
         }
     }
 
-    fn setup_task_once(sp: usize, data: usize, call_once: usize)
+    fn setup_task_once(sp: *mut usize, data: *mut u8, call_once: usize)
     {
         // TODO: magic number
-        let r0 = sp + (8 + 0) * 4;
-        let r0 = r0 as *mut usize;
-        unsafe { *r0 = data as usize }
 
-        let lr = sp + (8 + 5) * 4;
-        let lr = lr as *mut usize;
-        let fn_infloop = inf_loop as *const fn() -> !;
-        unsafe { *lr = fn_infloop as usize }
+        unsafe {
+            // r0
+            sp.add(8 + 0).write_volatile(data as usize);
+            
+            // lr
+            sp.add(8 + 5).write_volatile(inf_loop as usize);
 
-        let ret_addr = sp + (8 + 6) * 4;
-        let ret_addr = ret_addr as *mut usize;
-        unsafe { *ret_addr = call_once }
+            // ReturnAddress
+            sp.add(8 + 6).write_volatile(call_once);
 
-        let xpsr = sp + (8 + 7) * 4;
-        let xpsr = xpsr as *mut usize;
-        unsafe { *xpsr = 0x01000000 } // xPSR: set T-bit since Cortex-M has only Thumb instructions
+            // xPSR: set T-bit since Cortex-M has only Thumb instructions
+            sp.add(8 + 7).write_volatile(0x01000000);
+        }
     }
 
-    fn register_once<T>(&mut self, tid: usize, sp: usize, t: T)
+    fn register_once<T>(&mut self, tid: usize, sp: *mut usize, t: T)
     where T: FnOnce() + Send + 'static
     {
+        assert_eq!(self.state[tid], MTState::None); // TODO: better message
+
         let sz = size_of::<T>();
         let rfo = unsafe { transmute::<&dyn FnOnce(), RefFnOnce>(&t) };
 
+        let sp = sp as usize;
         let sp = align_down::<T>(sp - sz);
-        let data = sp;
+        let data = sp as *mut u8;
+        let sp = align_down::<usize>(sp);
+        let sp = sp as *mut usize;
+        let sp = unsafe { sp.sub(32) }; // TODO: magic number
+
         unsafe {
-            core::intrinsics::copy(rfo.data as *const u8, data as *mut u8, sz)
+            core::intrinsics::copy(rfo.data, data, sz)
         }
 
-        let call_once_addr = (rfo.vtbl + size_of::<usize>() * 3) as *const usize; // TODO: magic number
-        let call_once = unsafe {*call_once_addr};
+        let vtbl = rfo.vtbl;
+        let call_once = unsafe { vtbl.add(3).read_volatile() }; // TODO: magic number
 
-        let sp = align_down::<usize>(sp) - size_of::<usize>() * 32; // TODO: magic number
         MTTaskMgr::setup_task_once(sp, data, call_once);
 
         self.sp[tid] = sp;
@@ -170,7 +174,7 @@ impl MTTaskMgr
 
     // Interrupt context
 
-    fn task_switch(&mut self, curr_sp: usize) -> usize
+    fn task_switch(&mut self, curr_sp: *mut usize) -> *mut usize
     {
         // TODO: sp underflow check
         if let Some(curr_tid) = self.tid {
@@ -239,7 +243,7 @@ static mut O_TASKMGR: Option<MTTaskMgr> = None;
 static mut LOOP_STARTED: bool = false;
 
 #[no_mangle]
-pub extern fn task_switch(curr_sp: usize) -> usize
+pub extern fn task_switch(curr_sp: *mut usize) -> *mut usize
 {
     let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
     tm.task_switch(curr_sp)
@@ -346,8 +350,9 @@ impl<'a> Minimult<'a>
     {
         let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
 
-        let sp = self.alloc.get::<usize>(stack_len) as usize;
-        let sp = sp + size_of::<usize>() * stack_len;
+        let sp = self.alloc.get::<usize>(stack_len);
+        let sp = unsafe { sp.add(stack_len) };
+        
         tm.register_once(tid, sp, t);
     }
 
@@ -480,9 +485,10 @@ impl<L> MTMsgQueue<L>
 
     fn index(&mut self, idx: usize) -> *mut Option<L>
     {
-        let ptr = self.mem_head as usize;
-        let ptr = ptr + size_of::<Option<L>>() * idx;
-        let ptr = ptr as *mut Option<L>;
+        assert!(idx < self.mem_len); // TODO: better message
+
+        let ptr = self.mem_head;
+        let ptr = unsafe { ptr.add(idx) };
         ptr
     }
 }
@@ -523,7 +529,7 @@ impl<L> MTMsgSender<L>
         let ptr = q.index(curr_wr_idx);
 
         unsafe {
-            *ptr = Some(v);
+            ptr.write_volatile(Some(v));
         }
 
         q.wr_idx = next_wr_idx;
