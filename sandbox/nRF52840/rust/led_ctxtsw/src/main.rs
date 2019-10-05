@@ -1,5 +1,6 @@
 // UNDER DEVELOPMENT AND EXPERIMENT
-// TODO: make it stable is enough
+// TODO: check if stable toolchain is enough
+// TODO: check release build
 
 #![no_main]
 #![no_std]
@@ -30,7 +31,7 @@ fn panic(_info: &PanicInfo) -> ! {
 #[entry]
 fn main() -> ! {
     let mut mem = Minimult::memory::<[u8; 4096]>(); // TODO: check mem size
-    let mut mt = Minimult::create(&mut mem);
+    let mut mt = Minimult::create(&mut mem, 2);
 
     // ----- ----- ----- ----- -----
 
@@ -72,7 +73,7 @@ fn main() -> ! {
     let v2 = 8;
 
     mt.register(0, 256, move || led_cnt(timer0, snd, v1, v2));
-    mt.register(3, 256, move || led_tgl1(p0, rcv));
+    mt.register(1, 256, move || led_tgl1(p0, rcv));
     
     // ----- ----- ----- ----- -----
 
