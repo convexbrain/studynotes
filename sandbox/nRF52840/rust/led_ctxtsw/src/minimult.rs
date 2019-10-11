@@ -634,14 +634,25 @@ impl<L> MTMsgQueue<L>
             rd_tid: None
         }
     }
+}
 
-    fn index(&mut self, idx: usize) -> *mut Option<L>
+impl<L> core::ops::Index<usize> for MTMsgQueue<L>
     {
-        assert!(idx < self.mem_len); // TODO: better message
+    type Output = Option<L>;
 
-        let ptr = self.mem_head;
-        let ptr = unsafe { ptr.add(idx) };
-        ptr
+    fn index(&self, i: usize) -> &Self::Output
+    {
+        let m = unsafe { core::slice::from_raw_parts(self.mem_head, self.mem_len) };
+        &m[i]
+    }
+}
+
+impl<L> core::ops::IndexMut<usize> for MTMsgQueue<L>
+{
+    fn index_mut(&mut self, i: usize) -> &mut Self::Output
+    {
+        let m = unsafe { core::slice::from_raw_parts_mut(self.mem_head, self.mem_len) };
+        &mut m[i]
     }
 }
 
@@ -678,11 +689,7 @@ impl<L> MTMsgSender<L>
             }
         }
 
-        let ptr = q.index(curr_wr_idx);
-
-        unsafe {
-            ptr.write_volatile(Some(v));
-        }
+        q[curr_wr_idx] = Some(v);
 
         q.wr_idx = next_wr_idx;
 
@@ -726,11 +733,8 @@ impl<L> MTMsgReceiver<L>
             }
         }
 
-        let ptr = q.index(curr_rd_idx);
-        let ptr = unsafe { ptr.as_mut().unwrap() };
-
-        f(ptr.as_ref().unwrap());
-        ptr.take().unwrap();
+        f(q[curr_rd_idx].as_ref().unwrap());
+        q[curr_rd_idx].take().unwrap();
 
         q.rd_idx = next_rd_idx;
 
