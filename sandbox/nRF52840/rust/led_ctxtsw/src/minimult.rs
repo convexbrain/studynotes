@@ -1,4 +1,5 @@
 // TODO: module
+// TODO: clarify TaskMgr/Minimult role separation
 
 use cortex_m::peripheral::SCB;
 
@@ -75,8 +76,7 @@ struct MTTask
 
 struct MTTaskMgr
 {
-    tasks: *mut MTTask,
-    num_tasks: MTTaskId,
+    tasks: MTRawArray<MTTask>,
     bh_ready: MTTaskId,
     bh_idlewait: MTTaskId,
     //
@@ -86,16 +86,10 @@ struct MTTaskMgr
 
 impl MTTaskMgr
 {
-    fn task_index(&mut self, tid: MTTaskId) -> &mut MTTask
-    {
-        assert!(tid < self.num_tasks); // TODO: better message
-        unsafe { self.tasks.add(tid as usize).as_mut() }.unwrap()
-    }
-
     fn task_current(&mut self) -> Option<&mut MTTask>
     {
         if let Some(curr_tid) = self.tid {
-            Some(self.task_index(curr_tid))
+            Some(self.tasks.refer(curr_tid))
         }
         else {
             None
@@ -106,7 +100,7 @@ impl MTTaskMgr
 
     fn bh_add_idlewait_tail(&mut self, tid: MTTaskId)
     {
-        self.task_index(self.bh_ready + self.bh_idlewait).bh_array = Some(tid);
+        self.tasks.refer(self.bh_ready + self.bh_idlewait).bh_array = Some(tid);
 
         self.bh_idlewait += 1;
     }
@@ -115,7 +109,7 @@ impl MTTaskMgr
     {
         self.bh_idlewait -= 1;
 
-        self.task_index(self.bh_ready + self.bh_idlewait).bh_array = None;
+        self.tasks.refer(self.bh_ready + self.bh_idlewait).bh_array = None;
     }
 
     fn bh_replace(&mut self, pos0: MTTaskId, pos1: MTTaskId)
@@ -183,30 +177,27 @@ impl MTTaskMgr
 
     // Main context
 
-    fn new(tasks: *mut MTTask, num_tasks: MTTaskId) -> MTTaskMgr
+    fn new(tasks: MTRawArray<MTTask>, num_tasks: MTTaskId) -> MTTaskMgr
     {
         for i in 0..num_tasks {
-            unsafe {
-                tasks.add(i as usize).write(
-                    MTTask {
-                        sp_start: core::ptr::null_mut(),
-                        sp_end: core::ptr::null_mut(),
-                        priority: 0,
-                        sp: core::ptr::null_mut(),
-                        kick_excnt: 0,
-                        wakeup_cnt: 0,
-                        signal_excnt: 0,
-                        wait_cnt: 0,
-                        state: MTState::None,
-                        bh_array: None
-                    }
-                );
-            }
+            tasks.write(i,
+                MTTask {
+                    sp_start: core::ptr::null_mut(),
+                    sp_end: core::ptr::null_mut(),
+                    priority: 0,
+                    sp: core::ptr::null_mut(),
+                    kick_excnt: 0,
+                    wakeup_cnt: 0,
+                    signal_excnt: 0,
+                    wait_cnt: 0,
+                    state: MTState::None,
+                    bh_array: None
+                }
+            );
         }
 
         MTTaskMgr {
             tasks,
-            num_tasks,
             bh_ready: 0,
             bh_idlewait: 0,
             sp_loops: core::ptr::null_mut(),
@@ -233,12 +224,15 @@ impl MTTaskMgr
         }
     }
 
-    fn register_once<T>(&mut self, tid: MTTaskId, sp_start: *mut usize, sp_end: *mut usize, t: T)
+    fn register_once<T>(&mut self, tid: MTTaskId, stack: MTRawArray<usize>, t: T)
     where T: FnOnce() + Send // TODO: appropriate lifetime
     {
-        let task = self.task_index(tid);
+        let task = self.tasks.refer(tid);
 
         assert_eq!(task.state, MTState::None); // TODO: better message
+
+        let sp_start = stack.head();
+        let sp_end = stack.tail();
 
         let sz = size_of::<T>();
         let rfo = unsafe { transmute::<&dyn FnOnce(), RefFnOnce>(&t) };
@@ -297,7 +291,7 @@ impl MTTaskMgr
 
     fn signal(&mut self, tid: MTTaskId)
     {
-        let task = self.task_index(tid);
+        let task = self.tasks.refer(tid);
 
         unsafe {
             ex_countup(&mut task.signal_excnt);
@@ -328,8 +322,8 @@ impl MTTaskMgr
 
         SCB::clear_pendsv();
 
-        for i in 0.. self.num_tasks {
-            let task = self.task_index(i);
+        for i in 0.. self.tasks.len() { // TODO: iterator
+            let task = self.tasks.refer(i);
 
             match task.state {
                 MTState::Idle => {
@@ -350,11 +344,11 @@ impl MTTaskMgr
 
         let mut next_tid = None;
         let mut next_sp = self.sp_loops;
-        for i in 0.. self.num_tasks { // TODO: task priority
-            let task = self.task_index(i);
+        for i in 0.. self.tasks.len() { // TODO: task priority
+            let task = self.tasks.refer(i);
 
             if let MTState::Ready = task.state {
-                next_tid = Some(i);
+                next_tid = Some(i as MTTaskId);
                 next_sp = task.sp;
                 break;
             }
@@ -369,7 +363,7 @@ impl MTTaskMgr
 
     fn kick(&mut self, tid: MTTaskId)
     {
-        let task = self.task_index(tid);
+        let task = self.tasks.refer(tid);
 
         unsafe {
             ex_countup(&mut task.kick_excnt);
@@ -421,6 +415,70 @@ impl<M> MTMemory<M>
 
 //
 
+struct MTRawArray<T>
+{
+    head: *mut T,
+    len: usize
+}
+
+impl<T> MTRawArray<T>
+{
+    fn refer<U>(&self, i: U) -> &mut T
+    where U: Into<usize>
+    {
+        let i = i.into();
+        assert!(i < self.len); // TODO: better message
+
+        let ptr = self.head;
+        let ptr = unsafe { ptr.add(i) };
+
+        unsafe { ptr.as_mut().unwrap() }
+    }
+
+    fn write<U>(&self, i: U, v: T)
+    where U: Into<usize>
+    {
+        let i = i.into();
+        assert!(i < self.len); // TODO: better message
+
+        let ptr = self.head;
+        let ptr = unsafe { ptr.add(i) };
+
+        unsafe { ptr.write(v); }
+    }
+
+    fn write_volatile<U>(&self, i: U, v: T)
+    where U: Into<usize>
+    {
+        let i = i.into();
+        assert!(i < self.len); // TODO: better message
+
+        let ptr = self.head;
+        let ptr = unsafe { ptr.add(i) };
+
+        unsafe { ptr.write_volatile(v); }
+    }
+
+    fn head(&self) -> *mut T
+    {
+        self.head
+    }
+
+    fn len(&self) -> usize
+    {
+        self.len
+    }
+
+    fn tail(&self) -> *mut T
+    {
+        let ptr = self.head;
+        let ptr = unsafe { ptr.add(self.len) };
+        ptr
+    }
+}
+
+//
+
 struct MTAlloc<'a>
 {
     cur_pos: usize,
@@ -439,7 +497,7 @@ impl<'a> MTAlloc<'a>
         }
     }
 
-    fn array<T, U>(&mut self, len: U) -> *mut T
+    fn array<T, U>(&mut self, len: U) -> MTRawArray<T>
     where U: Into<usize>
     {
         let len = len.into();
@@ -452,12 +510,24 @@ impl<'a> MTAlloc<'a>
 
         self.cur_pos = e;
 
-        p as *mut T
+        MTRawArray {
+            head: p as *mut T,
+            len
+        }
     }
 
     fn one<T>(&mut self) -> *mut T
     {
-        self.array(1_usize)
+        let size = size_of::<T>();
+
+        let p = align_up::<T>(self.cur_pos);
+        let e = p + size;
+
+        assert!(e <= self.end_cap); // TODO: better message
+
+        self.cur_pos = e;
+
+        p as *mut T
     }
 }
 
@@ -496,7 +566,7 @@ impl<'a> Minimult<'a>
         let mem = self.alloc.array(len);
 
         unsafe {
-            *q = MTMsgQueue::new(mem, len); // TODO: lifetime propagation if possible
+            *q = MTMsgQueue::new(mem); // TODO: lifetime propagation if possible
         }
 
         (MTMsgSender(q), MTMsgReceiver(q)) // TODO: lifetime propagation if possible
@@ -507,10 +577,9 @@ impl<'a> Minimult<'a>
     {
         let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
 
-        let sp_start: *mut usize = self.alloc.array(stack_len);
-        let sp_end = unsafe { sp_start.add(stack_len) };
+        let stack = self.alloc.array(stack_len);
         
-        tm.register_once(tid, sp_start, sp_end, t);
+        tm.register_once(tid, stack, t);
     }
 
     pub fn loops(self) -> !
@@ -626,8 +695,7 @@ fn wrap_diff(x: usize, y: usize, bound: usize) -> usize
 
 pub struct MTMsgQueue<L>
 {
-    mem_head: *mut Option<L>,
-    mem_len: usize,
+    mem: MTRawArray<Option<L>>,
     wr_idx: usize,
     rd_idx: usize,
     wr_tid: Option<MTTaskId>,
@@ -636,25 +704,15 @@ pub struct MTMsgQueue<L>
 
 impl<L> MTMsgQueue<L>
 {
-    fn new(mem_head: *mut Option<L>, mem_len: usize) -> MTMsgQueue<L>
+    fn new(mem: MTRawArray<Option<L>>) -> MTMsgQueue<L>
     {
         MTMsgQueue {
-            mem_head,
-            mem_len,
+            mem,
             wr_idx: 0,
             rd_idx: 0,
             wr_tid: None,
             rd_tid: None
         }
-    }
-
-    fn index(&mut self, idx: usize) -> *mut Option<L>
-    {
-        assert!(idx < self.mem_len); // TODO: better message
-
-        let ptr = self.mem_head;
-        let ptr = unsafe { ptr.add(idx) };
-        ptr
     }
 }
 
@@ -670,7 +728,7 @@ impl<L> MTMsgSender<L>
     {
         let q = unsafe { self.0.as_ref().unwrap() };
 
-        wrap_diff(q.rd_idx, wrap_inc(q.wr_idx, q.mem_len), q.mem_len)
+        wrap_diff(q.rd_idx, wrap_inc(q.wr_idx, q.mem.len()), q.mem.len())
     }
 
     pub fn send(&mut self, v: L)
@@ -680,7 +738,7 @@ impl<L> MTMsgSender<L>
         q.wr_tid = Minimult::curr_tid();
 
         let curr_wr_idx = q.wr_idx;
-        let next_wr_idx = wrap_inc(curr_wr_idx, q.mem_len);
+        let next_wr_idx = wrap_inc(curr_wr_idx, q.mem.len());
 
         loop {
             if next_wr_idx == q.rd_idx {
@@ -691,11 +749,7 @@ impl<L> MTMsgSender<L>
             }
         }
 
-        let ptr = q.index(curr_wr_idx);
-
-        unsafe {
-            ptr.write_volatile(Some(v));
-        }
+        q.mem.write_volatile(curr_wr_idx, Some(v));
 
         q.wr_idx = next_wr_idx;
 
@@ -717,7 +771,7 @@ impl<L> MTMsgReceiver<L>
     {
         let q = unsafe { self.0.as_ref().unwrap() };
 
-        wrap_diff(q.wr_idx, q.rd_idx, q.mem_len)
+        wrap_diff(q.wr_idx, q.rd_idx, q.mem.len())
     }
 
     pub fn receive<F>(&mut self, f: F)
@@ -728,7 +782,7 @@ impl<L> MTMsgReceiver<L>
         q.rd_tid = Minimult::curr_tid();
 
         let curr_rd_idx = q.rd_idx;
-        let next_rd_idx = wrap_inc(curr_rd_idx, q.mem_len);
+        let next_rd_idx = wrap_inc(curr_rd_idx, q.mem.len());
 
         loop {
             if curr_rd_idx == q.wr_idx {
@@ -739,8 +793,7 @@ impl<L> MTMsgReceiver<L>
             }
         }
 
-        let ptr = q.index(curr_rd_idx);
-        let ptr = unsafe { ptr.as_mut().unwrap() };
+        let ptr = q.mem.refer(curr_rd_idx);
 
         f(ptr.as_ref().unwrap());
         ptr.take().unwrap();
