@@ -5,6 +5,9 @@ use cortex_m::peripheral::SCB;
 use core::mem::{MaybeUninit, size_of, align_of, transmute};
 use core::marker::PhantomData;
 
+type MTTaskId = u16;
+type MTTaskPri = u8;
+
 //
 
 fn align_up<T>(x: usize) -> usize
@@ -58,30 +61,35 @@ struct MTTask
 {
     sp_start: *mut usize,
     sp_end: *mut usize,
+    priority: MTTaskPri,
     //
     sp: *mut usize,
     kick_excnt: usize,
     wakeup_cnt: usize,
     signal_excnt: usize,
     wait_cnt: usize,
-    state: MTState
+    state: MTState,
+    //
+    bh_array: Option<MTTaskId>
 }
 
 struct MTTaskMgr
 {
     tasks: *mut MTTask,
-    num_tasks: usize,
+    num_tasks: MTTaskId,
+    bh_ready: MTTaskId,
+    bh_idlewait: MTTaskId,
     //
     sp_loops: *mut usize,
-    tid: Option<usize>
+    tid: Option<MTTaskId>
 }
 
 impl MTTaskMgr
 {
-    fn task_index(&mut self, tid: usize) -> &mut MTTask
+    fn task_index(&mut self, tid: MTTaskId) -> &mut MTTask
     {
         assert!(tid < self.num_tasks); // TODO: better message
-        unsafe { self.tasks.add(tid).as_mut() }.unwrap()
+        unsafe { self.tasks.add(tid as usize).as_mut() }.unwrap()
     }
 
     fn task_current(&mut self) -> Option<&mut MTTask>
@@ -94,22 +102,103 @@ impl MTTaskMgr
         }
     }
 
+    //
+
+    fn bh_add_idlewait_tail(&mut self, tid: MTTaskId)
+    {
+        self.task_index(self.bh_ready + self.bh_idlewait).bh_array = Some(tid);
+
+        self.bh_idlewait += 1;
+    }
+
+    fn bh_remove_idlewait_tail(&mut self)
+    {
+        self.bh_idlewait -= 1;
+
+        self.task_index(self.bh_ready + self.bh_idlewait).bh_array = None;
+    }
+
+    fn bh_replace(&mut self, pos0: MTTaskId, pos1: MTTaskId)
+    {
+    }
+
+    fn bh_upheap(&mut self)
+    {
+    }
+
+    fn bh_downheap(&mut self)
+    {
+    }
+
+    fn bh_none_to_ready(&mut self, tid: MTTaskId)
+    {
+        self.bh_add_idlewait_tail(tid);
+
+        self.bh_idlewait_to_ready(self.bh_ready + self.bh_idlewait - 1);
+    }
+
+    fn bh_idlewait_to_ready(&mut self, pos: MTTaskId)
+    {
+        // replace pos <=> idlewait head
+        self.bh_replace(pos, self.bh_ready);
+
+        // idlewait head <=> ready tail
+        self.bh_idlewait -= 1;
+        self.bh_ready += 1;
+
+        // upheap correction
+        self.bh_upheap();
+    }
+
+    fn bh_ready_to_idlewait(&mut self)
+    {
+        // replace ready head <=> ready tail
+        self.bh_replace(0, self.bh_ready - 1);
+
+        // ready tail <=> idlewait head
+        self.bh_idlewait += 1;
+        self.bh_ready -= 1;
+
+        // downheap correction
+        self.bh_downheap();
+    }
+
+    fn bh_ready_round(&mut self)
+    {
+        self.bh_ready_to_idlewait();
+
+        self.bh_idlewait_to_ready(self.bh_ready);
+    }
+
+    fn bh_ready_to_none(&mut self)
+    {
+        self.bh_ready_to_idlewait();
+
+        // replace idlewait head <=> idlewait tail
+        self.bh_replace(self.bh_ready, self.bh_ready + self.bh_idlewait - 1);
+        
+        // remove idlewait tail
+        self.bh_remove_idlewait_tail();
+    }
+
     // Main context
 
-    fn new(tasks: *mut MTTask, num_tasks: usize) -> MTTaskMgr
+    fn new(tasks: *mut MTTask, num_tasks: MTTaskId) -> MTTaskMgr
     {
         for i in 0..num_tasks {
             unsafe {
-                tasks.add(i).write(
+                tasks.add(i as usize).write(
                     MTTask {
                         sp_start: core::ptr::null_mut(),
                         sp_end: core::ptr::null_mut(),
+                        priority: 0,
                         sp: core::ptr::null_mut(),
                         kick_excnt: 0,
                         wakeup_cnt: 0,
                         signal_excnt: 0,
                         wait_cnt: 0,
-                        state: MTState::None
+                        state: MTState::None,
+                        bh_array: None
                     }
                 );
             }
@@ -118,6 +207,8 @@ impl MTTaskMgr
         MTTaskMgr {
             tasks,
             num_tasks,
+            bh_ready: 0,
+            bh_idlewait: 0,
             sp_loops: core::ptr::null_mut(),
             tid: None
         }
@@ -142,7 +233,7 @@ impl MTTaskMgr
         }
     }
 
-    fn register_once<T>(&mut self, tid: usize, sp_start: *mut usize, sp_end: *mut usize, t: T)
+    fn register_once<T>(&mut self, tid: MTTaskId, sp_start: *mut usize, sp_end: *mut usize, t: T)
     where T: FnOnce() + Send + 'static
     {
         let task = self.task_index(tid);
@@ -170,6 +261,7 @@ impl MTTaskMgr
 
         task.sp_start = sp_start;
         task.sp_end = sp_end;
+        task.priority = tid as u8; // TODO: task priority
         task.sp = sp;
         task.state = MTState::Ready;
     }
@@ -203,7 +295,7 @@ impl MTTaskMgr
         Minimult::schedule();
     }
 
-    fn signal(&mut self, tid: usize)
+    fn signal(&mut self, tid: MTTaskId)
     {
         let task = self.task_index(tid);
 
@@ -275,7 +367,7 @@ impl MTTaskMgr
 
     // Task and Interrupt context
 
-    fn kick(&mut self, tid: usize)
+    fn kick(&mut self, tid: MTTaskId)
     {
         let task = self.task_index(tid);
 
@@ -347,8 +439,10 @@ impl<'a> MTAlloc<'a>
         }
     }
 
-    fn get<T>(&mut self, len: usize) -> *mut T
+    fn get<T, U>(&mut self, len: U) -> *mut T
+    where U: Into<usize>
     {
+        let len = len.into();
         let size = size_of::<T>() * len;
 
         let p = align_up::<T>(self.cur_pos);
@@ -378,12 +472,12 @@ impl<'a> Minimult<'a>
         MTMemory::new()
     }
 
-    pub fn create<M>(mem: &'a mut MTMemory<M>, num_tasks: usize) -> Minimult<'a>
+    pub fn create<M>(mem: &'a mut MTMemory<M>, num_tasks: MTTaskId) -> Minimult<'a>
     {
         let mut alloc = MTAlloc::new(mem);
 
         unsafe {
-            O_TASKMGR = Some(MTTaskMgr::new(alloc.get::<MTTask>(num_tasks), num_tasks));
+            O_TASKMGR = Some(MTTaskMgr::new(alloc.get(num_tasks), num_tasks));
         }
 
         Minimult {
@@ -393,8 +487,8 @@ impl<'a> Minimult<'a>
 
     pub fn msg_queue<L>(&mut self, len: usize) -> (MTMsgSender<L>, MTMsgReceiver<L>)
     {
-        let q = self.alloc.get::<MTMsgQueue<L>>(1);
-        let mem = self.alloc.get::<Option<L>>(len);
+        let q = self.alloc.get(1_usize);
+        let mem = self.alloc.get(len);
 
         unsafe {
             *q = MTMsgQueue::new(mem, len);
@@ -403,12 +497,12 @@ impl<'a> Minimult<'a>
         (MTMsgSender(q), MTMsgReceiver(q))
     }
 
-    pub fn register<T>(&mut self, tid: usize, stack_len: usize, t: T)
+    pub fn register<T>(&mut self, tid: MTTaskId, stack_len: usize, t: T)
     where T: FnOnce() + Send + 'static
     {
         let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
 
-        let sp_start = self.alloc.get::<usize>(stack_len);
+        let sp_start: *mut usize = self.alloc.get(stack_len);
         let sp_end = unsafe { sp_start.add(stack_len) };
         
         tm.register_once(tid, sp_start, sp_end, t);
@@ -448,7 +542,7 @@ impl<'a> Minimult<'a>
         SCB::set_pendsv();
     }
 
-    pub fn kick(tid: usize)
+    pub fn kick(tid: MTTaskId)
     {
         unsafe {
             if let Some(tm) = O_TASKMGR.as_mut() {
@@ -466,7 +560,7 @@ impl<'a> Minimult<'a>
         }
     }
 
-    /*pub*/ fn signal(tid: usize)
+    /*pub*/ fn signal(tid: MTTaskId)
     {
         unsafe {
             if let Some(tm) = O_TASKMGR.as_mut() {
@@ -484,7 +578,7 @@ impl<'a> Minimult<'a>
         }
     }
 
-    /*pub*/ fn curr_tid() -> Option<usize>
+    /*pub*/ fn curr_tid() -> Option<MTTaskId>
     {
         unsafe {
             if let Some(tm) = O_TASKMGR.as_ref() {
@@ -523,8 +617,8 @@ pub struct MTMsgQueue<L>
     mem_len: usize,
     wr_idx: usize,
     rd_idx: usize,
-    wr_tid: Option<usize>,
-    rd_tid: Option<usize>
+    wr_tid: Option<MTTaskId>,
+    rd_tid: Option<MTTaskId>
 }
 
 impl<L> MTMsgQueue<L>
