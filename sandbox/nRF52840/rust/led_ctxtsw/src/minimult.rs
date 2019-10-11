@@ -233,12 +233,15 @@ impl MTTaskMgr
         }
     }
 
-    fn register_once<T>(&mut self, tid: MTTaskId, sp_start: *mut usize, sp_end: *mut usize, t: T)
+    fn register_once<T>(&mut self, tid: MTTaskId, stack: &mut [usize], t: T)
     where T: FnOnce() + Send // TODO: appropriate lifetime
     {
         let task = self.task_index(tid);
 
         assert_eq!(task.state, MTState::None); // TODO: better message
+
+        let sp_start = &mut stack[0] as *mut usize;
+        let sp_end = &mut stack[stack.len() - 1] as *mut usize;
 
         let sz = size_of::<T>();
         let rfo = unsafe { transmute::<&dyn FnOnce(), RefFnOnce>(&t) };
@@ -520,10 +523,9 @@ impl<'a> Minimult<'a>
     {
         let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
 
-        let sp_start: *mut usize = self.alloc.get(stack_len);
-        let sp_end = unsafe { sp_start.add(stack_len) };
+        let stack = self.alloc.get_slice_mut(stack_len);
         
-        tm.register_once(tid, sp_start, sp_end, t);
+        tm.register_once(tid, stack, t);
     }
 
     pub fn loops(self) -> !
