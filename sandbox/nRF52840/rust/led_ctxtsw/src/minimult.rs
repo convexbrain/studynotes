@@ -439,7 +439,7 @@ impl<'a> MTAlloc<'a>
         }
     }
 
-    fn get<T, U>(&mut self, len: U) -> *mut T
+    fn array<T, U>(&mut self, len: U) -> *mut T
     where U: Into<usize>
     {
         let len = len.into();
@@ -453,6 +453,11 @@ impl<'a> MTAlloc<'a>
         self.cur_pos = e;
 
         p as *mut T
+    }
+
+    fn one<T>(&mut self) -> *mut T
+    {
+        self.array(1_usize)
     }
 }
 
@@ -477,7 +482,7 @@ impl<'a> Minimult<'a>
         let mut alloc = MTAlloc::new(mem);
 
         unsafe {
-            O_TASKMGR = Some(MTTaskMgr::new(alloc.get(num_tasks), num_tasks));
+            O_TASKMGR = Some(MTTaskMgr::new(alloc.array(num_tasks), num_tasks));
         }
 
         Minimult {
@@ -487,14 +492,14 @@ impl<'a> Minimult<'a>
 
     pub fn msg_queue<L>(&mut self, len: usize) -> (MTMsgSender<L>, MTMsgReceiver<L>)
     {
-        let q = self.alloc.get(1_usize);
-        let mem = self.alloc.get(len);
+        let q = self.alloc.one();
+        let mem = self.alloc.array(len);
 
         unsafe {
-            *q = MTMsgQueue::new(mem, len);
+            *q = MTMsgQueue::new(mem, len); // TODO: lifetime propagation if possible
         }
 
-        (MTMsgSender(q), MTMsgReceiver(q))
+        (MTMsgSender(q), MTMsgReceiver(q)) // TODO: lifetime propagation if possible
     }
 
     pub fn register<T>(&mut self, tid: MTTaskId, stack_len: usize, t: T)
@@ -502,7 +507,7 @@ impl<'a> Minimult<'a>
     {
         let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
 
-        let sp_start: *mut usize = self.alloc.get(stack_len);
+        let sp_start: *mut usize = self.alloc.array(stack_len);
         let sp_end = unsafe { sp_start.add(stack_len) };
         
         tm.register_once(tid, sp_start, sp_end, t);
