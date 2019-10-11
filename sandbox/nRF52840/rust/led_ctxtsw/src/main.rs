@@ -28,6 +28,8 @@ fn panic(_info: &PanicInfo) -> ! {
     }
 }
 
+struct Count(u32);
+
 #[entry]
 fn main() -> ! {
     let mut mem = Minimult::memory::<[u8; 4096]>(); // TODO: check mem size
@@ -69,11 +71,14 @@ fn main() -> ! {
 
     let (snd, rcv) = mt.msg_queue::<u32>(4);
 
-    let v1 = 4;
-    let v2 = 8;
+    let v1 = Count(4);
+    let v2 = Count(8);
 
-    mt.register(0, 256, move || led_cnt(timer0, snd, v1, v2));
-    mt.register(1, 256, move || led_tgl1(p0, rcv));
+    mt.register(0, 256, || led_cnt(timer0, snd, &v1, &v2));
+    mt.register(1, 256, || led_tgl1(p0, rcv)); // blink and pause
+    //mt.register(1, 256, || led_tgl2(p0, rcv)); // keep blinking
+
+    //core::mem::drop(v1); // error
     
     // ----- ----- ----- ----- -----
 
@@ -120,7 +125,7 @@ fn led_tgl2(p0: P0, mut rcv: MTMsgReceiver<u32>)
     }
 }
 
-fn led_cnt(timer0: TIMER0, mut snd: MTMsgSender<u32>, cnt_1: u32, cnt_2: u32)
+fn led_cnt(timer0: TIMER0, mut snd: MTMsgSender<u32>, cnt_1: &Count, cnt_2: &Count)
 {
     let mut flag = true;
 
@@ -135,7 +140,7 @@ fn led_cnt(timer0: TIMER0, mut snd: MTMsgSender<u32>, cnt_1: u32, cnt_2: u32)
 
         //
 
-        snd.send(if flag {cnt_1} else {cnt_2});
+        snd.send(if flag {cnt_1.0} else {cnt_2.0});
         flag = !flag;
     }
 }
