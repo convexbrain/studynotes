@@ -466,7 +466,7 @@ impl<'a> MTAlloc<'a>
     where U: Into<usize>
     {
         let len = len.into();
-        
+
         let p = self.get::<T, _>(len);
 
         unsafe { core::slice::from_raw_parts_mut(p, len) }
@@ -505,13 +505,15 @@ impl<'a> Minimult<'a>
     pub fn msg_queue<L>(&mut self, len: usize) -> (MTMsgSender<'a, L>, MTMsgReceiver<'a, L>)
     {
         let q = self.alloc.get(1_usize);
-        let mem = self.alloc.get(len);
+        let mem = self.alloc.get_slice_mut(len);
 
         unsafe {
-            *q = MTMsgQueue::new(mem, len);
+            *q = MTMsgQueue::new(mem);
         }
 
-        (MTMsgSender(q), MTMsgReceiver(q))
+        unsafe {
+            (MTMsgSender(q.as_mut().unwrap()), MTMsgReceiver(q.as_mut().unwrap()))
+        }
     }
 
     pub fn register<T>(&mut self, tid: MTTaskId, stack_len: usize, t: T)
@@ -647,10 +649,10 @@ pub struct MTMsgQueue<'a, L>
 
 impl<'a, L> MTMsgQueue<'a, L>
 {
-    fn new(mem_head: *mut Option<L>, mem_len: usize) -> MTMsgQueue<'a, L>
+    fn new(mem: &'a mut [Option<L>]) -> MTMsgQueue<'a, L>
     {
         MTMsgQueue {
-            mem: unsafe { core::slice::from_raw_parts_mut(mem_head, mem_len) },
+            mem,
             wr_idx: 0,
             rd_idx: 0,
             wr_tid: None,
@@ -661,7 +663,7 @@ impl<'a, L> MTMsgQueue<'a, L>
 
 //
 
-pub struct MTMsgSender<'a, L>(*mut MTMsgQueue<'a, L>);
+pub struct MTMsgSender<'a, L>(&'a mut MTMsgQueue<'a, L>);
 
 unsafe impl<L> Send for MTMsgSender<'_, L> {}
 
@@ -669,14 +671,14 @@ impl<L> MTMsgSender<'_, L>
 {
     pub fn vacant(&self) -> usize
     {
-        let q = unsafe { self.0.as_mut().unwrap() };
+        let q = &self.0;
 
         wrap_diff(q.rd_idx, wrap_inc(q.wr_idx, q.mem.len()), q.mem.len())
     }
 
     pub fn send(&mut self, v: L)
     {
-        let q = unsafe { self.0.as_mut().unwrap() };
+        let q = &mut self.0;
 
         q.wr_tid = Minimult::curr_tid();
 
@@ -704,7 +706,7 @@ impl<L> MTMsgSender<'_, L>
 
 //
 
-pub struct MTMsgReceiver<'a, L>(*mut MTMsgQueue<'a, L>);
+pub struct MTMsgReceiver<'a, L>(&'a mut MTMsgQueue<'a, L>);
 
 unsafe impl<L> Send for MTMsgReceiver<'_, L> {}
 
@@ -712,7 +714,7 @@ impl<L> MTMsgReceiver<'_, L>
 {
     pub fn available(&self) -> usize
     {
-        let q = unsafe { self.0.as_mut().unwrap() };
+        let q = &self.0;
 
         wrap_diff(q.wr_idx, q.rd_idx, q.mem.len())
     }
@@ -720,7 +722,7 @@ impl<L> MTMsgReceiver<'_, L>
     pub fn receive<F>(&mut self, f: F)
     where F: FnOnce(&L)
     {
-        let q = unsafe { self.0.as_mut().unwrap() };
+        let q = &mut self.0;
 
         q.rd_tid = Minimult::curr_tid();
 
