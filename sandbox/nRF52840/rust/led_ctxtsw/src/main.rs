@@ -69,23 +69,25 @@ fn main() -> ! {
 
     // ----- ----- ----- ----- -----
 
-    let (snd, rcv) = mt.msg_queue::<u32>(4);
+    let mut que = mt.msgq::<u32>(4);
+    let (snd, rcv) = que.ch();
 
     let v1 = Count(4);
     let v2 = Count(8);
 
     mt.register(0, 256, || led_cnt(timer0, snd, &v1, &v2));
-    mt.register(1, 256, || led_tgl1(p0, rcv)); // blink and pause
-    //mt.register(1, 256, || led_tgl2(p0, rcv)); // keep blinking
+    mt.register(1, 256, || _led_tgl1(p0, rcv)); // blink and pause
+    //mt.register(1, 256, || _led_tgl2(p0, rcv)); // keep blinking
 
-    //core::mem::drop(v1); // error
+    //core::mem::drop(que); // must be error
+    //core::mem::drop(v1); // must be error
     
     // ----- ----- ----- ----- -----
 
     mt.loops()
 }
 
-fn led_tgl1(p0: P0, mut rcv: MTMsgReceiver<u32>)
+fn _led_tgl1(p0: P0, mut rcv: MTMsgReceiver<u32>)
 {
     let cnt_half = 64_000_000 / 4;
     let mut div = 2;
@@ -105,7 +107,7 @@ fn led_tgl1(p0: P0, mut rcv: MTMsgReceiver<u32>)
     }
 }
 
-fn led_tgl2(p0: P0, mut rcv: MTMsgReceiver<u32>)
+fn _led_tgl2(p0: P0, mut rcv: MTMsgReceiver<u32>)
 {
     let cnt_half = 64_000_000 / 4;
     let mut div = 2;

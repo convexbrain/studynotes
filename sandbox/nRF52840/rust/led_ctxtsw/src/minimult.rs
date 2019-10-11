@@ -516,6 +516,7 @@ impl<'a> MTAlloc<'a>
         }
     }
 
+    /* TODO: remove
     fn one<T>(&mut self) -> *mut T
     {
         let size = size_of::<T>();
@@ -529,6 +530,7 @@ impl<'a> MTAlloc<'a>
 
         p as *mut T
     }
+    */
 }
 
 //
@@ -560,16 +562,11 @@ impl<'a> Minimult<'a>
         }
     }
 
-    pub fn msg_queue<L>(&mut self, len: usize) -> (MTMsgSender<L>, MTMsgReceiver<L>)
+    pub fn msgq<L>(&mut self, len: usize) -> MTMsgQueue<'a, L> // lifetime of message queue should NOT be less than Minimult self, not &mut self
     {
-        let q = self.alloc.one();
         let mem = self.alloc.array(len);
 
-        unsafe {
-            *q = MTMsgQueue::new(mem); // TODO: lifetime propagation if possible
-        }
-
-        (MTMsgSender(q), MTMsgReceiver(q)) // TODO: lifetime propagation if possible
+        MTMsgQueue::new(mem)
     }
 
     pub fn register<T>(&mut self, tid: MTTaskId, stack_len: usize, t: T)
@@ -693,36 +690,43 @@ fn wrap_diff(x: usize, y: usize, bound: usize) -> usize
 
 //
 
-pub struct MTMsgQueue<L>
+pub struct MTMsgQueue<'a, L>
 {
     mem: MTRawArray<Option<L>>,
     wr_idx: usize,
     rd_idx: usize,
     wr_tid: Option<MTTaskId>,
-    rd_tid: Option<MTTaskId>
+    rd_tid: Option<MTTaskId>,
+    phantom: PhantomData<&'a ()>
 }
 
-impl<L> MTMsgQueue<L>
+impl<'a, L> MTMsgQueue<'a, L>
 {
-    fn new(mem: MTRawArray<Option<L>>) -> MTMsgQueue<L>
+    fn new(mem: MTRawArray<Option<L>>) -> MTMsgQueue<'a, L>
     {
         MTMsgQueue {
             mem,
             wr_idx: 0,
             rd_idx: 0,
             wr_tid: None,
-            rd_tid: None
+            rd_tid: None,
+            phantom: PhantomData
         }
+    }
+
+    pub fn ch(&'a mut self) -> (MTMsgSender<'a, L>, MTMsgReceiver<'a, L>)
+    {
+        (MTMsgSender(self), MTMsgReceiver(self))
     }
 }
 
 //
 
-pub struct MTMsgSender<L>(*mut MTMsgQueue<L>);
+pub struct MTMsgSender<'a, L>(*mut MTMsgQueue<'a, L>);
 
-unsafe impl<L> Send for MTMsgSender<L> {}
+unsafe impl<L> Send for MTMsgSender<'_, L> {}
 
-impl<L> MTMsgSender<L>
+impl<L> MTMsgSender<'_, L>
 {
     pub fn vacant(&self) -> usize
     {
@@ -761,11 +765,11 @@ impl<L> MTMsgSender<L>
 
 //
 
-pub struct MTMsgReceiver<L>(*mut MTMsgQueue<L>);
+pub struct MTMsgReceiver<'a, L>(*mut MTMsgQueue<'a, L>);
 
-unsafe impl<L> Send for MTMsgReceiver<L> {}
+unsafe impl<L> Send for MTMsgReceiver<'_, L> {}
 
-impl<L> MTMsgReceiver<L>
+impl<L> MTMsgReceiver<'_, L>
 {
     pub fn available(&self) -> usize
     {
