@@ -458,9 +458,11 @@ impl<'a> MTAlloc<'a>
         p as *mut T
     }
 
-    fn get_mut<T>(&mut self) -> &'a mut T
+    fn get_mut<T>(&mut self, v: T) -> &'a mut T
     {
         let p = self.get::<T, _>(1_usize);
+
+        unsafe { *p = v }
 
         unsafe { p.as_mut().unwrap() }
     }
@@ -507,10 +509,8 @@ impl<'a> Minimult<'a>
 
     pub fn msg_queue<L>(&mut self, len: usize) -> (MTMsgSender<'a, L>, MTMsgReceiver<'a, L>)
     {
-        let q = self.alloc.get_mut();
         let mem = self.alloc.get_slice_mut(len);
-
-        *q = MTMsgQueue::new(mem);
+        let q = self.alloc.get_mut(MTMsgQueue::new(mem));
 
         (
             MTMsgSender(q),
