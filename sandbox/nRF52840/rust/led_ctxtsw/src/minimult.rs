@@ -562,7 +562,7 @@ impl<'a> Minimult<'a>
         }
     }
 
-    pub fn msgq<L>(&mut self, len: usize) -> MTMsgQueue<'a, L> // lifetime of message queue should NOT be less than Minimult self, not &mut self
+    pub fn msgq<L>(&mut self, len: usize) -> MTMsgQueue<'a, L> // TODO: appropriate lifetime
     {
         let mem = self.alloc.array(len);
 
@@ -570,7 +570,7 @@ impl<'a> Minimult<'a>
     }
 
     pub fn register<T>(&mut self, tid: MTTaskId, stack_len: usize, t: T)
-    where T: FnOnce() + Send + 'a // lifetime of task closure should NOT be less than Minimult self, not &mut self
+    where T: FnOnce() + Send + 'a  // TODO: appropriate lifetime
     {
         let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
 

@@ -81,6 +81,7 @@ fn main() -> ! {
 
     //core::mem::drop(que); // must be error
     //core::mem::drop(v1); // must be error
+    //core::mem::drop(mem); // must be error
     
     // ----- ----- ----- ----- -----
 
