@@ -5,6 +5,7 @@ use cortex_m::peripheral::SCB;
 
 use core::mem::{MaybeUninit, size_of, align_of, transmute};
 use core::marker::PhantomData;
+use core::convert::TryInto;
 
 type MTTaskId = u16;
 type MTTaskPri = u8;
@@ -57,14 +58,14 @@ struct MTBHeapList<I, K>
 }
 
 impl<I, K> MTBHeapList<I, K>
-where I: Into<usize> + From<usize> + Copy, K: Ord
+where I: Into<usize> + Copy, usize: TryInto<I>, K: Ord
 {
     pub fn new(array: MTRawArray<Option<(I, K)>>) -> MTBHeapList<I, K>
     {
         MTBHeapList {
             array,
-            n_bheap: 0.into(),
-            n_list: 0.into()
+            n_bheap: 0.try_into().ok().unwrap(),
+            n_list: 0.try_into().ok().unwrap()
         }
     }
 
@@ -73,19 +74,22 @@ where I: Into<usize> + From<usize> + Copy, K: Ord
         let pos = self.n_bheap.into() + self.n_list.into();
         self.array.write(pos, Some((id, key)));
 
-        self.n_list = (self.n_list.into() + 1).into();
+        self.n_list = (self.n_list.into() + 1).try_into().ok().unwrap();
     }
 
     fn pop_list(&mut self)
     {
-        self.n_list = (self.n_list.into() - 1).into();
+        self.n_list = (self.n_list.into() - 1).try_into().ok().unwrap();
 
         let pos = self.n_bheap.into() + self.n_list.into();
         self.array.write(pos, None);
     }
 
-    fn replace(&mut self, pos0: I, pos1: I)
+    fn replace<U1, U2>(&mut self, pos0: U1, pos1: U2)
+    where U1: TryInto<I>, U2: TryInto<I>
     {
+        let pos0 = pos0.try_into().ok().unwrap();
+        let pos1 = pos1.try_into().ok().unwrap();
         let tmp0 = self.array.refer(pos0).take();
         let tmp1 = self.array.refer(pos1).take();
         self.array.write(pos0, tmp1);
@@ -106,7 +110,7 @@ where I: Into<usize> + From<usize> + Copy, K: Ord
                 break;
             }
 
-            self.replace(pos.into(), parent.into());
+            self.replace(pos, parent);
             pos = parent;
         }
     }
@@ -140,7 +144,7 @@ where I: Into<usize> + From<usize> + Copy, K: Ord
                 break;
             }
 
-            self.replace(pos.into(), child.into());
+            self.replace(pos, child);
             pos = child;
         }
     }
@@ -150,7 +154,7 @@ where I: Into<usize> + From<usize> + Copy, K: Ord
         self.push_list(id, key);
 
         let pos = self.n_bheap.into() + self.n_list.into() - 1;
-        self.list_to_bheap(pos.into());
+        self.list_to_bheap(pos.try_into().ok().unwrap());
     }
 
     pub fn list_to_bheap(&mut self, pos: I)
@@ -158,11 +162,11 @@ where I: Into<usize> + From<usize> + Copy, K: Ord
         assert!(pos.into() >= self.n_bheap.into());
 
         // replace pos <=> list head
-        self.replace(pos, self.n_bheap);
+        self.replace(pos, self.n_bheap.into());
 
         // list head <=> bheap tail
-        self.n_list = (self.n_list.into() - 1).into();
-        self.n_bheap = (self.n_bheap.into() + 1).into();
+        self.n_list = (self.n_list.into() - 1).try_into().ok().unwrap();
+        self.n_bheap = (self.n_bheap.into() + 1).try_into().ok().unwrap();
 
         // upheap correction
         self.up_bheap();
@@ -172,11 +176,11 @@ where I: Into<usize> + From<usize> + Copy, K: Ord
     {
         // replace bheap head <=> bheap tail
         let pos1 = self.n_bheap.into() - 1;
-        self.replace(0.into(), pos1.into());
+        self.replace(0, pos1);
 
         // bheap tail <=> list head
-        self.n_list = (self.n_list.into() + 1).into();
-        self.n_bheap = (self.n_bheap.into() - 1).into();
+        self.n_list = (self.n_list.into() + 1).try_into().ok().unwrap();
+        self.n_bheap = (self.n_bheap.into() - 1).try_into().ok().unwrap();
 
         // downheap correction
         self.down_bheap();
@@ -195,7 +199,7 @@ where I: Into<usize> + From<usize> + Copy, K: Ord
 
         // replace list head <=> list tail
         let pos1 = self.n_bheap.into() + self.n_list.into() - 1;
-        self.replace(self.n_bheap, pos1.into());
+        self.replace(self.n_bheap.into(), pos1);
         
         // remove list tail
         self.pop_list();
@@ -228,6 +232,7 @@ struct MTTask
 struct MTTaskMgr
 {
     tasks: MTRawArray<MTTask>,
+    task_tree: MTBHeapList<MTTaskId, MTTaskPri>,
     //
     sp_loops: *mut usize,
     tid: Option<MTTaskId>
@@ -247,9 +252,9 @@ impl MTTaskMgr
 
     // Main context
 
-    fn new(tasks: MTRawArray<MTTask>, num_tasks: MTTaskId) -> MTTaskMgr
+    fn new(tasks: MTRawArray<MTTask>, task_tree_array: MTRawArray<Option<(MTTaskId, MTTaskPri)>>) -> MTTaskMgr
     {
-        for i in 0..num_tasks {
+        for i in 0..tasks.len() {
             tasks.write(i,
                 MTTask {
                     sp_start: core::ptr::null_mut(),
@@ -267,6 +272,7 @@ impl MTTaskMgr
 
         MTTaskMgr {
             tasks,
+            task_tree: MTBHeapList::new(task_tree_array),
             sp_loops: core::ptr::null_mut(),
             tid: None
         }
@@ -605,7 +611,7 @@ impl<'a> Minimult<'a>
         let mut alloc = MTAlloc::new(mem);
 
         unsafe {
-            O_TASKMGR = Some(MTTaskMgr::new(alloc.array(num_tasks), num_tasks));
+            O_TASKMGR = Some(MTTaskMgr::new(alloc.array(num_tasks), alloc.array(num_tasks)));
         }
 
         Minimult {
