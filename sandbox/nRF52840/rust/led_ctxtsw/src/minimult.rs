@@ -49,6 +49,159 @@ fn inf_loop() -> !
 
 //
 
+struct MTBHeapList<I, K>
+{
+    array: MTRawArray<Option<(I, K)>>,
+    n_bheap: I,
+    n_list: I
+}
+
+impl<I, K> MTBHeapList<I, K>
+where I: Into<usize> + From<usize> + Copy, K: Ord
+{
+    pub fn new(array: MTRawArray<Option<(I, K)>>) -> MTBHeapList<I, K>
+    {
+        MTBHeapList {
+            array,
+            n_bheap: 0.into(),
+            n_list: 0.into()
+        }
+    }
+
+    fn push_list(&mut self, id: I, key: K)
+    {
+        let pos = self.n_bheap.into() + self.n_list.into();
+        self.array.write(pos, Some((id, key)));
+
+        self.n_list = (self.n_list.into() + 1).into();
+    }
+
+    fn pop_list(&mut self)
+    {
+        self.n_list = (self.n_list.into() - 1).into();
+
+        let pos = self.n_bheap.into() + self.n_list.into();
+        self.array.write(pos, None);
+    }
+
+    fn replace(&mut self, pos0: I, pos1: I)
+    {
+        let tmp0 = self.array.refer(pos0).take();
+        let tmp1 = self.array.refer(pos1).take();
+        self.array.write(pos0, tmp1);
+        self.array.write(pos1, tmp0);
+    }
+
+    fn up_bheap(&mut self)
+    {
+        let mut pos = self.n_bheap.into() - 1;
+
+        while pos > 0 {
+            let parent = (pos - 1) / 2;
+
+            let key_pos = &self.array.refer(pos).as_ref().unwrap().1;
+            let key_parent = &self.array.refer(parent).as_ref().unwrap().1;
+
+            if key_pos >= key_parent {
+                break;
+            }
+
+            self.replace(pos.into(), parent.into());
+            pos = parent;
+        }
+    }
+
+    fn down_bheap(&mut self)
+    {
+        let mut pos = 0_usize;
+
+        while pos < self.n_bheap.into() / 2 {
+            let child0 = pos * 2 + 1;
+            let child1 = pos * 2 + 2;
+
+            let key_pos = &self.array.refer(pos).as_ref().unwrap().1;
+            let key_child0 = &self.array.refer(child0).as_ref().unwrap().1;
+
+            let (child, key_child) = if child1 < self.n_bheap.into() {
+                let key_child1 = &self.array.refer(child1).as_ref().unwrap().1;
+
+                if key_child0 <= key_child1 {
+                    (child0, key_child0)
+                }
+                else {
+                    (child1, key_child1)
+                }
+            }
+            else {
+                (child0, key_child0)
+            };
+
+            if key_pos < key_child {
+                break;
+            }
+
+            self.replace(pos.into(), child.into());
+            pos = child;
+        }
+    }
+
+    pub fn add_bheap(&mut self, id: I, key: K)
+    {
+        self.push_list(id, key);
+
+        let pos = self.n_bheap.into() + self.n_list.into() - 1;
+        self.list_to_bheap(pos.into());
+    }
+
+    pub fn list_to_bheap(&mut self, pos: I)
+    {
+        assert!(pos.into() >= self.n_bheap.into());
+
+        // replace pos <=> list head
+        self.replace(pos, self.n_bheap);
+
+        // list head <=> bheap tail
+        self.n_list = (self.n_list.into() - 1).into();
+        self.n_bheap = (self.n_bheap.into() + 1).into();
+
+        // upheap correction
+        self.up_bheap();
+    }
+
+    pub fn bheap_to_list(&mut self)
+    {
+        // replace bheap head <=> bheap tail
+        let pos1 = self.n_bheap.into() - 1;
+        self.replace(0.into(), pos1.into());
+
+        // bheap tail <=> list head
+        self.n_list = (self.n_list.into() + 1).into();
+        self.n_bheap = (self.n_bheap.into() - 1).into();
+
+        // downheap correction
+        self.down_bheap();
+    }
+
+    pub fn bheap_round(&mut self)
+    {
+        self.bheap_to_list();
+
+        self.list_to_bheap(self.n_bheap);
+    }
+
+    pub fn remove_bheap(&mut self)
+    {
+        self.bheap_to_list();
+
+        // replace list head <=> list tail
+        let pos1 = self.n_bheap.into() + self.n_list.into() - 1;
+        self.replace(self.n_bheap, pos1.into());
+        
+        // remove list tail
+        self.pop_list();
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum MTState
 {
@@ -69,16 +222,12 @@ struct MTTask
     wakeup_cnt: usize,
     signal_excnt: usize,
     wait_cnt: usize,
-    state: MTState,
-    //
-    bh_array: Option<MTTaskId>
+    state: MTState
 }
 
 struct MTTaskMgr
 {
     tasks: MTRawArray<MTTask>,
-    bh_ready: MTTaskId,
-    bh_idlewait: MTTaskId,
     //
     sp_loops: *mut usize,
     tid: Option<MTTaskId>
@@ -96,85 +245,6 @@ impl MTTaskMgr
         }
     }
 
-    //
-
-    fn bh_add_idlewait_tail(&mut self, tid: MTTaskId)
-    {
-        self.tasks.refer(self.bh_ready + self.bh_idlewait).bh_array = Some(tid);
-
-        self.bh_idlewait += 1;
-    }
-
-    fn bh_remove_idlewait_tail(&mut self)
-    {
-        self.bh_idlewait -= 1;
-
-        self.tasks.refer(self.bh_ready + self.bh_idlewait).bh_array = None;
-    }
-
-    fn bh_replace(&mut self, pos0: MTTaskId, pos1: MTTaskId)
-    {
-    }
-
-    fn bh_upheap(&mut self)
-    {
-    }
-
-    fn bh_downheap(&mut self)
-    {
-    }
-
-    fn bh_none_to_ready(&mut self, tid: MTTaskId)
-    {
-        self.bh_add_idlewait_tail(tid);
-
-        self.bh_idlewait_to_ready(self.bh_ready + self.bh_idlewait - 1);
-    }
-
-    fn bh_idlewait_to_ready(&mut self, pos: MTTaskId)
-    {
-        // replace pos <=> idlewait head
-        self.bh_replace(pos, self.bh_ready);
-
-        // idlewait head <=> ready tail
-        self.bh_idlewait -= 1;
-        self.bh_ready += 1;
-
-        // upheap correction
-        self.bh_upheap();
-    }
-
-    fn bh_ready_to_idlewait(&mut self)
-    {
-        // replace ready head <=> ready tail
-        self.bh_replace(0, self.bh_ready - 1);
-
-        // ready tail <=> idlewait head
-        self.bh_idlewait += 1;
-        self.bh_ready -= 1;
-
-        // downheap correction
-        self.bh_downheap();
-    }
-
-    fn bh_ready_round(&mut self)
-    {
-        self.bh_ready_to_idlewait();
-
-        self.bh_idlewait_to_ready(self.bh_ready);
-    }
-
-    fn bh_ready_to_none(&mut self)
-    {
-        self.bh_ready_to_idlewait();
-
-        // replace idlewait head <=> idlewait tail
-        self.bh_replace(self.bh_ready, self.bh_ready + self.bh_idlewait - 1);
-        
-        // remove idlewait tail
-        self.bh_remove_idlewait_tail();
-    }
-
     // Main context
 
     fn new(tasks: MTRawArray<MTTask>, num_tasks: MTTaskId) -> MTTaskMgr
@@ -190,16 +260,13 @@ impl MTTaskMgr
                     wakeup_cnt: 0,
                     signal_excnt: 0,
                     wait_cnt: 0,
-                    state: MTState::None,
-                    bh_array: None
+                    state: MTState::None
                 }
             );
         }
 
         MTTaskMgr {
             tasks,
-            bh_ready: 0,
-            bh_idlewait: 0,
             sp_loops: core::ptr::null_mut(),
             tid: None
         }
@@ -515,22 +582,6 @@ impl<'a> MTAlloc<'a>
             len
         }
     }
-
-    /* TODO: remove
-    fn one<T>(&mut self) -> *mut T
-    {
-        let size = size_of::<T>();
-
-        let p = align_up::<T>(self.cur_pos);
-        let e = p + size;
-
-        assert!(e <= self.end_cap); // TODO: better message
-
-        self.cur_pos = e;
-
-        p as *mut T
-    }
-    */
 }
 
 //
