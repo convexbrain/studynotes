@@ -682,7 +682,7 @@ impl<'a> Minimult<'a>
         }
     }
 
-    /*pub*/ fn signal(tid: MTTaskId)
+    pub fn signal(tid: MTTaskId)
     {
         unsafe {
             if let Some(tm) = O_TASKMGR.as_mut() {
@@ -691,7 +691,7 @@ impl<'a> Minimult<'a>
         }
     }
 
-    /*pub*/ fn wait()
+    pub fn wait()
     {
         unsafe {
             if let Some(tm) = O_TASKMGR.as_mut() {
@@ -700,7 +700,7 @@ impl<'a> Minimult<'a>
         }
     }
 
-    /*pub*/ fn curr_tid() -> Option<MTTaskId>
+    pub fn curr_tid() -> Option<MTTaskId>
     {
         unsafe {
             if let Some(tm) = O_TASKMGR.as_ref() {
@@ -781,12 +781,14 @@ impl<L> MTMsgSender<'_, L>
 {
     pub fn vacant(&self) -> usize
     {
-        let q = unsafe { self.0.as_ref().unwrap() };
+        let q = unsafe { self.0.as_mut().unwrap() };
+
+        q.wr_tid = Minimult::curr_tid();
 
         wrap_diff(q.rd_idx, wrap_inc(q.wr_idx, q.mem.len()), q.mem.len())
     }
 
-    pub fn send(&mut self, v: L)
+    pub fn send(&self, v: L)
     {
         let q = unsafe { self.0.as_mut().unwrap() };
 
@@ -824,12 +826,14 @@ impl<L> MTMsgReceiver<'_, L>
 {
     pub fn available(&self) -> usize
     {
-        let q = unsafe { self.0.as_ref().unwrap() };
+        let q = unsafe { self.0.as_mut().unwrap() };
+
+        q.rd_tid = Minimult::curr_tid();
 
         wrap_diff(q.wr_idx, q.rd_idx, q.mem.len())
     }
 
-    pub fn receive<F>(&mut self, f: F)
+    pub fn receive<F>(&self, f: F)
     where F: FnOnce(&L)
     {
         let q = unsafe { self.0.as_mut().unwrap() };

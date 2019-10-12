@@ -88,7 +88,7 @@ fn main() -> ! {
     mt.loops()
 }
 
-fn _led_tgl1(p0: P0, mut rcv: MTMsgReceiver<u32>)
+fn _led_tgl1(p0: P0, rcv: MTMsgReceiver<u32>)
 {
     let cnt_half = 64_000_000 / 4;
     let mut div = 2;
@@ -108,7 +108,7 @@ fn _led_tgl1(p0: P0, mut rcv: MTMsgReceiver<u32>)
     }
 }
 
-fn _led_tgl2(p0: P0, mut rcv: MTMsgReceiver<u32>)
+fn _led_tgl2(p0: P0, rcv: MTMsgReceiver<u32>)
 {
     let cnt_half = 64_000_000 / 4;
     let mut div = 2;
@@ -128,7 +128,7 @@ fn _led_tgl2(p0: P0, mut rcv: MTMsgReceiver<u32>)
     }
 }
 
-fn led_cnt(timer0: TIMER0, mut snd: MTMsgSender<u32>, cnt_1: &Count, cnt_2: &Count)
+fn led_cnt(timer0: TIMER0, snd: MTMsgSender<u32>, cnt_1: &Count, cnt_2: &Count)
 {
     let mut flag = true;
 
