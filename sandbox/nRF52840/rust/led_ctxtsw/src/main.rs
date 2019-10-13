@@ -75,9 +75,9 @@ fn main() -> ! {
     let v1 = Count(4);
     let v2 = Count(8);
 
-    mt.register(0, 256, || led_cnt(timer0, snd, &v1, &v2));
-    mt.register(1, 256, || _led_tgl1(p0, rcv)); // blink and pause
-    //mt.register(1, 256, || _led_tgl2(p0, rcv)); // keep blinking
+    mt.register(0, 1, 256, || led_cnt(timer0, snd, &v1, &v2));
+    mt.register(1, 0, 256, || _led_tgl1(p0, rcv)); // blink and pause
+    //mt.register(1, 0, 256, || _led_tgl2(p0, rcv)); // keep blinking
 
     //core::mem::drop(que); // must be error
     //core::mem::drop(v1); // must be error

@@ -182,6 +182,8 @@ where I: Into<usize> + Copy, usize: TryInto<I>, K: Ord
 
     pub fn bheap_h_to_llist_h(&mut self)
     {
+        assert!(self.n_bheap.into() > 0);
+        
         // replace bheap head <=> bheap tail
         let pos1 = self.n_bheap.into() - 1;
         self.replace(0, pos1);
@@ -193,7 +195,7 @@ where I: Into<usize> + Copy, usize: TryInto<I>, K: Ord
         self.down_bheap();
     }
 
-    pub fn bheap_h_to_rlist_t(&mut self)
+    pub fn bheap_h_to_rlist_h(&mut self)
     {
         self.bheap_h_to_llist_h();
 
@@ -229,29 +231,63 @@ where I: Into<usize> + Copy, usize: TryInto<I>, K: Ord
         let pos = self.n_bheap.into() + self.n_llist.into();
         self.array.write(pos, None);
     }
+
+    pub fn bheap_h(&self) -> Option<I>
+    {
+        if self.n_bheap.into() > 0 {
+            None
+        }
+        else {
+            Some(self.array.refer(0_usize).as_ref().unwrap().0)
+        }
+    }
+
+    pub fn llist_scan<F>(&mut self, to_bheap: F)
+    where F: Fn(I) -> bool
+    {
+        let pos_b = self.n_bheap.into();
+        let pos_e = pos_b + self.n_llist.into();
+        for pos in pos_b..pos_e {
+            let pos = pos.try_into().ok().unwrap();
+            if to_bheap(self.array.refer(pos).as_ref().unwrap().0) {
+                self.llist_to_bheap(pos);
+            }
+        }
+    }
+
+    pub fn rlist_scan<F>(&mut self, to_bheap: F)
+    where F: Fn(I) -> bool
+    {
+        let pos_e = self.array.len();
+        let pos_b = pos_e - self.n_rlist.into();
+        for pos in pos_b..pos_e {
+            let pos = pos.try_into().ok().unwrap();
+            if to_bheap(self.array.refer(pos).as_ref().unwrap().0) {
+                self.rlist_to_bheap(pos);
+            }
+        }
+    }
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
-enum MTState
+enum MTChgReq
 {
-    None,
+    NoRound,
+    Round,
     Idle,
-    Ready,
-    Waiting
+    Wait,
+    Remove
 }
 
 struct MTTask
 {
     sp_start: *mut usize,
     sp_end: *mut usize,
-    priority: MTTaskPri,
     //
     sp: *mut usize,
     kick_excnt: usize,
     wakeup_cnt: usize,
     signal_excnt: usize,
-    wait_cnt: usize,
-    state: MTState
+    wait_cnt: usize
 }
 
 struct MTTaskMgr
@@ -260,21 +296,12 @@ struct MTTaskMgr
     task_tree: MTBHeapDList<MTTaskId, MTTaskPri>,
     //
     sp_loops: *mut usize,
-    tid: Option<MTTaskId>
+    tid: Option<MTTaskId>,
+    chg_req: MTChgReq
 }
 
 impl MTTaskMgr
 {
-    fn task_current(&mut self) -> Option<&mut MTTask>
-    {
-        if let Some(curr_tid) = self.tid {
-            Some(self.tasks.refer(curr_tid))
-        }
-        else {
-            None
-        }
-    }
-
     // Main context
 
     fn new(tasks: MTRawArray<MTTask>, task_tree_array: MTRawArray<Option<(MTTaskId, MTTaskPri)>>) -> MTTaskMgr
@@ -284,22 +311,22 @@ impl MTTaskMgr
                 MTTask {
                     sp_start: core::ptr::null_mut(),
                     sp_end: core::ptr::null_mut(),
-                    priority: 0,
                     sp: core::ptr::null_mut(),
                     kick_excnt: 0,
                     wakeup_cnt: 0,
                     signal_excnt: 0,
-                    wait_cnt: 0,
-                    state: MTState::None
+                    wait_cnt: 0
                 }
             );
+            task_tree_array.write(i, None);
         }
 
         MTTaskMgr {
             tasks,
             task_tree: MTBHeapDList::new(task_tree_array),
             sp_loops: core::ptr::null_mut(),
-            tid: None
+            tid: None,
+            chg_req: MTChgReq::NoRound
         }
     }
 
@@ -322,12 +349,12 @@ impl MTTaskMgr
         }
     }
 
-    fn register_once<T>(&mut self, tid: MTTaskId, stack: MTRawArray<usize>, t: T)
+    fn register_once<T>(&mut self, tid: MTTaskId, pri: MTTaskPri, stack: MTRawArray<usize>, t: T)
     where T: FnOnce() + Send // unsafe lifetime
     {
         let task = self.tasks.refer(tid);
 
-        assert_eq!(task.state, MTState::None); // TODO: better message
+        assert!(task.sp.is_null() && task.sp_start.is_null() && task.sp_end.is_null()); // TODO: better message
 
         let sp_start = stack.head();
         let sp_end = stack.tail();
@@ -353,37 +380,116 @@ impl MTTaskMgr
 
         task.sp_start = sp_start;
         task.sp_end = sp_end;
-        task.priority = tid as u8; // TODO: task priority
         task.sp = sp;
-        task.state = MTState::Ready;
+
+        self.task_tree.add_bheap(tid, pri);
+    }
+
+    // Interrupt context
+
+    fn task_switch(&mut self, curr_sp: *mut usize) -> *mut usize
+    {
+        // check and save current sp
+
+        if let Some(curr_tid) = self.tid {
+            let curr_task = self.tasks.refer(curr_tid);
+
+            assert!(curr_sp >= curr_task.sp_start); // TODO: better message
+            assert!(curr_sp <= curr_task.sp_end); // TODO: better message
+
+            curr_task.sp = curr_sp;
+        }
+        else {
+            self.sp_loops = curr_sp;
+        }
+
+        // clear service call request
+
+        SCB::clear_pendsv();
+
+        // change state request
+
+        match self.chg_req {
+            MTChgReq::NoRound => {
+                //
+            }
+            MTChgReq::Round => {
+                self.task_tree.round_bheap_h();
+            }
+            MTChgReq::Idle => {
+                self.task_tree.bheap_h_to_rlist_h();
+            }
+            MTChgReq::Wait => {
+                self.task_tree.bheap_h_to_llist_h();
+            }
+            MTChgReq::Remove => {
+                self.task_tree.remove_bheap_h();
+            }
+        }
+
+        self.chg_req = MTChgReq::Round;
+
+        // scan to check if Wait to Ready
+
+        let tasks = &self.tasks;
+
+        self.task_tree.llist_scan(|tid| {
+            let task = tasks.refer(tid);
+
+            if task.signal_excnt != task.wait_cnt {
+                task.wait_cnt = task.signal_excnt;
+                true
+            }
+            else {
+                false
+            }
+        });
+
+        // scan to check if Idle to Ready
+
+        self.task_tree.rlist_scan(|tid| {
+            let task = tasks.refer(tid);
+
+            if task.kick_excnt != task.wakeup_cnt {
+                task.wakeup_cnt = task.wakeup_cnt.wrapping_add(1);
+                true
+            }
+            else {
+                false
+            }
+        });
+
+        // find highest priority Ready task
+
+        let (next_tid, next_sp) = if let Some(tid) = self.task_tree.bheap_h() {
+            (Some(tid), self.tasks.refer(tid).sp)
+        }
+        else {
+            (None, self.sp_loops)
+        };
+
+        self.tid = next_tid;
+
+        next_sp
     }
 
     // Task context
 
     fn idle(&mut self)
     {
-        let task = self.task_current().unwrap();
-
-        task.state = MTState::Idle;
-        
+        self.chg_req = MTChgReq::Idle;
         Minimult::schedule();
     }
 
     fn none(&mut self)
     {
-        let task = self.task_current().unwrap();
-
-        task.state = MTState::None;
-        
+        self.chg_req = MTChgReq::Remove;
         Minimult::schedule();
     }
 
     fn wait(&mut self)
     {
-        let task = self.task_current().unwrap();
-
-        task.state = MTState::Waiting;
-        
+        self.chg_req = MTChgReq::Wait;
         Minimult::schedule();
     }
 
@@ -395,66 +501,8 @@ impl MTTaskMgr
             ex_countup(&mut task.signal_excnt);
         }
 
-        if let Some(curr_tid) = self.tid {
-            if curr_tid <= tid { // TODO: task priority
-                return;
-            }
-        }
-
+        self.chg_req = MTChgReq::NoRound;
         Minimult::schedule();
-    }
-
-    // Interrupt context
-
-    fn task_switch(&mut self, curr_sp: *mut usize) -> *mut usize
-    {
-        if let Some(task) = self.task_current() {
-            assert!(curr_sp >= task.sp_start); // TODO: better message
-            assert!(curr_sp <= task.sp_end); // TODO: better message
-
-            task.sp = curr_sp;
-        }
-        else {
-            self.sp_loops = curr_sp;
-        }
-
-        SCB::clear_pendsv();
-
-        for i in 0.. self.tasks.len() { // TODO: iterator
-            let task = self.tasks.refer(i);
-
-            match task.state {
-                MTState::Idle => {
-                    if task.kick_excnt != task.wakeup_cnt {
-                        task.wakeup_cnt = task.wakeup_cnt.wrapping_add(1);
-                        task.state = MTState::Ready;
-                    }
-                },
-                MTState::Waiting => {
-                    if task.signal_excnt != task.wait_cnt {
-                        task.wait_cnt = task.signal_excnt;
-                        task.state = MTState::Ready;
-                    }
-                },
-                _ => {}
-            }
-        }
-
-        let mut next_tid = None;
-        let mut next_sp = self.sp_loops;
-        for i in 0.. self.tasks.len() { // TODO: task priority
-            let task = self.tasks.refer(i);
-
-            if let MTState::Ready = task.state {
-                next_tid = Some(i as MTTaskId);
-                next_sp = task.sp;
-                break;
-            }
-        }
-
-        self.tid = next_tid;
-
-        next_sp
     }
 
     // Task and Interrupt context
@@ -467,12 +515,7 @@ impl MTTaskMgr
             ex_countup(&mut task.kick_excnt);
         }
 
-        if let Some(curr_tid) = self.tid {
-            if curr_tid <= tid { // TODO: task priority
-                return;
-            }
-        }
-
+        self.chg_req = MTChgReq::NoRound;
         Minimult::schedule();
     }
 }
@@ -651,14 +694,14 @@ impl<'a> Minimult<'a>
         MTMsgQueue::new(mem)
     }
 
-    pub fn register<T>(&mut self, tid: MTTaskId, stack_len: usize, t: T)
+    pub fn register<T>(&mut self, tid: MTTaskId, pri: MTTaskPri, stack_len: usize, t: T)
     where T: FnOnce() + Send + 'a  // TODO: lifetime is correct?
     {
         let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
 
         let stack = self.alloc.array(stack_len);
         
-        tm.register_once(tid, stack, t);
+        tm.register_once(tid, pri, stack, t);
     }
 
     pub fn loops(self) -> !
