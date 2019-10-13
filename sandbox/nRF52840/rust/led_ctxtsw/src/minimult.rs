@@ -298,7 +298,7 @@ impl MTTaskMgr
     }
 
     fn register_once<T>(&mut self, tid: MTTaskId, stack: MTRawArray<usize>, t: T)
-    where T: FnOnce() + Send // TODO: appropriate lifetime
+    where T: FnOnce() + Send // unsafe lifetime
     {
         let task = self.tasks.refer(tid);
 
@@ -561,7 +561,7 @@ struct MTAlloc<'a>
 
 impl<'a> MTAlloc<'a>
 {
-    fn new<M>(mem: &'a mut MTMemory<M>) -> MTAlloc<'a>
+    fn new<'b, M>(mem: &'b mut MTMemory<M>) -> MTAlloc<'b>
     {
         MTAlloc {
             cur_pos: mem.head(),
@@ -606,7 +606,7 @@ impl<'a> Minimult<'a>
         MTMemory::new()
     }
 
-    pub fn create<M>(mem: &'a mut MTMemory<M>, num_tasks: MTTaskId) -> Minimult<'a>
+    pub fn create<M>(mem: &mut MTMemory<M>, num_tasks: MTTaskId) -> Minimult
     {
         let mut alloc = MTAlloc::new(mem);
 
@@ -619,7 +619,7 @@ impl<'a> Minimult<'a>
         }
     }
 
-    pub fn msgq<L>(&mut self, len: usize) -> MTMsgQueue<'a, L> // TODO: appropriate lifetime
+    pub fn msgq<L>(&mut self, len: usize) -> MTMsgQueue<'a, L> // TODO: lifetime is correct?
     {
         let mem = self.alloc.array(len);
 
@@ -627,7 +627,7 @@ impl<'a> Minimult<'a>
     }
 
     pub fn register<T>(&mut self, tid: MTTaskId, stack_len: usize, t: T)
-    where T: FnOnce() + Send + 'a  // TODO: appropriate lifetime
+    where T: FnOnce() + Send + 'a  // TODO: lifetime is correct?
     {
         let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
 
@@ -759,7 +759,7 @@ pub struct MTMsgQueue<'a, L>
 
 impl<'a, L> MTMsgQueue<'a, L>
 {
-    fn new(mem: MTRawArray<Option<L>>) -> MTMsgQueue<'a, L>
+    fn new(mem: MTRawArray<Option<L>>) -> MTMsgQueue<'a, L> // TODO: lifetime is correct?
     {
         MTMsgQueue {
             mem,
@@ -771,23 +771,36 @@ impl<'a, L> MTMsgQueue<'a, L>
         }
     }
 
-    pub fn ch(&'a mut self) -> (MTMsgSender<'a, L>, MTMsgReceiver<'a, L>)
+    pub fn ch<'q>(&'q mut self) -> (MTMsgSender<'a, 'q, L>, MTMsgReceiver<'a, 'q, L>)
     {
-        (MTMsgSender(self), MTMsgReceiver(self))
+        (
+            MTMsgSender {
+                q: self,
+                phantom: PhantomData
+            },
+            MTMsgReceiver {
+                q: self,
+                phantom: PhantomData
+            }
+        )
     }
 }
 
 //
 
-pub struct MTMsgSender<'a, L>(*mut MTMsgQueue<'a, L>);
+pub struct MTMsgSender<'a, 'q, L>
+{
+    q: *mut MTMsgQueue<'a, L>,
+    phantom: PhantomData<&'q ()>
+}
 
-unsafe impl<L> Send for MTMsgSender<'_, L> {}
+unsafe impl<L> Send for MTMsgSender<'_, '_, L> {}
 
-impl<L> MTMsgSender<'_, L>
+impl<L> MTMsgSender<'_, '_, L>
 {
     pub fn vacant(&self) -> usize
     {
-        let q = unsafe { self.0.as_mut().unwrap() };
+        let q = unsafe { self.q.as_mut().unwrap() };
 
         q.wr_tid = Minimult::curr_tid();
 
@@ -796,7 +809,7 @@ impl<L> MTMsgSender<'_, L>
 
     pub fn send(&self, v: L)
     {
-        let q = unsafe { self.0.as_mut().unwrap() };
+        let q = unsafe { self.q.as_mut().unwrap() };
 
         q.wr_tid = Minimult::curr_tid();
 
@@ -824,15 +837,19 @@ impl<L> MTMsgSender<'_, L>
 
 //
 
-pub struct MTMsgReceiver<'a, L>(*mut MTMsgQueue<'a, L>);
+pub struct MTMsgReceiver<'a, 'q, L>
+{
+    q: *mut MTMsgQueue<'a, L>,
+    phantom: PhantomData<&'q ()>
+}
 
-unsafe impl<L> Send for MTMsgReceiver<'_, L> {}
+unsafe impl<L> Send for MTMsgReceiver<'_, '_, L> {}
 
-impl<L> MTMsgReceiver<'_, L>
+impl<L> MTMsgReceiver<'_, '_, L>
 {
     pub fn available(&self) -> usize
     {
-        let q = unsafe { self.0.as_mut().unwrap() };
+        let q = unsafe { self.q.as_mut().unwrap() };
 
         q.rd_tid = Minimult::curr_tid();
 
@@ -842,7 +859,7 @@ impl<L> MTMsgReceiver<'_, L>
     pub fn receive<F>(&self, f: F)
     where F: FnOnce(&L)
     {
-        let q = unsafe { self.0.as_mut().unwrap() };
+        let q = unsafe { self.q.as_mut().unwrap() };
 
         q.rd_tid = Minimult::curr_tid();
 
