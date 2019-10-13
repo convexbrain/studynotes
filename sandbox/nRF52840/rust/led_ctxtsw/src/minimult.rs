@@ -54,8 +54,7 @@ struct MTBHeapDList<I, K>
 {
     array: MTRawArray<Option<(I, K)>>,
     n_bheap: I,
-    n_llist: I,
-    n_rlist: I
+    n_flist: I
 }
 
 impl<I, K> MTBHeapDList<I, K>
@@ -66,8 +65,7 @@ where I: Into<usize> + Copy, usize: TryInto<I>, K: Ord
         MTBHeapDList {
             array,
             n_bheap: 0.try_into().ok().unwrap(),
-            n_llist: 0.try_into().ok().unwrap(),
-            n_rlist: 0.try_into().ok().unwrap()
+            n_flist: 0.try_into().ok().unwrap()
         }
     }
 
@@ -137,50 +135,32 @@ where I: Into<usize> + Copy, usize: TryInto<I>, K: Ord
 
     pub fn add_bheap(&mut self, id: I, key: K)
     {
-        // add llist tail
-        let pos = self.n_bheap.into() + self.n_llist.into();
+        // add flist tail
+        let pos = self.n_bheap.into() + self.n_flist.into();
         self.array.write(pos, Some((id, key)));
-        self.n_llist = (self.n_llist.into() + 1).try_into().ok().unwrap();
+        self.n_flist = (self.n_flist.into() + 1).try_into().ok().unwrap();
 
-        // llist tail => bheap
-        let pos = self.n_bheap.into() + self.n_llist.into() - 1;
-        self.llist_to_bheap(pos.try_into().ok().unwrap());
+        // flist tail => bheap
+        let pos = self.n_bheap.into() + self.n_flist.into() - 1;
+        self.flist_to_bheap(pos.try_into().ok().unwrap());
     }
 
-    pub fn llist_to_bheap(&mut self, pos: I)
+    pub fn flist_to_bheap(&mut self, pos: I)
     {
         assert!(pos.into() >= self.n_bheap.into());
-        assert!(pos.into() < self.n_bheap.into() + self.n_llist.into());
+        assert!(pos.into() < self.n_bheap.into() + self.n_flist.into());
 
-        // replace llist pos <=> llist head
+        // replace flist pos <=> flist head
         self.replace(pos, self.n_bheap.into());
 
-        // llist head <=> bheap tail
-        self.n_llist = (self.n_llist.into() - 1).try_into().ok().unwrap();
+        // flist head <=> bheap tail
+        self.n_flist = (self.n_flist.into() - 1).try_into().ok().unwrap();
         self.n_bheap = (self.n_bheap.into() + 1).try_into().ok().unwrap();
 
         self.up_bheap();
     }
 
-    pub fn rlist_to_bheap(&mut self, pos: I)
-    {
-        assert!(pos.into() >= self.array.len() - self.n_rlist.into());
-
-        // replace rlist pos <=> rlist head
-        self.replace(pos, self.n_bheap.into() - self.n_rlist.into());
-
-        // rlist head => llist tail
-        let pos0 = self.array.len() - self.n_rlist.into();
-        let pos1 = self.n_bheap.into() + self.n_llist.into();
-        self.replace(pos0, pos1);
-        self.n_llist = (self.n_llist.into() + 1).try_into().ok().unwrap();
-        self.n_rlist = (self.n_rlist.into() - 1).try_into().ok().unwrap();
-
-        let pos = self.n_bheap.into() + self.n_llist.into() - 1;
-        self.llist_to_bheap(pos.try_into().ok().unwrap());
-    }
-
-    pub fn bheap_h_to_llist_h(&mut self)
+    pub fn bheap_h_to_flist_h(&mut self)
     {
         assert!(self.n_bheap.into() > 0);
         
@@ -188,47 +168,31 @@ where I: Into<usize> + Copy, usize: TryInto<I>, K: Ord
         let pos1 = self.n_bheap.into() - 1;
         self.replace(0, pos1);
 
-        // bheap tail <=> llist head
-        self.n_llist = (self.n_llist.into() + 1).try_into().ok().unwrap();
+        // bheap tail <=> flist head
+        self.n_flist = (self.n_flist.into() + 1).try_into().ok().unwrap();
         self.n_bheap = (self.n_bheap.into() - 1).try_into().ok().unwrap();
 
         self.down_bheap();
     }
 
-    pub fn bheap_h_to_rlist_h(&mut self)
-    {
-        self.bheap_h_to_llist_h();
-
-        // replace llist head <=> llist tail
-        let pos1 = self.n_bheap.into() + self.n_llist.into() - 1;
-        self.replace(self.n_bheap.into(), pos1);
-
-        // llist tail => rlist head
-        self.n_rlist = (self.n_rlist.into() + 1).try_into().ok().unwrap();
-        self.n_llist = (self.n_llist.into() - 1).try_into().ok().unwrap();
-        let pos0 = self.array.len() - self.n_rlist.into();
-        let pos1 = self.n_bheap.into() + self.n_llist.into();
-        self.replace(pos0, pos1);
-    }
-
     pub fn round_bheap_h(&mut self)
     {
-        self.bheap_h_to_llist_h();
+        self.bheap_h_to_flist_h();
 
-        self.llist_to_bheap(self.n_bheap);
+        self.flist_to_bheap(self.n_bheap);
     }
 
     pub fn remove_bheap_h(&mut self)
     {
-        self.bheap_h_to_llist_h();
+        self.bheap_h_to_flist_h();
 
-        // replace llist head <=> llist tail
-        let pos1 = self.n_bheap.into() + self.n_llist.into() - 1;
+        // replace flist head <=> flist tail
+        let pos1 = self.n_bheap.into() + self.n_flist.into() - 1;
         self.replace(self.n_bheap.into(), pos1);
 
-        // remove llist tail
-        self.n_llist = (self.n_llist.into() - 1).try_into().ok().unwrap();
-        let pos = self.n_bheap.into() + self.n_llist.into();
+        // remove flist tail
+        self.n_flist = (self.n_flist.into() - 1).try_into().ok().unwrap();
+        let pos = self.n_bheap.into() + self.n_flist.into();
         self.array.write(pos, None);
     }
 
@@ -242,40 +206,27 @@ where I: Into<usize> + Copy, usize: TryInto<I>, K: Ord
         }
     }
 
-    pub fn llist_scan<F>(&mut self, to_bheap: F)
+    pub fn flist_scan<F>(&mut self, to_bheap: F)
     where F: Fn(I) -> bool
     {
         let pos_b = self.n_bheap.into();
-        let pos_e = pos_b + self.n_llist.into();
+        let pos_e = pos_b + self.n_flist.into();
         for pos in pos_b..pos_e {
             let pos = pos.try_into().ok().unwrap();
             if to_bheap(self.array.refer(pos).as_ref().unwrap().0) {
-                self.llist_to_bheap(pos);
-            }
-        }
-    }
-
-    pub fn rlist_scan<F>(&mut self, to_bheap: F)
-    where F: Fn(I) -> bool
-    {
-        let pos_e = self.array.len();
-        let pos_b = pos_e - self.n_rlist.into();
-        for pos in pos_b..pos_e {
-            let pos = pos.try_into().ok().unwrap();
-            if to_bheap(self.array.refer(pos).as_ref().unwrap().0) {
-                self.rlist_to_bheap(pos);
+                self.flist_to_bheap(pos);
             }
         }
     }
 }
 
-enum MTChgReq
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum MTState
 {
-    NoRound,
-    Round,
+    None,
     Idle,
-    Wait,
-    Remove
+    Ready,
+    Waiting
 }
 
 struct MTTask
@@ -287,7 +238,8 @@ struct MTTask
     kick_excnt: usize,
     wakeup_cnt: usize,
     signal_excnt: usize,
-    wait_cnt: usize
+    wait_cnt: usize,
+    state: MTState
 }
 
 struct MTTaskMgr
@@ -296,12 +248,21 @@ struct MTTaskMgr
     task_tree: MTBHeapDList<MTTaskId, MTTaskPri>,
     //
     sp_loops: *mut usize,
-    tid: Option<MTTaskId>,
-    chg_req: MTChgReq
+    tid: Option<MTTaskId>
 }
 
 impl MTTaskMgr
 {
+    fn task_current(&mut self) -> Option<&mut MTTask>
+    {
+        if let Some(curr_tid) = self.tid {
+            Some(self.tasks.refer(curr_tid))
+        }
+        else {
+            None
+        }
+    }
+
     // Main context
 
     fn new(tasks: MTRawArray<MTTask>, task_tree_array: MTRawArray<Option<(MTTaskId, MTTaskPri)>>) -> MTTaskMgr
@@ -315,7 +276,8 @@ impl MTTaskMgr
                     kick_excnt: 0,
                     wakeup_cnt: 0,
                     signal_excnt: 0,
-                    wait_cnt: 0
+                    wait_cnt: 0,
+                    state: MTState::None
                 }
             );
             task_tree_array.write(i, None);
@@ -325,8 +287,7 @@ impl MTTaskMgr
             tasks,
             task_tree: MTBHeapDList::new(task_tree_array),
             sp_loops: core::ptr::null_mut(),
-            tid: None,
-            chg_req: MTChgReq::NoRound
+            tid: None
         }
     }
 
@@ -354,7 +315,7 @@ impl MTTaskMgr
     {
         let task = self.tasks.refer(tid);
 
-        assert!(task.sp.is_null() && task.sp_start.is_null() && task.sp_end.is_null()); // TODO: better message
+        assert_eq!(task.state, MTState::None); // TODO: better message
 
         let sp_start = stack.head();
         let sp_end = stack.tail();
@@ -381,6 +342,7 @@ impl MTTaskMgr
         task.sp_start = sp_start;
         task.sp_end = sp_end;
         task.sp = sp;
+        task.state = MTState::Ready;
 
         self.task_tree.add_bheap(tid, pri);
     }
@@ -391,13 +353,11 @@ impl MTTaskMgr
     {
         // check and save current sp
 
-        if let Some(curr_tid) = self.tid {
-            let curr_task = self.tasks.refer(curr_tid);
+        if let Some(task) = self.task_current() {
+            assert!(curr_sp >= task.sp_start); // TODO: better message
+            assert!(curr_sp <= task.sp_end); // TODO: better message
 
-            assert!(curr_sp >= curr_task.sp_start); // TODO: better message
-            assert!(curr_sp <= curr_task.sp_end); // TODO: better message
-
-            curr_task.sp = curr_sp;
+            task.sp = curr_sp;
         }
         else {
             self.sp_loops = curr_sp;
@@ -407,55 +367,54 @@ impl MTTaskMgr
 
         SCB::clear_pendsv();
 
-        // change state request
+        // change state
 
-        match self.chg_req {
-            MTChgReq::NoRound => {
-                //
-            }
-            MTChgReq::Round => {
-                self.task_tree.round_bheap_h();
-            }
-            MTChgReq::Idle => {
-                self.task_tree.bheap_h_to_rlist_h();
-            }
-            MTChgReq::Wait => {
-                self.task_tree.bheap_h_to_llist_h();
-            }
-            MTChgReq::Remove => {
-                self.task_tree.remove_bheap_h();
+        if let Some(task) = self.task_current() {
+            match task.state {
+                MTState::None => {
+                    self.task_tree.remove_bheap_h();
+                }
+                MTState::Idle => {
+                    self.task_tree.bheap_h_to_flist_h();
+                }
+                MTState::Waiting => {
+                    self.task_tree.bheap_h_to_flist_h();
+                }
+                MTState::Ready => {
+                    self.task_tree.round_bheap_h();
+                }
             }
         }
 
-        self.chg_req = MTChgReq::Round;
-
-        // scan to check if Wait to Ready
+        // scan to check if Idle/Wait to Ready
 
         let tasks = &self.tasks;
 
-        self.task_tree.llist_scan(|tid| {
+        self.task_tree.flist_scan(|tid| {
             let task = tasks.refer(tid);
 
-            if task.signal_excnt != task.wait_cnt {
-                task.wait_cnt = task.signal_excnt;
-                true
-            }
-            else {
-                false
-            }
-        });
-
-        // scan to check if Idle to Ready
-
-        self.task_tree.rlist_scan(|tid| {
-            let task = tasks.refer(tid);
-
-            if task.kick_excnt != task.wakeup_cnt {
-                task.wakeup_cnt = task.wakeup_cnt.wrapping_add(1);
-                true
-            }
-            else {
-                false
+            match task.state {
+                MTState::Idle => {
+                    if task.kick_excnt != task.wakeup_cnt {
+                        task.wakeup_cnt = task.wakeup_cnt.wrapping_add(1);
+                        task.state = MTState::Ready;
+                        true
+                    }
+                    else {
+                        false
+                    }
+                }
+                MTState::Waiting => {
+                    if task.signal_excnt != task.wait_cnt {
+                        task.wait_cnt = task.signal_excnt;
+                        task.state = MTState::Ready;
+                        true
+                    }
+                    else {
+                        false
+                    }
+                }
+                _ => panic!() // TODO: better message
             }
         });
 
@@ -477,19 +436,28 @@ impl MTTaskMgr
 
     fn idle(&mut self)
     {
-        self.chg_req = MTChgReq::Idle;
+        let task = self.task_current().unwrap();
+
+        task.state = MTState::Idle;
+        
         Minimult::schedule();
     }
 
     fn none(&mut self)
     {
-        self.chg_req = MTChgReq::Remove;
+        let task = self.task_current().unwrap();
+
+        task.state = MTState::None;
+        
         Minimult::schedule();
     }
 
     fn wait(&mut self)
     {
-        self.chg_req = MTChgReq::Wait;
+        let task = self.task_current().unwrap();
+
+        task.state = MTState::Waiting;
+        
         Minimult::schedule();
     }
 
@@ -501,7 +469,6 @@ impl MTTaskMgr
             ex_countup(&mut task.signal_excnt);
         }
 
-        self.chg_req = MTChgReq::NoRound;
         Minimult::schedule();
     }
 
@@ -515,7 +482,6 @@ impl MTTaskMgr
             ex_countup(&mut task.kick_excnt);
         }
 
-        self.chg_req = MTChgReq::NoRound;
         Minimult::schedule();
     }
 }
