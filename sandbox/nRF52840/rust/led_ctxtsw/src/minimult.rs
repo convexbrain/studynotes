@@ -58,7 +58,7 @@ struct MTBHeapDList<I, K>
 }
 
 impl<I, K> MTBHeapDList<I, K>
-where I: Into<usize> + Copy, usize: TryInto<I>, K: Ord
+where I: Into<usize> + Copy + PartialEq, usize: TryInto<I>, K: Ord
 {
     pub fn new(array: MTRawArray<Option<(I, K)>>) -> MTBHeapDList<I, K>
     {
@@ -74,10 +74,12 @@ where I: Into<usize> + Copy, usize: TryInto<I>, K: Ord
     {
         let pos0 = pos0.try_into().ok().unwrap();
         let pos1 = pos1.try_into().ok().unwrap();
-        let tmp0 = self.array.refer(pos0).take();
-        let tmp1 = self.array.refer(pos1).take();
-        self.array.write(pos0, tmp1);
-        self.array.write(pos1, tmp0);
+        if pos0 != pos1 {
+            let tmp0 = self.array.refer(pos0).take();
+            let tmp1 = self.array.refer(pos1).take();
+            self.array.write(pos0, tmp1);
+            self.array.write(pos1, tmp0);
+        }
     }
 
     fn up_bheap(&mut self)
@@ -141,7 +143,6 @@ where I: Into<usize> + Copy, usize: TryInto<I>, K: Ord
         self.n_flist = (self.n_flist.into() + 1).try_into().ok().unwrap();
 
         // flist tail => bheap
-        let pos = self.n_bheap.into() + self.n_flist.into() - 1;
         self.flist_to_bheap(pos.try_into().ok().unwrap());
     }
 
@@ -191,18 +192,17 @@ where I: Into<usize> + Copy, usize: TryInto<I>, K: Ord
         self.replace(self.n_bheap.into(), pos1);
 
         // remove flist tail
+        self.array.write(pos1, None);
         self.n_flist = (self.n_flist.into() - 1).try_into().ok().unwrap();
-        let pos = self.n_bheap.into() + self.n_flist.into();
-        self.array.write(pos, None);
     }
 
     pub fn bheap_h(&self) -> Option<I>
     {
         if self.n_bheap.into() > 0 {
-            None
+            Some(self.array.refer(0_usize).as_ref().unwrap().0)
         }
         else {
-            Some(self.array.refer(0_usize).as_ref().unwrap().0)
+            None
         }
     }
 
@@ -338,6 +338,9 @@ impl MTTaskMgr
         let call_once = unsafe { vtbl.add(3).read() }; // TODO: magic number
 
         MTTaskMgr::setup_task_once(sp, data, call_once);
+
+        assert!(sp >= sp_start); // TODO: better message
+        assert!(sp <= sp_end); // TODO: better message
 
         task.sp_start = sp_start;
         task.sp_end = sp_end;
