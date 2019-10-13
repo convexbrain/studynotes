@@ -84,20 +84,22 @@ where I: Into<usize> + Copy + PartialEq, usize: TryInto<I>, K: Ord
 
     fn up_bheap(&mut self)
     {
-        let mut pos = self.n_bheap.into() - 1;
+        if self.n_bheap.into() > 0 {
+            let mut pos = self.n_bheap.into() - 1;
 
-        while pos > 0 {
-            let parent = (pos - 1) / 2;
+            while pos > 0 {
+                let parent = (pos - 1) / 2;
 
-            let key_pos = &self.array.refer(pos).as_ref().unwrap().1;
-            let key_parent = &self.array.refer(parent).as_ref().unwrap().1;
+                let key_pos = &self.array.refer(pos).as_ref().unwrap().1;
+                let key_parent = &self.array.refer(parent).as_ref().unwrap().1;
 
-            if key_pos >= key_parent {
-                break;
+                if key_pos >= key_parent {
+                    break;
+                }
+
+                self.replace(pos, parent);
+                pos = parent;
             }
-
-            self.replace(pos, parent);
-            pos = parent;
         }
     }
 
