@@ -50,39 +50,25 @@ fn inf_loop() -> !
 
 //
 
-struct MTBHeapList<I, K>
+struct MTBHeapDList<I, K>
 {
     array: MTRawArray<Option<(I, K)>>,
     n_bheap: I,
-    n_list: I
+    n_llist: I,
+    n_rlist: I
 }
 
-impl<I, K> MTBHeapList<I, K>
+impl<I, K> MTBHeapDList<I, K>
 where I: Into<usize> + Copy, usize: TryInto<I>, K: Ord
 {
-    pub fn new(array: MTRawArray<Option<(I, K)>>) -> MTBHeapList<I, K>
+    pub fn new(array: MTRawArray<Option<(I, K)>>) -> MTBHeapDList<I, K>
     {
-        MTBHeapList {
+        MTBHeapDList {
             array,
             n_bheap: 0.try_into().ok().unwrap(),
-            n_list: 0.try_into().ok().unwrap()
+            n_llist: 0.try_into().ok().unwrap(),
+            n_rlist: 0.try_into().ok().unwrap()
         }
-    }
-
-    fn push_list(&mut self, id: I, key: K)
-    {
-        let pos = self.n_bheap.into() + self.n_list.into();
-        self.array.write(pos, Some((id, key)));
-
-        self.n_list = (self.n_list.into() + 1).try_into().ok().unwrap();
-    }
-
-    fn pop_list(&mut self)
-    {
-        self.n_list = (self.n_list.into() - 1).try_into().ok().unwrap();
-
-        let pos = self.n_bheap.into() + self.n_list.into();
-        self.array.write(pos, None);
     }
 
     fn replace<U1, U2>(&mut self, pos0: U1, pos1: U2)
@@ -151,58 +137,97 @@ where I: Into<usize> + Copy, usize: TryInto<I>, K: Ord
 
     pub fn add_bheap(&mut self, id: I, key: K)
     {
-        self.push_list(id, key);
+        // add llist tail
+        let pos = self.n_bheap.into() + self.n_llist.into();
+        self.array.write(pos, Some((id, key)));
+        self.n_llist = (self.n_llist.into() + 1).try_into().ok().unwrap();
 
-        let pos = self.n_bheap.into() + self.n_list.into() - 1;
-        self.list_to_bheap(pos.try_into().ok().unwrap());
+        // llist tail => bheap
+        let pos = self.n_bheap.into() + self.n_llist.into() - 1;
+        self.llist_to_bheap(pos.try_into().ok().unwrap());
     }
 
-    pub fn list_to_bheap(&mut self, pos: I)
+    pub fn llist_to_bheap(&mut self, pos: I)
     {
         assert!(pos.into() >= self.n_bheap.into());
+        assert!(pos.into() < self.n_bheap.into() + self.n_llist.into());
 
-        // replace pos <=> list head
+        // replace llist pos <=> llist head
         self.replace(pos, self.n_bheap.into());
 
-        // list head <=> bheap tail
-        self.n_list = (self.n_list.into() - 1).try_into().ok().unwrap();
+        // llist head <=> bheap tail
+        self.n_llist = (self.n_llist.into() - 1).try_into().ok().unwrap();
         self.n_bheap = (self.n_bheap.into() + 1).try_into().ok().unwrap();
 
-        // upheap correction
         self.up_bheap();
     }
 
-    pub fn bheap_to_list(&mut self)
+    pub fn rlist_to_bheap(&mut self, pos: I)
+    {
+        assert!(pos.into() >= self.array.len() - self.n_rlist.into());
+
+        // replace rlist pos <=> rlist head
+        self.replace(pos, self.n_bheap.into() - self.n_rlist.into());
+
+        // rlist head => llist tail
+        let pos0 = self.array.len() - self.n_rlist.into();
+        let pos1 = self.n_bheap.into() + self.n_llist.into();
+        self.replace(pos0, pos1);
+        self.n_llist = (self.n_llist.into() + 1).try_into().ok().unwrap();
+        self.n_rlist = (self.n_rlist.into() - 1).try_into().ok().unwrap();
+
+        let pos = self.n_bheap.into() + self.n_llist.into() - 1;
+        self.llist_to_bheap(pos.try_into().ok().unwrap());
+    }
+
+    pub fn bheap_h_to_llist_h(&mut self)
     {
         // replace bheap head <=> bheap tail
         let pos1 = self.n_bheap.into() - 1;
         self.replace(0, pos1);
 
-        // bheap tail <=> list head
-        self.n_list = (self.n_list.into() + 1).try_into().ok().unwrap();
+        // bheap tail <=> llist head
+        self.n_llist = (self.n_llist.into() + 1).try_into().ok().unwrap();
         self.n_bheap = (self.n_bheap.into() - 1).try_into().ok().unwrap();
 
-        // downheap correction
         self.down_bheap();
     }
 
-    pub fn bheap_round(&mut self)
+    pub fn bheap_h_to_rlist_t(&mut self)
     {
-        self.bheap_to_list();
+        self.bheap_h_to_llist_h();
 
-        self.list_to_bheap(self.n_bheap);
+        // replace llist head <=> llist tail
+        let pos1 = self.n_bheap.into() + self.n_llist.into() - 1;
+        self.replace(self.n_bheap.into(), pos1);
+
+        // llist tail => rlist head
+        self.n_rlist = (self.n_rlist.into() + 1).try_into().ok().unwrap();
+        self.n_llist = (self.n_llist.into() - 1).try_into().ok().unwrap();
+        let pos0 = self.array.len() - self.n_rlist.into();
+        let pos1 = self.n_bheap.into() + self.n_llist.into();
+        self.replace(pos0, pos1);
     }
 
-    pub fn remove_bheap(&mut self)
+    pub fn round_bheap_h(&mut self)
     {
-        self.bheap_to_list();
+        self.bheap_h_to_llist_h();
 
-        // replace list head <=> list tail
-        let pos1 = self.n_bheap.into() + self.n_list.into() - 1;
+        self.llist_to_bheap(self.n_bheap);
+    }
+
+    pub fn remove_bheap_h(&mut self)
+    {
+        self.bheap_h_to_llist_h();
+
+        // replace llist head <=> llist tail
+        let pos1 = self.n_bheap.into() + self.n_llist.into() - 1;
         self.replace(self.n_bheap.into(), pos1);
-        
-        // remove list tail
-        self.pop_list();
+
+        // remove llist tail
+        self.n_llist = (self.n_llist.into() - 1).try_into().ok().unwrap();
+        let pos = self.n_bheap.into() + self.n_llist.into();
+        self.array.write(pos, None);
     }
 }
 
@@ -232,7 +257,7 @@ struct MTTask
 struct MTTaskMgr
 {
     tasks: MTRawArray<MTTask>,
-    task_tree: MTBHeapList<MTTaskId, MTTaskPri>,
+    task_tree: MTBHeapDList<MTTaskId, MTTaskPri>,
     //
     sp_loops: *mut usize,
     tid: Option<MTTaskId>
@@ -272,7 +297,7 @@ impl MTTaskMgr
 
         MTTaskMgr {
             tasks,
-            task_tree: MTBHeapList::new(task_tree_array),
+            task_tree: MTBHeapDList::new(task_tree_array),
             sp_loops: core::ptr::null_mut(),
             tid: None
         }
