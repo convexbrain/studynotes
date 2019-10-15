@@ -10,7 +10,18 @@ use cortex_m::peripheral::NVIC;
 
 use cortex_m_rt::entry;
 
+
+extern crate panic_semihosting;
+/*
 use core::panic::PanicInfo;
+#[panic_handler]
+fn panic(_info: &PanicInfo) -> ! {
+    loop {
+        asm::bkpt();
+    }
+}
+*/
+
 
 use nrf52840_pac::{
     P0, TIMER0,
@@ -21,18 +32,12 @@ pub mod minimult;
 use minimult::{Minimult, MTMsgSender, MTMsgReceiver};
 
 
-#[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
-    loop {
-        asm::bkpt();
-    }
-}
 
 struct Count(u32);
 
 #[entry]
 fn main() -> ! {
-    let mut mem = Minimult::memory::<[u8; 4096]>(); // TODO: check mem size
+    let mut mem = Minimult::memory::<[u8; 8192]>(); // TODO: check mem size
     let mut mt = Minimult::create(&mut mem, 2);
 
     // ----- ----- ----- ----- -----
@@ -75,9 +80,9 @@ fn main() -> ! {
     let v1 = Count(4);
     let v2 = Count(8);
 
-    mt.register(0, 0, 256, || led_cnt(timer0, snd, &v1, &v2));
-    mt.register(1, 1, 256, || _led_tgl1(p0, rcv)); // blink and pause
-    //mt.register(1, 1, 256, || _led_tgl2(p0, rcv)); // keep blinking
+    mt.register(0, 0, 512, || led_cnt(timer0, snd, &v1, &v2));
+    mt.register(1, 1, 512, || _led_tgl1(p0, rcv)); // blink and pause
+    //mt.register(1, 2, 512, || _led_tgl2(p0, rcv)); // keep blinking
 
     //core::mem::drop(que); // must be error
     //core::mem::drop(v1); // must be error
