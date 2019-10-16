@@ -390,12 +390,9 @@ impl MTTaskMgr
                 MTState::Waiting => {
                     self.task_tree.bheap_h_to_flist_h();
                 }
-                MTState::Ready => {
-                    self.task_tree.round_bheap_h();
-                }
+                _  => {}
             }
         }
-
         // scan to check if Idle/Wait to Ready
 
         let tasks = &self.tasks;
@@ -427,6 +424,17 @@ impl MTTaskMgr
                 _ => panic!() // TODO: better message
             }
         });
+
+        // round robin
+
+        if let Some(task) = self.task_current() {
+            match task.state {
+                MTState::Ready => {
+                    self.task_tree.round_bheap_h();
+                }
+                _  => {}
+            }
+        }
 
         // find highest priority Ready task
 
