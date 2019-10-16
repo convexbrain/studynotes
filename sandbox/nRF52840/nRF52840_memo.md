@@ -174,9 +174,7 @@
 
 ### ToDo
 * Rust
-  * マルチタスク
-    * メッセージキュー
-    * タスク優先度ラウンドロビン
+  * メッセージキューのMPSC的利用
   * UART出力
   * panicメッセージをUARTから出す
   * FFIでSoftDevice BLE
