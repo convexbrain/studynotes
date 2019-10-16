@@ -13,3 +13,7 @@ panic-semihosting = "0.5.3"
 [features]
 rt = ["nrf52840-pac/rt"]
 default = ["rt"]
+
+[dependencies.num-integer]
+version = "0.1.36"
+default-features = false

@@ -5,7 +5,7 @@ use cortex_m::peripheral::SCB;
 
 use core::mem::{MaybeUninit, size_of, align_of, transmute};
 use core::marker::PhantomData;
-use core::convert::TryInto;
+
 
 type MTTaskId = u16;
 type MTTaskPri = u8;
@@ -58,22 +58,19 @@ struct MTBHeapDList<I, K>
 }
 
 impl<I, K> MTBHeapDList<I, K>
-where I: Into<usize> + Copy + PartialEq, usize: TryInto<I>, K: Ord
+where I: num_integer::Integer + Into<usize> + Copy, K: Ord
 {
     pub fn new(array: MTRawArray<Option<(I, K)>>) -> MTBHeapDList<I, K>
     {
         MTBHeapDList {
             array,
-            n_bheap: 0.try_into().ok().unwrap(),
-            n_flist: 0.try_into().ok().unwrap()
+            n_bheap: I::zero(),
+            n_flist: I::zero()
         }
     }
 
-    fn replace<U1, U2>(&mut self, pos0: U1, pos1: U2)
-    where U1: TryInto<I>, U2: TryInto<I>
+    fn replace(&mut self, pos0: I, pos1: I)
     {
-        let pos0 = pos0.try_into().ok().unwrap();
-        let pos1 = pos1.try_into().ok().unwrap();
         if pos0 != pos1 {
             let tmp0 = self.array.refer(pos0).take();
             let tmp1 = self.array.refer(pos1).take();
@@ -84,11 +81,13 @@ where I: Into<usize> + Copy + PartialEq, usize: TryInto<I>, K: Ord
 
     fn up_bheap(&mut self)
     {
-        if self.n_bheap.into() > 0 {
-            let mut pos = self.n_bheap.into() - 1;
+        let two = I::one() + I::one();
 
-            while pos > 0 {
-                let parent = (pos - 1) / 2;
+        if self.n_bheap > I::zero() {
+            let mut pos = self.n_bheap - I::one();
+
+            while pos > I::zero() {
+                let parent = (pos - I::one()) / two;
 
                 let key_pos = &self.array.refer(pos).as_ref().unwrap().1;
                 let key_parent = &self.array.refer(parent).as_ref().unwrap().1;
@@ -105,16 +104,18 @@ where I: Into<usize> + Copy + PartialEq, usize: TryInto<I>, K: Ord
 
     fn down_bheap(&mut self)
     {
-        let mut pos = 0_usize;
+        let two = I::one() + I::one();
 
-        while pos < self.n_bheap.into() / 2 {
-            let child0 = pos * 2 + 1;
-            let child1 = pos * 2 + 2;
+        let mut pos = I::zero();
+
+        while pos < self.n_bheap / two {
+            let child0 = (pos * two) + I::one();
+            let child1 = (pos * two) + two;
 
             let key_pos = &self.array.refer(pos).as_ref().unwrap().1;
             let key_child0 = &self.array.refer(child0).as_ref().unwrap().1;
 
-            let (child, key_child) = if child1 < self.n_bheap.into() {
+            let (child, key_child) = if child1 < self.n_bheap {
                 let key_child1 = &self.array.refer(child1).as_ref().unwrap().1;
 
                 if key_child0 <= key_child1 {
@@ -140,40 +141,40 @@ where I: Into<usize> + Copy + PartialEq, usize: TryInto<I>, K: Ord
     pub fn add_bheap(&mut self, id: I, key: K)
     {
         // add flist tail
-        let pos = self.n_bheap.into() + self.n_flist.into();
+        let pos = self.n_bheap + self.n_flist;
         self.array.write(pos, Some((id, key)));
-        self.n_flist = (self.n_flist.into() + 1).try_into().ok().unwrap();
+        self.n_flist = self.n_flist + I::one();
 
         // flist tail => bheap
-        self.flist_to_bheap(pos.try_into().ok().unwrap());
+        self.flist_to_bheap(pos);
     }
 
     pub fn flist_to_bheap(&mut self, pos: I)
     {
-        assert!(pos.into() >= self.n_bheap.into());
-        assert!(pos.into() < self.n_bheap.into() + self.n_flist.into());
+        assert!(pos >= self.n_bheap);
+        assert!(pos < self.n_bheap + self.n_flist);
 
         // replace flist pos <=> flist head
-        self.replace(pos, self.n_bheap.into());
+        self.replace(pos, self.n_bheap);
 
         // flist head <=> bheap tail
-        self.n_flist = (self.n_flist.into() - 1).try_into().ok().unwrap();
-        self.n_bheap = (self.n_bheap.into() + 1).try_into().ok().unwrap();
+        self.n_flist = self.n_flist - I::one();
+        self.n_bheap = self.n_bheap + I::one();
 
         self.up_bheap();
     }
 
     pub fn bheap_h_to_flist_h(&mut self)
     {
-        assert!(self.n_bheap.into() > 0);
+        assert!(self.n_bheap > I::zero());
         
         // replace bheap head <=> bheap tail
-        let pos1 = self.n_bheap.into() - 1;
-        self.replace(0, pos1);
+        let pos1 = self.n_bheap - I::one();
+        self.replace(I::zero(), pos1);
 
         // bheap tail <=> flist head
-        self.n_flist = (self.n_flist.into() + 1).try_into().ok().unwrap();
-        self.n_bheap = (self.n_bheap.into() - 1).try_into().ok().unwrap();
+        self.n_flist = self.n_flist + I::one();
+        self.n_bheap = self.n_bheap - I::one();
 
         self.down_bheap();
     }
@@ -190,18 +191,18 @@ where I: Into<usize> + Copy + PartialEq, usize: TryInto<I>, K: Ord
         self.bheap_h_to_flist_h();
 
         // replace flist head <=> flist tail
-        let pos1 = self.n_bheap.into() + self.n_flist.into() - 1;
-        self.replace(self.n_bheap.into(), pos1);
+        let pos1 = self.n_bheap + self.n_flist - I::one();
+        self.replace(self.n_bheap, pos1);
 
         // remove flist tail
         self.array.write(pos1, None);
-        self.n_flist = (self.n_flist.into() - 1).try_into().ok().unwrap();
+        self.n_flist = self.n_flist - I::one();
     }
 
     pub fn bheap_h(&self) -> Option<I>
     {
-        if self.n_bheap.into() > 0 {
-            Some(self.array.refer(0_usize).as_ref().unwrap().0)
+        if self.n_bheap > I::zero() {
+            Some(self.array.refer(I::zero()).as_ref().unwrap().0)
         }
         else {
             None
@@ -211,13 +212,15 @@ where I: Into<usize> + Copy + PartialEq, usize: TryInto<I>, K: Ord
     pub fn flist_scan<F>(&mut self, to_bheap: F)
     where F: Fn(I) -> bool
     {
-        let pos_b = self.n_bheap.into();
-        let pos_e = pos_b + self.n_flist.into();
-        for pos in pos_b..pos_e {
-            let pos = pos.try_into().ok().unwrap();
+        let pos_b = self.n_bheap;
+        let pos_e = pos_b + self.n_flist;
+
+        let mut pos = pos_b;
+        while pos < pos_e {
             if to_bheap(self.array.refer(pos).as_ref().unwrap().0) {
                 self.flist_to_bheap(pos);
             }
+            pos = pos + I::one();
         }
     }
 }
@@ -367,6 +370,8 @@ impl MTTaskMgr
         else {
             self.sp_loops = curr_sp;
         }
+
+        // TODO: use sp_loops
 
         // clear service call request
 
