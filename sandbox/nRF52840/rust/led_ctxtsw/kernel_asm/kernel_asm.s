@@ -19,6 +19,8 @@ PendSV:
     mov     r4, lr
 
     mov     r0, sp
+    bl      save_sp
+    mov     sp, r0
     bl      task_switch
     mov     sp, r0
 

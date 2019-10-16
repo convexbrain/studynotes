@@ -357,7 +357,7 @@ impl MTTaskMgr
 
     // Interrupt context
 
-    fn task_switch(&mut self, curr_sp: *mut usize) -> *mut usize
+    fn save_sp(&mut self, curr_sp: *mut usize) -> *mut usize
     {
         // check and save current sp
 
@@ -371,8 +371,11 @@ impl MTTaskMgr
             self.sp_loops = curr_sp;
         }
 
-        // TODO: use sp_loops
+        self.sp_loops // use sp_loops until switching task
+    }
 
+    fn task_switch(&mut self) -> *mut usize
+    {
         // clear service call request
 
         SCB::clear_pendsv();
@@ -510,10 +513,17 @@ static mut O_TASKMGR: Option<MTTaskMgr> = None;
 static mut LOOP_STARTED: bool = false;
 
 #[no_mangle]
-pub extern fn task_switch(curr_sp: *mut usize) -> *mut usize
+pub extern fn save_sp(curr_sp: *mut usize) -> *mut usize
 {
     let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
-    tm.task_switch(curr_sp)
+    tm.save_sp(curr_sp)
+}
+
+#[no_mangle]
+pub extern fn task_switch() -> *mut usize
+{
+    let tm = unsafe { O_TASKMGR.as_mut().unwrap() };
+    tm.task_switch()
 }
 
 //

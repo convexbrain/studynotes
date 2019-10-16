@@ -37,7 +37,7 @@ struct Count(u32);
 
 #[entry]
 fn main() -> ! {
-    let mut mem = Minimult::memory::<[u8; 4096]>(); // TODO: check mem size
+    let mut mem = Minimult::memory::<[u8; 4096]>();
     let mut mt = Minimult::create(&mut mem, 2);
 
     // ----- ----- ----- ----- -----
@@ -81,8 +81,8 @@ fn main() -> ! {
     let v2 = Count(16);
 
     mt.register(0, 1, 256, || led_cnt(timer0, snd, &v1, &v2));
-    //mt.register(1, 1, 256, || _led_tgl1(p0, rcv)); // blink and pause
-    mt.register(1, 1, 256, || _led_tgl2(p0, rcv)); // keep blinking
+    mt.register(1, 1, 256, || _led_tgl1(p0, rcv)); // blink and pause
+    //mt.register(1, 1, 256, || _led_tgl2(p0, rcv)); // keep blinking
 
     //core::mem::drop(que); // must be error
     //core::mem::drop(v1); // must be error
