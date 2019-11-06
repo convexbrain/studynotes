@@ -169,13 +169,3 @@
 * [nrf-rs](https://github.com/nrf-rs)
   * [nrf52840-hal クレート](https://crates.io/crates/nrf52840-hal)
   * [nrf52840-pac クレート](https://crates.io/crates/nrf52840-pac)
-
----
-
-### ToDo
-* Rust
-  * メッセージキューのMPSC的利用
-  * UART出力
-  * panicメッセージをUARTから出す
-  * FFIでSoftDevice BLE
-  * TCP/IP over BLE
