@@ -29,6 +29,7 @@ def proj_psd(y):
         out_y[i: i + n - c] = a[c: n, c]
         i += n - c
     assert (i == out_y.size)
+    #print(out_y)
 
     return out_y
 
@@ -46,10 +47,10 @@ def proj_pos(t):
 #
 
 if __name__ == "__main__":
-    max_iter = None
+    max_iter = 5000 #None
 
-    n = 2
-    m = 2
+    n = 1
+    m = 3
 
     seed = np.random.randint(65535)
     np.random.seed(seed)
@@ -59,6 +60,13 @@ if __name__ == "__main__":
     #print(c)
     #print(A)
     #print(b)
+    #c[0] = 1 #-1
+    #A[0, 0] = 0.5
+    #A[1, 0] = -1
+    #A[2, 0] = 1
+    #b[0] = 0
+    #b[1] = 0
+    #b[2] = 0
 
     L = np.zeros((n + m + 1, (n + m + 1) * 2))
     # Q
@@ -77,7 +85,7 @@ if __name__ == "__main__":
     x[n + m] = 1 # u_tau
     x[(n + m + 1) * 2 - 1] = 1 # v_kappa
 
-    L_norm = np.amax(spla.svdvals(L))
+    L_norm = np.amax(spla.svdvals(L)) ###TODO
     #print(L_norm)
 
     tau = 1 / L_norm
@@ -85,13 +93,13 @@ if __name__ == "__main__":
 
     def proj_cone(s):
         #return proj_pos(s)
-        return np.zeros_like(s)
-        #return proj_psd(s) ###TODO
+        #return np.zeros_like(s)
+        return proj_psd(s) ###TODO
 
     def proj_cone_conj(y):
         #return proj_pos(y)
-        return np.copy(y)
-        #return proj_psd(y) ###TODO
+        #return np.copy(y)
+        return proj_psd(y) ###TODO
 
     eps_zero = 1e-12
     eps_pri = 1e-6
@@ -117,7 +125,6 @@ if __name__ == "__main__":
             x_tilde[(n + m + 1): (n + m + 1) + n] = 0 # v_r
             x_tilde[(n + m + 1) + n: (n + m + 1) + n + m] = proj_cone(x_tilde[(n + m + 1) + n: (n + m + 1) + n + m]) # v_s
             x_tilde[(n + m + 1) + n + m] = proj_pos(x_tilde[(n + m + 1) + n + m]) # v_kappa
-            #print(x_tilde)
 
             y_tilde = y + sigma * np.dot(L, 2 * x_tilde - x)
 
@@ -133,7 +140,6 @@ if __name__ == "__main__":
             x_tilde[(n + m + 1): (n + m + 1) + n] = 0 # v_r
             x_tilde[(n + m + 1) + n: (n + m + 1) + n + m] = proj_cone(x_tilde[(n + m + 1) + n: (n + m + 1) + n + m]) # v_s
             x_tilde[(n + m + 1) + n + m] = proj_pos(x_tilde[(n + m + 1) + n + m]) # v_kappa
-            #print(x_tilde)
 
         x = x_tilde
         y = y_tilde
@@ -159,8 +165,7 @@ if __name__ == "__main__":
             term_dual = ( spla.norm(d_k) <= eps_dual * (1 + c_norm) )
             term_gap = ( np.abs(g_k) <= eps_gap * (1 + np.abs(g_k_x) + np.abs(g_k_y)) )
 
-            #print(spla.norm(p_k), spla.norm(d_k), np.abs(g_k))
-            print(term_pri, term_dual, term_gap)
+            #print(term_pri, term_dual, term_gap)
 
             if term_pri and term_dual and term_gap:
                 print("converged")
@@ -171,14 +176,13 @@ if __name__ == "__main__":
         p_infeas = np.dot(A.T, u_k_y)
 
         term_unbdd = (c_norm > eps_zero) and (spla.norm(u_k_x) > eps_zero) and (
-            spla.norm(p_unbdd) * c_norm <= -np.dot(c.T, u_k_x) * eps_unbdd
+            spla.norm(p_unbdd) <= (-np.dot(c.T, u_k_x)) / c_norm * eps_unbdd
         )
         term_infeas = (b_norm > eps_zero) and (spla.norm(u_k_y) > eps_zero) and (
-            spla.norm(p_infeas) * b_norm <= -np.dot(b.T, u_k_y) * eps_infeas
+            spla.norm(p_infeas) <= (-np.dot(b.T, u_k_y) / b_norm) * eps_infeas
         )
 
-        #print(spla.norm(p_unbdd), spla.norm(p_infeas))
-        print(term_unbdd, term_infeas)
+        #print(term_unbdd, term_infeas)
 
         if term_unbdd:
             print("unbounded")
