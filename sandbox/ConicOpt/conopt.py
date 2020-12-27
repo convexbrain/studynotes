@@ -46,15 +46,16 @@ def proj_pos(t):
 #
 
 if __name__ == "__main__":
-    n = 1
-    m = 1
+    max_iter = None #1000
 
+    n = 1
+    m = 2
+
+    seed = np.random.randint(65535)
+    np.random.seed(seed)
     c = np.random.randn(n)
     A = np.random.randn(m, n)
     b = np.random.randn(m)
-    c[0] = -1
-    A[0, 0] = 1
-    b[0] = 1
     #print(c)
     #print(A)
     #print(b)
@@ -76,12 +77,19 @@ if __name__ == "__main__":
     x[n + m] = 1 # u_tau
     x[(n + m + 1) * 2 - 1] = 1 # v_kappa
 
-    L_norm = np.amax(spla.svdvals(L))
+    L_norm = np.amax(spla.svdvals(L)) ###TODO
     #print(L_norm)
 
     tau = 1 / L_norm
     sigma = 1 / L_norm
-    max_iter = 1000
+
+    def proj_cone(s):
+        return proj_pos(s)
+        #return proj_psd(s)
+
+    def proj_cone_conj(y):
+        return proj_pos(y)
+        #return proj_psd(y)
 
     eps_zero = 1e-12
     eps_pri = 1e-6
@@ -93,60 +101,88 @@ if __name__ == "__main__":
     b_norm = spla.norm(b)
     c_norm = spla.norm(c)
 
-    for i in range(max_iter):
+    i = 0
+    while True:
         print("-----", i)
 
+        ###TODO
         x_tilde = x - tau * np.dot(L.T, y)
         #print(x_tilde)
-        x_tilde[n: n + m] = proj_psd(x_tilde[n: n + m])
-        x_tilde[n + m] = proj_pos(x_tilde[n + m])
-        x_tilde[(n + m + 1): (n + m + 1) + n] = 0
-        x_tilde[(n + m + 1) + n: (n + m + 1) + n + m] = proj_psd(x_tilde[(n + m + 1) + n: (n + m + 1) + n + m])
-        x_tilde[(n + m + 1) + n + m] = proj_pos(x_tilde[(n + m + 1) + n + m])
+        x_tilde[n: n + m] = proj_cone_conj(x_tilde[n: n + m]) # u_y
+        x_tilde[n + m] = proj_pos(x_tilde[n + m]) # u_tau
+        x_tilde[(n + m + 1): (n + m + 1) + n] = 0 # v_r
+        x_tilde[(n + m + 1) + n: (n + m + 1) + n + m] = proj_cone(x_tilde[(n + m + 1) + n: (n + m + 1) + n + m]) # v_s
+        x_tilde[(n + m + 1) + n + m] = proj_pos(x_tilde[(n + m + 1) + n + m]) # v_kappa
         #print(x_tilde)
 
         y_tilde = y + sigma * np.dot(L, 2 * x_tilde - x)
 
         x = x_tilde
         y = y_tilde
+        #print(x)
+        #print(y)
 
-        u_tau_k = x[n + m]
-        assert u_tau_k > eps_zero
         u_k_x = x[0: n]
         v_k_s = x[(n + m + 1) + n: (n + m + 1) + n + m]
         u_k_y = x[n: n + m]
-        x_k = u_k_x / u_tau_k
-        s_k = v_k_s / u_tau_k
-        y_k = u_k_y / u_tau_k
-        p_k = np.dot(A, x_k) + s_k - b
-        d_k = np.dot(A.T, y_k) + c
-        g_k_x = np.dot(c.T, x_k)
-        g_k_y = np.dot(b.T, y_k)
-        g_k = g_k_x + g_k_y
+        u_tau_k = x[n + m]
 
-        term_pri = ( spla.norm(p_k) <= eps_pri * (1 + b_norm) )
-        term_dual = ( spla.norm(d_k) <= eps_dual * (1 + c_norm) )
-        term_gap = ( np.abs(g_k) <= eps_gap * (1 + np.abs(g_k_x) + np.abs(g_k_y)) )
+        if u_tau_k > eps_zero:
+            x_k = u_k_x / u_tau_k
+            s_k = v_k_s / u_tau_k
+            y_k = u_k_y / u_tau_k
+            p_k = np.dot(A, x_k) + s_k - b
+            d_k = np.dot(A.T, y_k) + c
+            g_k_x = np.dot(c.T, x_k)
+            g_k_y = np.dot(b.T, y_k)
+            g_k = g_k_x + g_k_y
+
+            term_pri = ( spla.norm(p_k) <= eps_pri * (1 + b_norm) )
+            term_dual = ( spla.norm(d_k) <= eps_dual * (1 + c_norm) )
+            term_gap = ( np.abs(g_k) <= eps_gap * (1 + np.abs(g_k_x) + np.abs(g_k_y)) )
+
+        else:
+            term_pri = False
+            term_dual = False
+            term_gap = False
+            ###TODO
 
         p_unbdd = np.dot(A, u_k_x) + v_k_s
         p_infeas = np.dot(A.T, u_k_y)
 
-        term_unbdd = ( spla.norm(p_unbdd) * c_norm <= -np.dot(c.T, u_k_x) * eps_unbdd )
-        term_infeas = ( spla.norm(p_infeas) * b_norm <= -np.dot(b.T, u_k_y) * eps_infeas )
+        term_unbdd = (c_norm > eps_zero) and (spla.norm(u_k_x) > eps_zero) and (
+            spla.norm(p_unbdd) * c_norm <= -np.dot(c.T, u_k_x) * eps_unbdd
+        )
+        term_infeas = (b_norm > eps_zero) and (spla.norm(u_k_y) > eps_zero) and (
+            spla.norm(p_infeas) * b_norm <= -np.dot(b.T, u_k_y) * eps_infeas
+        )
 
         print(term_pri, term_dual, term_gap, term_unbdd, term_infeas)
-        print(x_k, s_k)
 
         if term_pri and term_dual and term_gap:
-            pass
+            print("converged")
+            print(x_k)
+            print(s_k)
+            print(y_k)
+            break
+        
+        if term_unbdd:
+            print("unbounded")
+            print(u_tau_k)
             break
 
-        if term_unbdd:
-            pass
-            #break
-
         if term_infeas:
-            pass
-            #break
+            print("infeasible")
+            print(u_tau_k)
+            break
 
+        i += 1
 
+        if (max_iter is not None) and (i >= max_iter):
+            print("timeover")
+            break
+    
+    print(seed)
+    print(c)
+    print(A)
+    print(b)
