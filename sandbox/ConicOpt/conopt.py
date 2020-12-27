@@ -141,12 +141,15 @@ if __name__ == "__main__":
             term_dual = ( spla.norm(d_k) <= eps_dual * (1 + c_norm) )
             term_gap = ( np.abs(g_k) <= eps_gap * (1 + np.abs(g_k_x) + np.abs(g_k_y)) )
 
-        else:
-            term_pri = False
-            term_dual = False
-            term_gap = False
-            ###TODO
+            print(term_pri, term_dual, term_gap)
 
+            if term_pri and term_dual and term_gap:
+                print("converged")
+                print(x_k)
+                print(s_k)
+                print(y_k)
+                break
+            
         p_unbdd = np.dot(A, u_k_x) + v_k_s
         p_infeas = np.dot(A.T, u_k_y)
 
@@ -157,32 +160,24 @@ if __name__ == "__main__":
             spla.norm(p_infeas) * b_norm <= -np.dot(b.T, u_k_y) * eps_infeas
         )
 
-        print(term_pri, term_dual, term_gap, term_unbdd, term_infeas)
+        print(term_unbdd, term_infeas)
 
-        if term_pri and term_dual and term_gap:
-            print("converged")
-            print(x_k)
-            print(s_k)
-            print(y_k)
-            break
-        
         if term_unbdd:
             print("unbounded")
-            print(u_tau_k)
             break
 
         if term_infeas:
             print("infeasible")
-            print(u_tau_k)
             break
 
         i += 1
-
         if (max_iter is not None) and (i >= max_iter):
             print("timeover")
             break
+        pass
     
     print(seed)
     print(c)
     print(A)
     print(b)
+    pass
