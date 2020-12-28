@@ -117,8 +117,9 @@ if __name__ == "__main__":
     x[n + m] = 1 # u_tau
     x[(n + m + 1) * 2 - 1] = 1 # v_kappa
 
-    L_norm = np.amax(spla.svdvals(L)) ###TODO
-    #print(L_norm)
+    #L_norm = np.amax(spla.svdvals(L))
+    L_norm = np.sqrt(np.amax(spla.eigvalsh(np.dot(L.T, L))))
+    print(L_norm)
 
     tau = 1 / L_norm
     sigma = 1 / L_norm
