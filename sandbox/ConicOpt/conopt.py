@@ -3,18 +3,52 @@ import scipy.linalg as spla
 
 #
 
+def mat_to_vec(m):
+    #print(m)
+    assert m.shape[0] == m.shape[1]
+    n = m.shape[0]
+    l = int(n * (n + 1) / 2)
+
+    v = np.zeros(l)
+
+    i = 0
+    for c in range(n):
+        # lower triangular elements of symmetric matrix vectorized in column-wise
+        v[i: i + n - c] = m[c: n, c]
+        v[i + 1: i + n - c] *= np.sqrt(2)
+        i += n - c
+    assert (i == l)
+
+    #print(v)
+    return v
+
+#
+
+def vec_to_mat(v):
+    #print(v)
+    l = v.size
+    n = int((np.sqrt(8 * l + 1) - 1) / 2)
+    assert (n * (n + 1) / 2 == l)
+
+    m = np.zeros((n, n))
+
+    i = 0
+    for c in range(n):
+        # lower triangular elements of symmetric matrix vectorized in column-wise
+        m[c: n, c] = v[i: i + n - c]
+        m[c + 1: n, c] /= np.sqrt(2)
+        i += n - c
+    assert (i == l)
+
+    #print(m)
+    return m
+
+#
+
 def proj_psd(y):
     out_y = np.copy(y)
 
-    n = int((np.sqrt(8 * out_y.size + 1) - 1) / 2)
-    assert (n * (n + 1) == 2 * out_y.size)
-
-    a = np.zeros((n, n))
-    i = 0
-    for c in range(n):
-        a[c: n, c] = out_y[i: i + n - c]
-        i += n - c
-    assert (i == out_y.size)
+    a = vec_to_mat(y)
 
     w, v = spla.eigh(a)
     #print(a)
@@ -24,12 +58,7 @@ def proj_psd(y):
     a = np.dot(np.dot(v, np.diag(w)), v.T)
     #print(a)
 
-    i = 0
-    for c in range(n):
-        out_y[i: i + n - c] = a[c: n, c]
-        i += n - c
-    assert (i == out_y.size)
-    #print(out_y)
+    out_y = mat_to_vec(a)
 
     return out_y
 
@@ -60,13 +89,16 @@ if __name__ == "__main__":
     #print(c)
     #print(A)
     #print(b)
-    #c[0] = 1 #-1
-    #A[0, 0] = 0.5
-    #A[1, 0] = -1
-    #A[2, 0] = 1
-    #b[0] = 0
-    #b[1] = 0
-    #b[2] = 0
+
+    ### n=1,m=3  (x+2)(x-5)<=0
+    #c[0] = 1
+    #A[:, 0] = mat_to_vec(np.array([ [0, 0], [-1, -3] ]))
+    #b[:] = mat_to_vec(np.array([ [1, 0], [0, 10] ]))
+
+    ### n=1,m=3  constraint qualification not satisfied
+    #c[0] = 1
+    #A[:, 0] = np.array([0.5, -1, 1])
+    #b[:] = np.array([0, 0, 0])
 
     L = np.zeros((n + m + 1, (n + m + 1) * 2))
     # Q
@@ -94,12 +126,12 @@ if __name__ == "__main__":
     def proj_cone(s):
         #return proj_pos(s)
         #return np.zeros_like(s)
-        return proj_psd(s) ###TODO
+        return proj_psd(s)
 
     def proj_cone_conj(y):
         #return proj_pos(y)
         #return np.copy(y)
-        return proj_psd(y) ###TODO
+        return proj_psd(y)
 
     eps_zero = 1e-12
     eps_pri = 1e-6
@@ -161,36 +193,44 @@ if __name__ == "__main__":
             g_k_y = np.dot(b.T, y_k)
             g_k = g_k_x + g_k_y
 
+            #print(x_k)
+            #print(s_k)
+            #print(y_k)
+            
             term_pri = ( spla.norm(p_k) <= eps_pri * (1 + b_norm) )
             term_dual = ( spla.norm(d_k) <= eps_dual * (1 + c_norm) )
             term_gap = ( np.abs(g_k) <= eps_gap * (1 + np.abs(g_k_x) + np.abs(g_k_y)) )
 
-            #print(term_pri, term_dual, term_gap)
+            print(term_pri, term_dual, term_gap)
 
             if term_pri and term_dual and term_gap:
                 print("converged")
                 print(x_k)
                 break
-            
-        p_unbdd = np.dot(A, u_k_x) + v_k_s
-        p_infeas = np.dot(A.T, u_k_y)
+        
+        else:
+            p_unbdd = np.dot(A, u_k_x) + v_k_s
+            p_infeas = np.dot(A.T, u_k_y)
+            m_cx = -np.dot(c.T, u_k_x)
+            m_by = -np.dot(b.T, u_k_y)
 
-        term_unbdd = (c_norm > eps_zero) and (spla.norm(u_k_x) > eps_zero) and (
-            spla.norm(p_unbdd) <= (-np.dot(c.T, u_k_x)) / c_norm * eps_unbdd
-        )
-        term_infeas = (b_norm > eps_zero) and (spla.norm(u_k_y) > eps_zero) and (
-            spla.norm(p_infeas) <= (-np.dot(b.T, u_k_y) / b_norm) * eps_infeas
-        )
+            term_unbdd = (m_cx > eps_zero) and (
+                spla.norm(p_unbdd) * c_norm <= eps_unbdd * m_cx
+            )
 
-        #print(term_unbdd, term_infeas)
+            term_infeas = (m_by > eps_zero) and (
+                spla.norm(p_infeas) * b_norm <= eps_infeas * m_by
+            )
 
-        if term_unbdd:
-            print("unbounded")
-            break
+            print(term_unbdd, term_infeas)
 
-        if term_infeas:
-            print("infeasible")
-            break
+            if term_unbdd:
+                print("unbounded")
+                break
+
+            if term_infeas:
+                print("infeasible")
+                break
 
         i += 1
         if (max_iter is not None) and (i >= max_iter):
