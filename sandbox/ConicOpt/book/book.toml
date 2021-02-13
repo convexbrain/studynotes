@@ -1,0 +1,10 @@
+[book]
+authors = ["convexbrain"]
+language = "ja"
+multilingual = false
+src = "src"
+title = "錐最適化"
+
+[output.html]
+mathjax-support = true
+google-analytics = "UA-57046411-1"
