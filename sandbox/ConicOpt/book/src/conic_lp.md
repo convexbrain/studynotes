@@ -37,32 +37,44 @@
 
 ## 双対問題
 
-双対変数あるいはラグランジュ乗数を \\(y\in{\bf R}^m\\) とし、
+双対変数あるいはラグランジュ乗数を \\(y\\) とし、
 ラグランジアン
 \\[
     L(x,s;y) = c^Tx + y^T(Ax+s-b)
 \\]
 を導入する。
-ラグランジュ双対をとるために \\(\inf_{x,s\in\mathcal{K}} L\\) を評価するが、
+ここで注意として、\\(x,y\\) の定義域はそれぞれ \\({\bf R}^n, {\bf R}^m\\) だが、
+\\(s\\) の定義域は \\(\mathcal{K}\\) としている。
+
+ラグランジュ双対をとるために \\(\inf_{x,s\in\mathcal{K}} L\\) を評価するにあたり、
 \\[
     L = (c + A^Ty)^Tx + y^Ts - b^Ty
 \\]
 から、
-* \\(c + A^Ty \ne 0\\) のとき、適当な \\(x\\) でいくらでも小さくできる
+* \\(c + A^Ty \ne 0\\) のとき、適当な \\(x\\) で \\(L\\) はいくらでも小さくできる
 * ある \\(y,s\\) で \\(y^Ts<0\\) となるとき、
   \\(\mathcal{K}\\) は錐なので任意の \\(\lambda>0\\) に対して \\(\lambda s\\) も \\(\mathcal{K}\\) に含まれ、
-  \\(y^T\lambda s\\) はいくらでも小さくできる
-  * なお \\(\mathcal{K}\\) は閉錐なので \\(0\in\mathcal{K}\\)、よって \\(y^Ts=0\\) となりうる
+  \\(y^T\lambda s\\) は（よって \\(L\\) も）いくらでも小さくできる
 
 ことがわかる。
 
 したがって \\(\inf_{x,s\in\mathcal{K}} L > -\infty\\) のためには
 * \\(c + A^Ty = 0\\)
 * \\(y^Ts \ge 0,\ \forall s\in\mathcal{K}\\)、これは双対錐の定義と一致するので \\(y\in\mathcal{K}^*\\)
+  * なお \\(\mathcal{K}\\) は閉錐なので \\(0\in\mathcal{K}\\)、よって \\(y^Ts\ge\epsilon(>0)\\) のようにはならない
 
-となる必要があり、このとき \\(\inf_{x,s\in\mathcal{K}} L = -b^Ty\\) である。
+となる必要があり、まとめると
+\\[
+    \inf_{x,s\in\mathcal{K}} L =
+    \left\lbrace \begin{array}{l}
+    -b^Ty &  ({\rm if}\ c + A^Ty = 0,\ y\in\mathcal{K}^*) \\\\
+    -\infty & ({\rm otherwise})
+    \end{array} \right.
+\\]
 
-結果として、\\(g(y)=\inf_{x,s\in\mathcal{K}} L\\) を最大化するラグランジュ双対問題をとると
+となる。
+
+結果として \\(g(y)=\inf_{x,s\in\mathcal{K}} L\\) を最大化するラグランジュ双対問題をとると
 \\[
     \begin{array}{l}
     {\rm maximize} & -b^Ty \\\\
@@ -72,9 +84,11 @@
 \\]
 が得られる。
 
+なお同様に \\(\sup_{y} L\\)（注：\\(y\\) の定義域 \\({\bf R}^m\\) での \\(\sup\\)）の最小化が主問題に戻ることがわかる。
+
 ## 弱双対性
 
-\\(s\in\mathcal{K}\\) のとき
+\\(s\\) の定義域 \\(\mathcal{K}\\) に注意して
 \\[
     L(x,s;y) \ge \inf_{x,s\in\mathcal{K}} L = g(y)
 \\]
@@ -99,6 +113,7 @@
 \\[
     p^\star = d^\star
 \\]
+[参考文献](./reference.md)[5]を参照。
 
 ## 最適性条件
 
@@ -110,4 +125,4 @@
     y \in \mathcal{K}^*,\quad
     c^Tx = -b^Ty
 \\]
-が最適性の必要十分条件となる（KKT条件）。
+が最適性の必要十分条件（KKT条件、[参考文献](./reference.md)[5]を参照）となることがわかる。

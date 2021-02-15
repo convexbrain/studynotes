@@ -1,3 +1,5 @@
+# https://crates.io/crates/mdbook
+
 [book]
 authors = ["convexbrain"]
 language = "ja"
