@@ -22,7 +22,7 @@
 
 ## 双対問題
 
-新たな変数 \\(z\in{\bf R}^m\\) を介して
+新たな変数 \\(z\in{\bf R}^m\\) を介して主問題を
 \\[
     \begin{array}{l}
     {\rm minimize} & G(x) + F(z) \\\\
