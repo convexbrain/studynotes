@@ -19,7 +19,7 @@
     y \in \mathcal{K}^*
 \\]
 となるが、主問題・双対問題が実行可能でない場合には解をもたない。
-そこで Homogeneous Self-dual Embedding に倣い、新たな変数 \\(\tau,\kappa\\) を導入して、
+そこで Homogeneous Self-dual Embedding（[参考文献](./reference.md)[1]を参照）に倣い、新たな変数 \\(\tau,\kappa\\) を導入して、
 \\[
     \left[ \begin{matrix}
     0 & A^T & 0 & c\\\\

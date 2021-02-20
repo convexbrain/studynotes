@@ -5,7 +5,7 @@ authors = ["convexbrain"]
 language = "ja"
 multilingual = false
 src = "src"
-title = "錐最適化"
+title = "Totsuにおける錐最適化の定式化"
 
 [output.html]
 mathjax-support = true

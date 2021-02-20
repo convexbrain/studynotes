@@ -1,6 +1,6 @@
 # 二手法の組合せ
 
-錐線形計画問題を[Pock/Chambolleの一次法](./pock_chambolle.md)で解くことを考える。
+`Totsu`では、前述した二手法を組み合わせて、錐線形計画問題を解く。
 
 まず[Homogeneous Self-dual Embedding](./selfdual_embed.md)を施した最適性条件を、少し変数名と形を変えて、以下に再掲する：
 \\[
@@ -10,17 +10,17 @@
     -c^T & -b^T & 0 & 0
     \end{matrix} \right]
     \left[ \begin{matrix}
-    x_x \\\\ x_y \\\\ x_s \\\\ x_\tau
+    \hat x \\\\ \hat y \\\\ \hat s \\\\ \hat \tau
     \end{matrix} \right]
     \in
     \left[ \begin{matrix}
     \lbrace0\rbrace^n \\\\ \lbrace0\rbrace^m \\\\ {\bf R}\_+
     \end{matrix} \right]
     , \qquad
-    x_x \in {\bf R}^n, \quad
-    x_y \in \mathcal{K}^*, \quad
-    x_s \in \mathcal{K}, \quad
-    x_\tau \in {\bf R}\_+
+    \hat x \in {\bf R}^n, \quad
+    \hat y \in \mathcal{K}^*, \quad
+    \hat s \in \mathcal{K}, \quad
+    \hat \tau \in {\bf R}\_+
 \\]
 そして
 \\[
@@ -30,18 +30,18 @@
     -c^T & -b^T & 0 & 0
     \end{matrix} \right], \qquad
     x=\left[ \begin{matrix}
-    x_x \\\\ x_y \\\\ x_s \\\\ x_\tau
+    \hat x \\\\ \hat y \\\\ \hat s \\\\ \hat \tau
     \end{matrix} \right]
 \\]
 とおく。
 
-\\(G\\) を \\(x_x \in {\bf R}^n,\ x_y \in \mathcal{K}^\ast,\ x_s \in \mathcal{K},\ x_\tau \in {\bf R}\_+\\) の指示関数とする：
+\\(G\\) を \\(\hat x \in {\bf R}^n,\ \hat y \in \mathcal{K}^\ast,\ \hat s \in \mathcal{K},\ \hat \tau \in {\bf R}\_+\\) の指示関数とする：
 \\[
     G(x)=
     I_{{\bf R}^n \times \mathcal{K}^\ast \times \mathcal{K} \times {\bf R}\_+}(x)=
     \left\lbrace \begin{array}{l}
     0 & ({\rm if}\ x \in {\bf R}^n \times \mathcal{K}^\ast \times \mathcal{K} \times {\bf R}\_+) \\\\
-    \infty & ({\rm otherwise})
+    +\infty & ({\rm otherwise})
     \end{array} \right.
 \\]
 同様に \\(F\\) も指示関数
@@ -50,7 +50,7 @@
     I_{\lbrace0\rbrace^{n+m} \times {\bf R}\_+}(y)=
     \left\lbrace \begin{array}{l}
     0 & ({\rm if}\ y \in \lbrace0\rbrace^{n+m} \times {\bf R}\_+) \\\\
-    \infty & ({\rm otherwise})
+    +\infty & ({\rm otherwise})
     \end{array} \right.
 \\]
 とすることで、元の式を
@@ -73,8 +73,8 @@
     \end{array}
 \\]
 ここで \\(F\\) は指示関数なので \\(\arg\min\\) はその集合への射影となるが、
-\\({\bf diag}(\sigma)^{-1}\\) によってスケールされた距離にもとづく射影である。
-しかし \\(\lbrace0\rbrace^{n+m} \times {\bf R}\_+\\) への射影は各要素で互いに独立に射影してよく、
+一般には \\({\bf diag}(\sigma)^{-1}\\) によってスケールされた距離にもとづく必要がある。
+しかし \\(\lbrace0\rbrace^{n+m} \times {\bf R}\_+\\) への射影は各要素で互いに独立に分解してよく、
 結局 \\(\sigma\\) に依存せずに
 \\[
     \begin{array}{l}
@@ -101,14 +101,21 @@
 \\({\bf R}^n\\) への射影（これは何もしなくてよいということ）、\\({\bf R}\_+\\) への射影はやはり \\(\tau\\) に依存せず行うことができる。
 また、仮に \\(\mathcal{K} = \mathcal{K}_1 \times \cdots \times \mathcal{K}_k\\) とした場合、
 \\(\mathcal{K}^\ast = \mathcal{K}^\ast_1 \times \cdots \times \mathcal{K}^\ast_k\\) となり、
-各 \\(\mathcal{K}_i,\ \mathcal{K}^\ast_i\\\) への射影どうしは独立しているが、
-各々の射影ひとつひとつは一般には \\(\tau\\) によるスケーリングに依存してしまう。
+各 \\(\mathcal{K}_i,\ \mathcal{K}^\ast_i\\\) への射影どうしは独立している。
+しかし \\(\mathcal{K}_i,\ \mathcal{K}^\ast_i\\\) への射影ひとつひとつは一般には \\(\tau\\) によるスケーリングに依存してしまう。
 
-ここで、\\(\mathcal{K}_i\\)（または \\(\mathcal{K}^\ast_i\\) ）に対応する \\(\tau\\) の成分を
-\\(\tau\_{i\_1},\ldots,\tau\_{i\_t}\\) と置く。
-これらをすべて等しい値 \\(\tau_i\\) に置き換えれば、等方スケールとなるので
+ここで、\\(\mathcal{K}_i\\) に対応する \\(\tau\\) の成分グループを \\(\tau\_{i1},\ldots,\tau\_{it}\\) と置く。
+これらをすべて等しい値 \\(\tau\_i=\min(\tau\_{i1},\ldots,\tau\_{it})\\) に置き換えれば、等方スケールとなるので、
 \\[
-    {\bf prox}^\tau\_{G}(\tilde x) =
+    {\bf prox}^{\bar \tau}\_{G}(\tilde x) =
     \Pi\_{{\bf R}^n \times \mathcal{K}^\ast \times \mathcal{K} \times {\bf R}\_+} (\tilde x)
 \\]
+と \\(\bar \tau\\) に依存しない形にすることができる
+（\\(\mathcal{K}^\ast_i\\) も同様、\\(\tau\\) を全体的にグルーピングして置き換えたものを \\(\bar \tau\\) としている）。
 
+なお、上記のグルーピングと置き換えにより
+\\[
+    \\|{\bf diag}(\sigma)^{\frac12} K {\bf diag}(\bar \tau)^{\frac12}\\|^2\le
+    \\|{\bf diag}(\sigma)^{\frac12} K {\bf diag}(\tau)^{\frac12}\\|^2\le1
+\\]
+となり、収束条件は変わらず満たされていることを注記しておく。
