@@ -17,7 +17,7 @@
 
 [Pock/Chambolleの一次法](./pock_chambolle.md)の反復において、\\(x_k\\) は \\({\bf prox}^\tau\_{G}\\) による射影の後のため必ず
 \\(x_k \in {\bf R}^n \times \mathcal{K}^\ast \times \mathcal{K} \times {\bf R}\_+\\) となっており、
-主・双対錐の制約条件を満たしている。
+主・双対の錐の制約条件を満たしている。
 この状況のもと、終了基準は[参考文献](./reference.md)[1]と同等のものを適用する。
 
 ## \\(\hat \tau^k > \varepsilon_{\rm zero}\\) の場合
