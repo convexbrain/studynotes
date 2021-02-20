@@ -24,9 +24,9 @@
 （左辺のノルムは作用素ノルム）が成立する[^totsu2]。
 また、この不等式が成立するとき上記アルゴリズムが収束する（解が存在すれば）ことが示されている。
 
-\\({\bf prox}^\tau\_G\\) は近接作用素であるが、\\({\bf diag}(\tau)^{-1}\\) によりスケールされた内積に誘導されたノルム
+\\({\bf prox}^\tau\_G\\) は近接作用素であるが、\\({\bf diag}(\tau)^{-1}\\) によりスケールされた内積に誘導されるノルム
 \\(\\|x\\|\_{{\bf diag}(\tau)^{-1}}=\langle x,x\rangle\_{{\bf diag}(\tau)^{-1}}^{\frac12}=(x^T{\bf diag}(\tau)^{-1}x)^{\frac12}\\)
-を用いて定義される[^totsu3]：
+を用いて定義されている[^totsu3]：
 \\[
     {\bf prox}^\tau\_G(\tilde x) = \arg\min_x \left( G(x) + \frac12\\|x-\tilde x\\|\_{{\bf diag}(\tau)^{-1}}^2 \right)
 \\]

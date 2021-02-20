@@ -11,7 +11,7 @@
     0 \\\\ 0 \\\\ 0 \\\\ 1
     \end{matrix} \right]
     ,\qquad
-    y=0
+    y_0=0
 \\]
 とする。
 
@@ -22,4 +22,33 @@
 
 ## \\(\hat \tau^k > \varepsilon_{\rm zero}\\) の場合
 
+### 収束判定
+
+\\[
+    \begin{array}{l}
+    & \frac{\\|A \hat x_k / \hat\tau_k + \hat s_k / \hat\tau_k - b\\|}{1 + \\|b\\|} \le \varepsilon_{\rm acc} \\\\
+    \land& \frac{\\|A^T \hat y_k / \hat\tau_k + c\\|}{1 + \\|c\\|} \le \varepsilon_{\rm acc} \\\\
+    \land& \frac{\\|c^T \hat x_k / \hat\tau_k + b^T \hat y_k / \hat\tau_k\\|}{1 + |c^T \hat x_k / \hat\tau_k| + |b^T \hat y_k / \hat\tau_k|} \le \varepsilon_{\rm acc}
+    \end{array}
+\\]
+を満たすとき、解 \\(x^\star=\hat x_k / \hat\tau_k,\ y^\star=\hat y_k / \hat\tau_k\\) に収束したと判定し、終了する。
+
 ## \\(\hat \tau^k \not > \varepsilon_{\rm zero}\\) の場合
+
+### 下限なし判定
+
+\\[
+    -c^T \hat x_k > \varepsilon_{\rm zero}
+    \quad \land \quad
+    \\|A \hat x_k + \hat s_k\\|\frac{\\|c\\|}{-c^T \hat x_k} \le \varepsilon_{\rm inf}
+\\]
+を満たすとき、主問題の下限なし（双対問題の実行可能な解なし）と判定し、終了する。
+
+### 実行不可能判定
+
+\\[
+    -b^T \hat y_k > \varepsilon_{\rm zero}
+    \quad \land \quad
+    \\|A^T \hat y_k\\|\frac{\\|b\\|}{-b^T \hat y_k} \le \varepsilon_{\rm inf}
+\\]
+を満たすとき、主問題の実行可能な解なしと判定し、終了する。

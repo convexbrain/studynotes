@@ -1,6 +1,6 @@
 # Summary
 
-# Totsu Book 日本語版
+# TotsuBook 日本語
 
 # ソルバーの定式化
 - [錐線形計画問題](./conic_lp.md)
