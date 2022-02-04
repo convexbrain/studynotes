@@ -8,6 +8,8 @@
 * [QCQP](QCQP)
 * [SOCP](SOCP)
 
+### Rustで書いた一次法ソルバ[totsu](https://crates.io/crates/totsu/)の[解説ブック](https://convexbrain.github.io/Totsu/book/)
+
 ## Total Variation
 
 * [Total Variation](TV/TV)
