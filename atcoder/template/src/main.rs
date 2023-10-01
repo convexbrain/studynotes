@@ -1,4 +1,4 @@
-use std::io;
+use std::prelude::rust_2021::*;
 use std::io::prelude::*;
 
 macro_rules! dprintln {
@@ -14,7 +14,7 @@ macro_rules! dprintln {
 
 fn main() {
     let mut buf = String::new();
-    io::stdin().read_to_string(&mut buf).unwrap();
+    std::io::stdin().read_to_string(&mut buf).unwrap();
     let mut spl = buf.split_whitespace();
 
     let a = spl.next().unwrap();
