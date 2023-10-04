@@ -1,12 +1,16 @@
 use std::prelude::rust_2021::*;
 use std::io::prelude::*;
+use std::collections::*;
+use std::cell::*;
+use std::rc::*;
+use std::ops::*;
 
 macro_rules! dprintln {
     ( $($x:tt)* ) =>
     {
         #[cfg(debug_assertions)]
         {
-            print!("[@{}:{}]", line!(), module_path!());
+            print!("[{}]", line!());
             println!($($x)*);
         }
     };
@@ -23,4 +27,5 @@ fn main() {
     let d: u32 = spl.next().unwrap().parse().unwrap();
 
     dprintln!("{} {} {} {}", a, b, c, d);
+    println!("{} {} {} {}", a, b, c, d);
 }
