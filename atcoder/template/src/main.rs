@@ -27,5 +27,6 @@ fn main() {
     let d: u32 = spl.next().unwrap().parse().unwrap();
 
     dprintln!("{} {} {} {}", a, b, c, d);
+    // this is a template.
     println!("{} {} {} {}", a, b, c, d);
 }
