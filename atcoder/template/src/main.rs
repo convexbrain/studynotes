@@ -6,11 +6,10 @@ use std::rc::*;
 use std::ops::*;
 
 macro_rules! dprintln {
-    ( $($x:tt)* ) =>
-    {
+    ( $($x:tt)* ) => {
         #[cfg(debug_assertions)]
         {
-            print!("[{}]", line!());
+            print!("@{}:", line!());
             println!($($x)*);
         }
     };
@@ -19,14 +18,14 @@ macro_rules! dprintln {
 fn main() {
     let mut buf = String::new();
     std::io::stdin().read_to_string(&mut buf).unwrap();
-    let mut spl = buf.split_whitespace();
+    let mut token = buf.split_whitespace();
 
-    let a = spl.next().unwrap();
-    let b = spl.next().unwrap();
-    let c = spl.next().unwrap();
-    let d: u32 = spl.next().unwrap().parse().unwrap();
+    let a = token.next().unwrap(); // &str
+    let b: String = token.next().unwrap().to_string();
+    let c: Vec<char> = token.next().unwrap().chars().collect();
+    let d = token.next().unwrap().as_bytes(); // &[u8]
+    let e: usize = token.next().unwrap().parse().unwrap();
 
-    dprintln!("{} {} {} {}", a, b, c, d);
-    // this is a template.
-    println!("{} {} {} {}", a, b, c, d);
+    dprintln!("{} {} {:?} {:?} {}", a, b, c, d, e);
+    println!("This is a template.");
 }
