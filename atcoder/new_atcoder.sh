@@ -2,13 +2,17 @@
 #echo $*
 #echo ${@:2}
 
-mkdir $1
+p=`echo $1 | sed 's|/*$||'`
+#echo $p
+
+mkdir $p
 (
-    cd $1
+    cd $p
     for i in ${@:2}
     do
-        #echo $1_$i
-        cargo new $1_$i && cp -v ../template/src/main.rs $1_$i/src/
+        pp=`echo "$p"_"$i"`
+        #echo $pp
+        cargo new $pp && cp -v ../template/src/main.rs $pp/src/
     done
 )
 
