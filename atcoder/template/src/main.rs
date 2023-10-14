@@ -9,8 +9,8 @@ macro_rules! dprintln {
     ( $($x:tt)* ) => {
         #[cfg(debug_assertions)]
         {
-            print!("@{}:", line!());
-            println!($($x)*);
+            eprint!("@{}:", line!());
+            eprintln!($($x)*);
         }
     };
 }
@@ -24,8 +24,8 @@ fn main() {
     let b: String = token.next().unwrap().to_string();
     let c: Vec<char> = token.next().unwrap().chars().collect();
     let d = token.next().unwrap().as_bytes(); // &[u8]
-    let e: usize = token.next().unwrap().parse().unwrap();
+    let n: usize = token.next().unwrap().parse().unwrap();
 
-    dprintln!("{} {} {:?} {:?} {}", a, b, c, d, e);
+    dprintln!("{} {} {:?} {:?} {}", a, b, c, d, n);
     println!("This is a template.");
 }
