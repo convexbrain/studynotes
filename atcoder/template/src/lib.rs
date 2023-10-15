@@ -1,6 +1,6 @@
 use std::ops::*;
 
-//
+///////////////////////////////////////////////////////////////////////////////
 
 fn gcd<N>(mut m: N, mut n: N) -> N
 where N: Rem<Output=N> + Ord + Default + Copy
@@ -19,7 +19,45 @@ fn test_gcd() {
     assert_eq!(gcd(48000, 44100), 300);
 }
 
-//
+///////////////////////////////////////////////////////////////////////////////
+
+fn mod_mul<N>(x: N, y: N, m: N) -> N
+where N: Mul<Output=N> + Rem<Output=N>
+{
+    (x * y) % m
+}
+
+fn mod_pow<N>(mut x: N, mut p: N, m: N) -> N
+where N: Default + Ord + BitAnd<Output=N> + ShrAssign + Mul<Output=N> + Rem<Output=N> + SubAssign + Copy + Div<Output=N>
+{
+    let zero = N::default();
+    let one = m / m;
+
+    if p == zero {
+        return one;
+    }
+
+    let mut k = one;
+
+    while p > one {
+        if p & one == zero {
+            x = mod_mul(x, x, m);
+            p >>= one;
+        }
+        else {
+            k = mod_mul(k, x, m);
+            p -= one;
+        }
+    }
+    mod_mul(k, x, m)
+}
+
+#[test]
+fn test_mod_pow() {
+    assert_eq!(mod_pow(238456, 27564, 923453876_u64), 706933036);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 
 struct Vec2D<T> {
     vec: Vec<T>, // column-wise
