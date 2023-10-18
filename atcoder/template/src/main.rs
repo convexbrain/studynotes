@@ -6,13 +6,27 @@ use std::rc::*;
 use std::ops::*;
 use std::cmp::*;
 
-macro_rules! dprintln {
-    ( $($x:tt)* ) => {
-        #[cfg(debug_assertions)]
-        {
-            eprint!("@{}:", line!());
-            eprintln!($($x)*);
+#[cfg(not(debug_assertions))]
+macro_rules! debug {
+    ( $($x:tt)* ) => {};
+}
+
+#[cfg(debug_assertions)]
+macro_rules! debug {
+    () => {
+        eprintln!("[@{}]", line!())
+    };
+    ($val:expr $(,)?) => {
+        match $val {
+            ref tmp => {
+                eprintln!("[@{}] {} = {:?}",
+                    line!(), stringify!($val), &tmp);
+                tmp
+            }
         }
+    };
+    ($($val:expr),+ $(,)?) => {
+        ($(debug!($val)),+,)
     };
 }
 
@@ -27,6 +41,7 @@ fn main() {
     let d = token.next().unwrap().as_bytes(); // &[u8]
     let n: usize = token.next().unwrap().parse().unwrap();
 
-    dprintln!("{} {} {:?} {:?} {}", a, b, c, d, n);
-    println!("This is a template.");
+    debug!(a, b, c, d, n);
+    
+    println!("{}", buf);
 }

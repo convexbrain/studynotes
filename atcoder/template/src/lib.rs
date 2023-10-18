@@ -59,48 +59,46 @@ fn test_mod_pow() {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+#[derive(Debug)]
 struct Vec2D<T> {
-    vec: Vec<T>, // column-wise
+    vec_row_wise: Vec<T>,
     nr: usize,
     nc: usize,
 }
 
-impl<T> Vec2D<T>
-{
-    fn new(def: T, (nr, nc): (usize, usize)) -> Self
-    where T: Clone
-    {
-        Self {
-            vec: vec![def; nr * nc],
-            nr, nc,
-        }
+impl<T> Vec2D<T> {
+    fn from(vec_row_wise: Vec<T>, (nr, nc): (usize, usize)) -> Self {
+        assert!(vec_row_wise.len() >= nr * nc);
+        Self {vec_row_wise, nr, nc}
+    }
+
+    fn release(self) -> Vec<T> {
+        self.vec_row_wise
     }
 }
 
-impl<T> Index<(usize, usize)> for Vec2D<T>
-{
+impl<T> Index<(usize, usize)> for Vec2D<T> {
     type Output = T;
     fn index(&self, index: (usize, usize)) -> &Self::Output {
         assert!(index.0 < self.nr);
         assert!(index.1 < self.nc);
-        &self.vec[index.1 * self.nr + index.0]
+        &self.vec_row_wise[index.0 * self.nc + index.1]
     }
 }
 
-impl<T> IndexMut<(usize, usize)> for Vec2D<T>
-{
+impl<T> IndexMut<(usize, usize)> for Vec2D<T> {
     fn index_mut(&mut self, index: (usize, usize)) -> &mut Self::Output {
         assert!(index.0 < self.nr);
         assert!(index.1 < self.nc);
-        &mut self.vec[index.1 * self.nr + index.0]
+        &mut self.vec_row_wise[index.0 * self.nc + index.1]
     }
 }
 
 #[test]
 fn test_vec2d() {
-    let mut v2 = Vec2D::new(0, (3, 2));
-    v2.vec.copy_from_slice(&[1, 2, 3,  4, 5, 6]);
-    v2[(1, 1)] = 1;
-    assert_eq!(&v2.vec, &[1, 2, 3,  4, 1, 6]);
+    let v2 = vec![1, 2, 3,  4, 5, 6];
+    let mut v2 = Vec2D::from(v2, (2, 3));
+    v2[(1, 2)] = v2[(0, 0)];
+    assert_eq!(v2.release(), [1, 2, 3,  4, 5, 1]);
 }
 
