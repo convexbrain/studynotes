@@ -36,10 +36,12 @@ fn main() {
     let mut token = buf.split_whitespace();
 
     let a = token.next().unwrap(); // &str
-    let b: String = token.next().unwrap().to_string();
-    let c: Vec<char> = token.next().unwrap().chars().collect();
-    let d = token.next().unwrap().as_bytes(); // &[u8]
+    let b = token.next().unwrap().to_string(); // String
+    let c = token.next().unwrap().as_bytes(); // &[u8]
+    let d = token.next().unwrap().as_bytes().to_vec(); // Vec<u8>
     let n: usize = token.next().unwrap().parse().unwrap();
+
+    let d = String::from_utf8(d).unwrap(); // Vec<u8> -> String
 
     debug!(a, b, c, d, n);
     
