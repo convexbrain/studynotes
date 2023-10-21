@@ -21,12 +21,6 @@ fn test_gcd() {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-fn mod_mul<N>(x: N, y: N, m: N) -> N
-where N: Mul<Output=N> + Rem<Output=N>
-{
-    (x * y) % m
-}
-
 fn mod_pow<N>(mut x: N, mut p: N, m: N) -> N
 where N: Default + Ord + BitAnd<Output=N> + ShrAssign + Mul<Output=N> + Rem<Output=N> + SubAssign + Copy + Div<Output=N>
 {
@@ -41,16 +35,23 @@ where N: Default + Ord + BitAnd<Output=N> + ShrAssign + Mul<Output=N> + Rem<Outp
 
     while p > one {
         if p & one == zero {
-            x = mod_mul(x, x, m);
+            x = (x * x) % m;
             p >>= one;
         }
         else {
-            k = mod_mul(k, x, m);
+            k = (k * x) % m;
             p -= one;
         }
     }
-    mod_mul(k, x, m)
+    (k * x) % m
 }
+
+#[test]
+fn test_mod_pow() {
+    assert_eq!(mod_pow(238456, 27564, 923453876_u64), 706933036);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 
 // (g, x, y) s.t. a x + b y = gcd(a, b) = g
 fn ext_euclid<N>(a: N, b: N) -> (N, N, N)
@@ -94,12 +95,7 @@ where N: Default + Div<Output=N> + Mul<Output=N> + Sub<Output=N> + Ord + Copy + 
 
     let y_inv = if y_inv < zero {y_inv + m} else {y_inv};
 
-    mod_mul(x, y_inv, m)
-}
-
-#[test]
-fn test_mod_pow() {
-    assert_eq!(mod_pow(238456, 27564, 923453876_u64), 706933036);
+    (x * y_inv) % m
 }
 
 #[test]
@@ -117,7 +113,7 @@ fn test_mod_div() {
     assert!(z > 0);
     assert!(z < m);
     assert_ne!(y * z, x);
-    assert_eq!(mod_mul(y, z, m), x);
+    assert_eq!((y * z) % m, x);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
