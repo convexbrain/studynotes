@@ -1,10 +1,7 @@
 use std::prelude::rust_2021::*;
 use std::io::prelude::*;
-use std::collections::*;
-use std::cell::*;
-use std::rc::*;
-use std::ops::*;
-use std::cmp::*;
+use std::{collections::*, ops::*};
+use std::{rc::*, cell::*, ops::Bound::*};
 
 #[cfg(not(debug_assertions))]
 macro_rules! debug {
