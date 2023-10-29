@@ -1,5 +1,7 @@
 use std::ops::*;
 
+///////////////////////////////////////////////////////////////////////////////
+
 fn gcd<N>(mut m: N, mut n: N) -> N
 where N: Rem<Output=N> + Ord + Default + Copy
 {
@@ -11,6 +13,8 @@ where N: Rem<Output=N> + Ord + Default + Copy
     }
     return m;
 }
+
+///////////////////////////////////////////////////////////////////////////////
 
 #[test]
 fn test_gcd() {

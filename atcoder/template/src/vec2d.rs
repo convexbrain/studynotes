@@ -1,5 +1,7 @@
 use std::ops::*;
 
+///////////////////////////////////////////////////////////////////////////////
+
 #[derive(Debug)]
 struct Vec2D<T> {
     vec_row_major: Vec<T>,
@@ -54,6 +56,8 @@ impl<T> IndexMut<(usize, usize)> for Vec2D<T> {
         &mut self.vec_row_major[index.0 * self.ncols + index.1]
     }
 }
+
+///////////////////////////////////////////////////////////////////////////////
 
 #[test]
 fn test_vec2d() {

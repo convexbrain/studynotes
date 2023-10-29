@@ -1,5 +1,7 @@
 use std::ops::*;
 
+///////////////////////////////////////////////////////////////////////////////
+
 fn mod_pow<N>(mut x: N, mut p: N, m: N) -> N
 where N: Default + Ord + BitAnd<Output=N> + ShrAssign + Mul<Output=N> + Rem<Output=N> + SubAssign + Copy + Div<Output=N>
 {
@@ -24,6 +26,8 @@ where N: Default + Ord + BitAnd<Output=N> + ShrAssign + Mul<Output=N> + Rem<Outp
     }
     (k * x) % m
 }
+
+///////////////////////////////////////////////////////////////////////////////
 
 #[test]
 fn test_mod_pow() {

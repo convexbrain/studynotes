@@ -1,5 +1,7 @@
 use std::ops::*;
 
+///////////////////////////////////////////////////////////////////////////////
+
 // (g, x, y) s.t. a x + b y = gcd(a, b) = g
 fn ext_euclid<N>(a: N, b: N) -> (N, N, N)
 where N: Default + Div<Output=N> + Mul<Output=N> + Sub<Output=N> + Eq + Copy
@@ -44,6 +46,8 @@ where N: Default + Div<Output=N> + Mul<Output=N> + Sub<Output=N> + Ord + Copy + 
 
     (x * y_inv) % m
 }
+
+///////////////////////////////////////////////////////////////////////////////
 
 #[test]
 fn test_ext_euclid() {
