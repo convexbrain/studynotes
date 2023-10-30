@@ -19,8 +19,13 @@ impl CombIter
             n, k, n_c_k, first: true, end: false
         }
     }
+}
 
-    fn next(&mut self) -> Option<&[usize]> {
+impl<'a> Iterator for &'a mut CombIter
+{
+    type Item = &'a[usize];
+
+    fn next(&mut self) -> Option<Self::Item> {
         if self.first {
             self.first = false;
         }
@@ -45,7 +50,13 @@ impl CombIter
             }
         }
     
-        Some(&self.n_c_k)
+        Some(
+            unsafe {
+                // self is borrowed as `&mut`, but this returns its contents as `&`.
+                // It violates `&mut` constraints.
+                std::mem::transmute(self.n_c_k.as_slice())
+            }
+        )
     }
 }
 
@@ -53,17 +64,20 @@ impl CombIter
 
 #[test]
 fn test_comb_iter() {
-    let mut c = CombIter::new(5, 3);
-    assert_eq!(c.next(), Some(vec![0, 1, 2].as_ref()));
-    assert_eq!(c.next(), Some(vec![0, 1, 3].as_ref()));
-    assert_eq!(c.next(), Some(vec![0, 1, 4].as_ref()));
-    assert_eq!(c.next(), Some(vec![0, 2, 3].as_ref()));
-    assert_eq!(c.next(), Some(vec![0, 2, 4].as_ref()));
-    assert_eq!(c.next(), Some(vec![0, 3, 4].as_ref()));
-    assert_eq!(c.next(), Some(vec![1, 2, 3].as_ref()));
-    assert_eq!(c.next(), Some(vec![1, 2, 4].as_ref()));
-    assert_eq!(c.next(), Some(vec![1, 3, 4].as_ref()));
-    assert_eq!(c.next(), Some(vec![2, 3, 4].as_ref()));
-    assert_eq!(c.next(), None);
-    assert_eq!(c.next(), None);
+    let e = [
+        [0, 1, 2],
+        [0, 1, 3],
+        [0, 1, 4],
+        [0, 2, 3],
+        [0, 2, 4],
+        [0, 3, 4],
+        [1, 2, 3],
+        [1, 2, 4],
+        [1, 3, 4],
+        [2, 3, 4],
+    ];
+
+    for (i, c) in CombIter::new(5, 3).into_iter().enumerate() {
+        assert_eq!(c, e[i]);
+    }
 }
