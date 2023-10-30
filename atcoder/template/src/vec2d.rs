@@ -2,7 +2,7 @@ use std::ops::*;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Vec2D<T> {
     vec_row_major: Vec<T>,
     nrows: usize,
