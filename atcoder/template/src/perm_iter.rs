@@ -23,8 +23,13 @@ impl PermIter
             n, k, n_p_k, free, first: true, end: false
         }
     }
+}
 
-    fn next(&mut self) -> Option<&[usize]> {
+impl<'a> Iterator for &'a mut PermIter
+{
+    type Item = &'a[usize];
+
+    fn next(&mut self) -> Option<Self::Item> {
         if self.first {
             self.first = false;
         }
@@ -52,7 +57,13 @@ impl PermIter
             }
         }
     
-        Some(&self.n_p_k)
+        Some(
+            unsafe {
+                // self is borrowed as `&mut`, but this returns its contents as `&`.
+                // It violates `&mut` constraints.
+                std::mem::transmute(self.n_p_k.as_slice())
+            }
+        )
     }
 }
 
@@ -60,31 +71,34 @@ impl PermIter
 
 #[test]
 fn test_perm_iter() {
-    let mut c = PermIter::new(4, 3);
-    assert_eq!(c.next(), Some(vec![0, 1, 2].as_ref()));
-    assert_eq!(c.next(), Some(vec![0, 1, 3].as_ref()));
-    assert_eq!(c.next(), Some(vec![0, 2, 1].as_ref()));
-    assert_eq!(c.next(), Some(vec![0, 2, 3].as_ref()));
-    assert_eq!(c.next(), Some(vec![0, 3, 1].as_ref()));
-    assert_eq!(c.next(), Some(vec![0, 3, 2].as_ref()));
-    assert_eq!(c.next(), Some(vec![1, 0, 2].as_ref()));
-    assert_eq!(c.next(), Some(vec![1, 0, 3].as_ref()));
-    assert_eq!(c.next(), Some(vec![1, 2, 0].as_ref()));
-    assert_eq!(c.next(), Some(vec![1, 2, 3].as_ref()));
-    assert_eq!(c.next(), Some(vec![1, 3, 0].as_ref()));
-    assert_eq!(c.next(), Some(vec![1, 3, 2].as_ref()));
-    assert_eq!(c.next(), Some(vec![2, 0, 1].as_ref()));
-    assert_eq!(c.next(), Some(vec![2, 0, 3].as_ref()));
-    assert_eq!(c.next(), Some(vec![2, 1, 0].as_ref()));
-    assert_eq!(c.next(), Some(vec![2, 1, 3].as_ref()));
-    assert_eq!(c.next(), Some(vec![2, 3, 0].as_ref()));
-    assert_eq!(c.next(), Some(vec![2, 3, 1].as_ref()));
-    assert_eq!(c.next(), Some(vec![3, 0, 1].as_ref()));
-    assert_eq!(c.next(), Some(vec![3, 0, 2].as_ref()));
-    assert_eq!(c.next(), Some(vec![3, 1, 0].as_ref()));
-    assert_eq!(c.next(), Some(vec![3, 1, 2].as_ref()));
-    assert_eq!(c.next(), Some(vec![3, 2, 0].as_ref()));
-    assert_eq!(c.next(), Some(vec![3, 2, 1].as_ref()));
-    assert_eq!(c.next(), None);
-    assert_eq!(c.next(), None);
+    let e = [
+        [0, 1, 2],
+        [0, 1, 3],
+        [0, 2, 1],
+        [0, 2, 3],
+        [0, 3, 1],
+        [0, 3, 2],
+        [1, 0, 2],
+        [1, 0, 3],
+        [1, 2, 0],
+        [1, 2, 3],
+        [1, 3, 0],
+        [1, 3, 2],
+        [2, 0, 1],
+        [2, 0, 3],
+        [2, 1, 0],
+        [2, 1, 3],
+        [2, 3, 0],
+        [2, 3, 1],
+        [3, 0, 1],
+        [3, 0, 2],
+        [3, 1, 0],
+        [3, 1, 2],
+        [3, 2, 0],
+        [3, 2, 1],
+    ];
+
+    for (i, p) in PermIter::new(4, 3).into_iter().enumerate() {
+        assert_eq!(p, e[i]);
+    }
 }
