@@ -1,20 +1,20 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug, Clone)]
-struct ProdIter<T, I: Iterator<Item=T> + Clone>
+struct ProdIter<I: Iterator>
 {
     iters: Vec<I>,
 }
 
 #[derive(Debug, Clone)]
-struct IterProd<'a, T, I: Iterator<Item=T> + Clone>
+struct IterProd<'a, I: Iterator>
 {
-    iters_org: &'a Vec<I>,
+    iters_org: &'a[I],
     iters: Vec<I>,
-    ret: Vec<T>,
+    ret: Vec<I::Item>,
 }
 
-impl<T, I: Iterator<Item=T> + Clone> ProdIter<T, I>
+impl<I: Iterator + Clone> ProdIter<I>
 {
     fn new() -> Self {
         ProdIter {
@@ -26,7 +26,7 @@ impl<T, I: Iterator<Item=T> + Clone> ProdIter<T, I>
         self.iters.push(iter);
     }
 
-    fn iter(&self) -> IterProd<'_, T, I> {
+    fn iter(&self) -> IterProd<'_, I> {
         IterProd {
             iters_org: &self.iters,
             iters: self.iters.clone(),
@@ -35,9 +35,9 @@ impl<T, I: Iterator<Item=T> + Clone> ProdIter<T, I>
     }
 }
 
-impl<'a, T: 'a, I: Iterator<Item=T> + Clone> Iterator for IterProd<'a, T, I>
+impl<'a, I: Iterator + Clone> Iterator for IterProd<'a, I>
 {
-    type Item = &'a[T];
+    type Item = &'a[I::Item];
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.ret.len() == 0 {
