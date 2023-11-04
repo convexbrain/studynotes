@@ -5,6 +5,12 @@ struct CombIter
 {
     n: usize,
     k: usize,
+}
+
+#[derive(Debug, Clone)]
+struct IterComb<'a>
+{
+    comb: &'a CombIter,
     n_c_k: Vec<usize>,
     first: bool,
     end: bool,
@@ -14,14 +20,20 @@ impl CombIter
 {
     fn new(n: usize, k: usize) -> Self {
         assert!(n >= k);
-        let n_c_k = (0..k).collect();
-        CombIter {
-            n, k, n_c_k, first: true, end: false
+        CombIter {n, k}
+    }
+
+    fn iter(&self) -> IterComb {
+        let n_c_k = (0..self.k).collect();
+        IterComb {
+            comb: &self,
+            n_c_k,
+            first: true, end: false
         }
     }
 }
 
-impl<'a> Iterator for &'a mut CombIter
+impl<'a> Iterator for IterComb<'a>
 {
     type Item = &'a[usize];
 
@@ -33,10 +45,13 @@ impl<'a> Iterator for &'a mut CombIter
             return None;
         }
         else {
-            for pos in (0..self.k).rev() {
+            let n = self.comb.n;
+            let k = self.comb.k;
+
+            for pos in (0..k).rev() {
                 let c = self.n_c_k[pos] + 1;
-                if c < self.n - self.k + 1 + pos {
-                    for i in pos..self.k {
+                if c < n - k + 1 + pos {
+                    for i in pos..k {
                         self.n_c_k[i] = c + i - pos;
                     }
                     break;
@@ -77,7 +92,7 @@ fn test_comb_iter() {
         [2, 3, 4],
     ];
 
-    for (i, c) in CombIter::new(5, 3).into_iter().enumerate() {
+    for (i, c) in CombIter::new(5, 3).iter().enumerate() {
         assert_eq!(c, e[i]);
     }
 }

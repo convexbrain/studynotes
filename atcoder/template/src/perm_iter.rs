@@ -7,6 +7,12 @@ struct PermIter
 {
     n: usize,
     k: usize,
+}
+
+#[derive(Debug, Clone)]
+struct IterPerm<'a>
+{
+    perm: &'a PermIter,
     n_p_k: Vec<usize>,
     free: BTreeSet<usize>,
     first: bool,
@@ -17,15 +23,21 @@ impl PermIter
 {
     fn new(n: usize, k: usize) -> Self {
         assert!(n >= k);
-        let n_p_k = (0..k).collect();
-        let free = (k..n).collect();
-        PermIter {
-            n, k, n_p_k, free, first: true, end: false
+        PermIter {n, k}
+    }
+
+    fn iter(&self) -> IterPerm {
+        let n_p_k = (0..self.k).collect();
+        let free = (self.k..self.n).collect();
+        IterPerm {
+            perm: &self,
+            n_p_k, free,
+            first: true, end: false,
         }
     }
 }
 
-impl<'a> Iterator for &'a mut PermIter
+impl<'a> Iterator for IterPerm<'a>
 {
     type Item = &'a[usize];
 
@@ -37,13 +49,15 @@ impl<'a> Iterator for &'a mut PermIter
             return None;
         }
         else {
-            for pos in (0..self.k).rev() {
+            let k = self.perm.k;
+
+            for pos in (0..k).rev() {
                 let c = self.n_p_k[pos];
                 self.free.insert(c);
                 if let Some(&nc) = self.free.range((c + 1)..).next() {
                     self.n_p_k[pos] = nc;
                     self.free.remove(&nc);
-                    for i in (pos + 1)..self.k {
+                    for i in (pos + 1)..k {
                         self.n_p_k[i] = self.free.pop_first().unwrap();
                     }
                     break;
@@ -98,7 +112,7 @@ fn test_perm_iter() {
         [3, 2, 1],
     ];
 
-    for (i, p) in PermIter::new(4, 3).into_iter().enumerate() {
+    for (i, p) in PermIter::new(4, 3).iter().enumerate() {
         assert_eq!(p, e[i]);
     }
 }
