@@ -46,5 +46,5 @@ fn main() {
 
     debug!(a, b, c, d, n);
     
-    println!("{}", buf);
+    println!("{buf}");
 }
