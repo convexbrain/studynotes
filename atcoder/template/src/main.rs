@@ -4,7 +4,7 @@ use std::io::prelude::*;
 #[allow(unused_imports)]
 use std::{
     collections::*, ops::*,
-    rc::*, cell::*, ops::Bound::*,
+    cmp::*, rc::*, cell::*, ops::Bound::*,
 };
 
 #[cfg(not(debug_assertions))]
