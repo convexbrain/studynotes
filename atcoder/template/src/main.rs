@@ -44,9 +44,11 @@ fn main() {
     let d = token.next().unwrap().as_bytes().to_vec(); // Vec<u8>
     let n: usize = token.next().unwrap().parse().unwrap();
 
-    let d = String::from_utf8(d).unwrap(); // Vec<u8> -> String
-
     debug!(a, b, c, d, n);
-    
+
+    let _ = std::str::from_utf8(c).unwrap(); // &[u8] -> &str
+    let _ = String::from_utf8(d).unwrap(); // Vec<u8> -> String
+    let _ = char::from_u32(c[0] as u32).unwrap(); // u8 -> char
+
     println!("{buf}");
 }
