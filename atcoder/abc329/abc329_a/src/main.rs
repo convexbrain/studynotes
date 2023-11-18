@@ -1,0 +1,50 @@
+use std::prelude::rust_2021::*;
+use std::io::prelude::*;
+
+#[allow(unused_imports)]
+use std::{
+    collections::*, ops::{*, Bound::*}, cmp::*,
+    str, rc::*, cell::*,
+};
+
+#[cfg(not(debug_assertions))]
+macro_rules! debug {
+    ( $($x:tt)* ) => {};
+}
+
+#[cfg(debug_assertions)]
+macro_rules! debug {
+    () => {
+        eprintln!("[@{}]", line!())
+    };
+    ($val:expr $(,)?) => {
+        match $val {
+            ref tmp => {
+                eprintln!("[@{}] {} = {:?}",
+                    line!(), stringify!($val), &tmp);
+                tmp
+            }
+        }
+    };
+    ($($val:expr),+ $(,)?) => {
+        ($(debug!($val)),+,)
+    };
+}
+
+//#############################################################################
+
+fn main() {
+    let mut buf = String::new();
+    std::io::stdin().read_to_string(&mut buf).unwrap();
+    let mut token = buf.split_whitespace();
+
+    let s = token.next().unwrap(); // &str
+
+    let mut sc = s.chars();
+
+    print!("{}", sc.next().unwrap());
+
+    for c in sc {
+        print!(" {c}");
+    }
+}
