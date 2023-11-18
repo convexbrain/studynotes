@@ -3,8 +3,8 @@ use std::io::prelude::*;
 
 #[allow(unused_imports)]
 use std::{
-    collections::*, ops::{*, Bound::*}, cmp::*, // utilized
-    rc::*, cell::*,
+    collections::*, ops::{*, Bound::*}, cmp::*,
+    str, rc::*, cell::*,
 };
 
 #[cfg(not(debug_assertions))]
@@ -46,9 +46,11 @@ fn main() {
 
     debug!(a, b, c, d, n);
 
-    let _ = std::str::from_utf8(c).unwrap(); // &[u8] -> &str
-    let _ = String::from_utf8(d).unwrap(); // Vec<u8> -> String
-    let _ = char::from_u32(c[0] as u32).unwrap(); // u8 -> char
+    let c0 = char::from_u32(c[0] as u32).unwrap(); // u8 -> char
+    let c = str::from_utf8(c).unwrap(); // &[u8] -> &str
+    let d = String::from_utf8(d).unwrap(); // Vec<u8> -> String
+
+    debug!(c0, c, d);
 
     println!("{buf}");
 }
