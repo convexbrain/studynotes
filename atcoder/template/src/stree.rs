@@ -3,7 +3,7 @@ use std::{ops::{*, Bound::*}, collections::*};
 //#############################################################################
 
 #[derive(Clone)]
-struct SegTree<T, F, S>
+struct STree<T, F, S>
 {
     n: usize,
     nleafs: usize,
@@ -12,14 +12,14 @@ struct SegTree<T, F, S>
     assoc_scl: S,
 }
 
-impl<T: std::fmt::Debug, F, S> std::fmt::Debug for SegTree<T, F, S>
+impl<T: std::fmt::Debug, F, S> std::fmt::Debug for STree<T, F, S>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("n:{}, nleafs:{}, vec:{:?}", self.n, self.nleafs, self.vec))
     }
 }
 
-impl<T, F, S> SegTree<T, F, S>
+impl<T, F, S> STree<T, F, S>
 {
     fn h_depth_of(node: usize) -> usize {
         (node + 1).ilog2() as usize
@@ -78,7 +78,7 @@ impl<T, F, S> SegTree<T, F, S>
     }
 }
     
-impl<T: Copy, F, S> SegTree<T, F, S>
+impl<T: Copy, F, S> STree<T, F, S>
 where F: Fn(T, T) -> T, S: Fn(T, usize) -> T
 {
     fn new(n: usize, assoc_op: F, assoc_scl: S) -> Self {
@@ -95,7 +95,7 @@ where F: Fn(T, T) -> T, S: Fn(T, usize) -> T
         };
 
 
-        SegTree {n, nleafs, vec: vec![None; nnodes], assoc_op, assoc_scl}
+        STree {n, nleafs, vec: vec![None; nnodes], assoc_op, assoc_scl}
     }
 
     fn assoc_op_opt(&self, oa: Option<T>, ob: Option<T>) -> Option<T> {
@@ -184,8 +184,8 @@ where F: Fn(T, T) -> T, S: Fn(T, usize) -> T
 //#############################################################################
 
 #[test]
-fn test_seg_tree() {
-    let mut t = SegTree::new(6,
+fn test_stree_add() {
+    let mut t = STree::new(6,
         |a, b| a + b,
         |b, l| b * l as i32
     );
@@ -204,8 +204,8 @@ fn test_seg_tree() {
 }
 
 #[test]
-fn test_seg_tree_max() {
-    let mut t = SegTree::new(6,
+fn test_stree_max() {
+    let mut t = STree::new(6,
         |a: i32, b| a.max(b),
         |b, _l| b
     );
