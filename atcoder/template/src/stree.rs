@@ -227,7 +227,35 @@ where F: Fn(T, T) -> T, S: Fn(T, usize) -> T
     }
 }
 
-// TODO: iterator
+struct IterSTree<'a, T, F, S> {
+    stree: &'a mut STree<T, F, S>,
+    idx: usize,
+}
+
+impl<'a, T: Copy, F, S> Iterator for IterSTree<'a, T, F, S>
+where F: Fn(T, T) -> T, S: Fn(T, usize) -> T
+{
+    type Item = Option<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.idx < self.stree.n {
+            let next = self.stree.eval(self.idx..=self.idx);
+            self.idx += 1;
+            Some(next)
+        }
+        else {
+            None
+        }
+    }
+}
+
+impl<T: Copy, F, S> STree<T, F, S>
+{
+    fn iter(&mut self) -> IterSTree<'_, T, F, S> {
+        IterSTree { stree: self, idx: 0 }
+    }
+}
+
 
 //#############################################################################
 
@@ -245,13 +273,19 @@ fn test_stree_add() {
     assert_eq!(t.eval(1..=3), Some(3));
     assert_eq!(t.eval(3..=4), Some(3));
 
-    assert_eq!(t.eval(2..=2), Some(1));
-    assert_eq!(t.eval(0..=0), None);
+    let mut it = t.iter();
+    assert_eq!(it.next().unwrap(), None);
+    assert_eq!(it.next().unwrap(), Some(1));
+    assert_eq!(it.next().unwrap(), Some(1));
+    assert_eq!(it.next().unwrap(), Some(1));
+    assert_eq!(it.next().unwrap(), Some(2));
+    assert_eq!(it.next().unwrap(), None);
+    assert_eq!(it.next(), None);
 }
 
 #[test]
 fn test_stree_max() {
-    let mut t = STree::new(6,
+    let mut t = STree::new(7,
         |a: i32, b| a.max(b),
         |b, _l| b
     );
@@ -262,7 +296,14 @@ fn test_stree_max() {
     assert_eq!(t.eval(..), Some(2));
     assert_eq!(t.eval(1..=2), Some(1));
     assert_eq!(t.eval(3..=4), Some(2));
-    
-    assert_eq!(t.eval(5..=5), Some(2));
-    assert_eq!(t.eval(0..=0), None);
+
+    let mut it = t.iter();
+    assert_eq!(it.next().unwrap(), None);
+    assert_eq!(it.next().unwrap(), Some(1));
+    assert_eq!(it.next().unwrap(), Some(1));
+    assert_eq!(it.next().unwrap(), Some(2));
+    assert_eq!(it.next().unwrap(), Some(2));
+    assert_eq!(it.next().unwrap(), Some(2));
+    assert_eq!(it.next().unwrap(), None);
+    assert_eq!(it.next(), None);
 }
