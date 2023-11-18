@@ -116,46 +116,29 @@ where F: Fn(T, T) -> T, S: Fn(T, usize) -> T
         let (si, ee) = Self::h_sanitize(range, self.n);
 
         let mut que = VecDeque::new();
-        que.push_back((0, Ok((si, ee))));
+        que.push_back((0, (si, ee)));
 
-        while let Some((node, typ)) = que.pop_front() {
+        while let Some((node, trange)) = que.pop_front() {
             let nrange = Self::h_range_of(node, self.nleafs);
 
-            match typ {
-                Ok(trange) => { // downward
-                    if nrange == trange {
-                        let value_r = (self.assoc_scl)(value, nrange.1 - nrange.0);
+            let value_r = (self.assoc_scl)(value, trange.1 - trange.0);
+            self.vec[node] = self.assoc_op_opt(self.vec[node], Some(value_r));
+            if nrange == trange {
+                // TODO: lazy evaluation
+            }
+            else {
+                let half = (nrange.0 + nrange.1) / 2;
 
-                        self.vec[node] = self.assoc_op_opt(self.vec[node], Some(value_r));
-
-                        if node > 0 {
-                            que.push_back((Self::h_parent_of(node), Err(value_r)));
-                        }
-        
-                        // TODO: lazy evaluation
-                    }
-                    else {
-                        let half = (nrange.0 + nrange.1) / 2;
-        
-                        if trange.1 <= half {
-                            que.push_back((Self::h_left_of(node), Ok(trange)));
-                        }
-                        else if trange.0 >= half {
-                            que.push_back((Self::h_right_of(node), Ok(trange)));
-                        }
-                        else {
-                            que.push_back((Self::h_left_of(node), Ok((trange.0, half))));
-                            que.push_back((Self::h_right_of(node), Ok((half, trange.1))));
-                        }
-                    }
-                },
-                Err(value_r) => { // updaward
-                    self.vec[node] = self.assoc_op_opt(self.vec[node], Some(value_r));
-
-                    if node > 0 {
-                        que.push_back((Self::h_parent_of(node), Err(value_r)));
-                    }
-                },
+                if trange.1 <= half {
+                    que.push_back((Self::h_left_of(node), trange));
+                }
+                else if trange.0 >= half {
+                    que.push_back((Self::h_right_of(node), trange));
+                }
+                else {
+                    que.push_back((Self::h_left_of(node), (trange.0, half)));
+                    que.push_back((Self::h_right_of(node), (half, trange.1)));
+                }
             }
         }
     }
@@ -209,11 +192,34 @@ fn test_seg_tree() {
 
     t.update(1..=4, 1);
 
+    dbg!(&t);
+
     assert_eq!(t.eval(..), Some(4));
     assert_eq!(t.eval(1..=3), Some(3));
     //assert_eq!(t.eval(3..=4), Some(2)); // TODO: lazy evaluation
     //assert_eq!(t.eval(2..=2), Some(1)); // TODO: lazy evaluation
     assert_eq!(t.eval(0..=0), None);
 
-    dbg!(t);
+    dbg!(&t);
+}
+
+#[test]
+fn test_seg_tree_max() {
+    let mut t = SegTree::new(6,
+        |a: i32, b| a.max(b),
+        |b, _l| b
+    );
+
+    t.update(1..=4, 1);
+    t.update(3..=5, 2);
+
+    dbg!(&t);
+
+    assert_eq!(t.eval(..), Some(2));
+    assert_eq!(t.eval(1..=2), Some(1));
+    assert_eq!(t.eval(3..=4), Some(2)); // TODO: lazy evaluation
+    //assert_eq!(t.eval(5..=5), Some(2)); // TODO: lazy evaluation
+    assert_eq!(t.eval(0..=0), None);
+
+    dbg!(&t);
 }
