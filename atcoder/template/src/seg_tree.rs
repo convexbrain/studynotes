@@ -19,8 +19,7 @@ impl<T: std::fmt::Debug, F, S> std::fmt::Debug for SegTree<T, F, S>
     }
 }
 
-impl<T: Copy, F, S> SegTree<T, F, S>
-where F: Fn(T, T) -> T, S: Fn(T, usize) -> T
+impl<T, F, S> SegTree<T, F, S>
 {
     fn h_depth_of(node: usize) -> usize {
         (node + 1).ilog2() as usize
@@ -60,7 +59,7 @@ where F: Fn(T, T) -> T, S: Fn(T, usize) -> T
         ((1 << (depth - 1)) - 1) + (breadth >> 1)
     }
     
-    fn h_sanitize<R: RangeBounds<usize>>(range: R, n: usize) -> Result<(usize, usize), ()> {
+    fn h_sanitize<R: RangeBounds<usize>>(range: R, n: usize) -> (usize, usize) {
         let si = match range.start_bound() {
             Included(&b) => {b},
             Excluded(&b) => {b + 1},
@@ -72,13 +71,16 @@ where F: Fn(T, T) -> T, S: Fn(T, usize) -> T
             Unbounded => {n},
         };
 
-        if si >= ee || si >= n || ee > n {
-            return Err(());
-        }
+        assert!(si < ee);
+        assert!(ee <= n);
 
-        Ok((si, ee))
+        (si, ee)
     }
+}
     
+impl<T: Copy, F, S> SegTree<T, F, S>
+where F: Fn(T, T) -> T, S: Fn(T, usize) -> T
+{
     fn new(n: usize, assoc_op: F, assoc_scl: S) -> Self {
         let (nnodes, nleafs) = if n == 0 {
             (0, 0)
@@ -96,8 +98,22 @@ where F: Fn(T, T) -> T, S: Fn(T, usize) -> T
         SegTree {n, nleafs, vec: vec![None; nnodes], assoc_op, assoc_scl}
     }
 
-    fn update<R: RangeBounds<usize>>(&mut self, range: R, value: T) -> Result<(), ()> {
-        let (si, ee) = Self::h_sanitize(range, self.n)?;
+    fn assoc_op_opt(&self, oa: Option<T>, ob: Option<T>) -> Option<T> {
+        if let Some(a) = oa {
+            if let Some(b) = ob {
+                Some( (self.assoc_op)(a, b) )
+            }
+            else {
+                oa
+            }
+        }
+        else {
+            ob
+        }
+    }
+
+    fn update<R: RangeBounds<usize>>(&mut self, range: R, value: T) {
+        let (si, ee) = Self::h_sanitize(range, self.n);
 
         let mut que = VecDeque::new();
         que.push_back((0, Ok((si, ee))));
@@ -106,16 +122,11 @@ where F: Fn(T, T) -> T, S: Fn(T, usize) -> T
             let nrange = Self::h_range_of(node, self.nleafs);
 
             match typ {
-                Ok(trange) => {
+                Ok(trange) => { // downward
                     if nrange == trange {
                         let value_r = (self.assoc_scl)(value, nrange.1 - nrange.0);
-        
-                        if let Some(v) = self.vec[node] {
-                            self.vec[node] = Some( (self.assoc_op)(v, value_r) );
-                        }
-                        else {
-                            self.vec[node] = Some(value_r);
-                        }
+
+                        self.vec[node] = self.assoc_op_opt(self.vec[node], Some(value_r));
 
                         if node > 0 {
                             que.push_back((Self::h_parent_of(node), Err(value_r)));
@@ -138,13 +149,8 @@ where F: Fn(T, T) -> T, S: Fn(T, usize) -> T
                         }
                     }
                 },
-                Err(value_r) => {
-                    if let Some(v) = self.vec[node] {
-                        self.vec[node] = Some( (self.assoc_op)(v, value_r) );
-                    }
-                    else {
-                        self.vec[node] = Some(value_r);
-                    }
+                Err(value_r) => { // updaward
+                    self.vec[node] = self.assoc_op_opt(self.vec[node], Some(value_r));
 
                     if node > 0 {
                         que.push_back((Self::h_parent_of(node), Err(value_r)));
@@ -152,12 +158,10 @@ where F: Fn(T, T) -> T, S: Fn(T, usize) -> T
                 },
             }
         }
-
-        Ok(())
     }
 
-    fn eval<R: RangeBounds<usize>>(&mut self, range: R) -> Result<Option<T>, ()> {
-        let (si, ee) = Self::h_sanitize(range, self.n)?;
+    fn eval<R: RangeBounds<usize>>(&mut self, range: R) -> Option<T> {
+        let (si, ee) = Self::h_sanitize(range, self.n);
 
         let mut value = None;
 
@@ -168,16 +172,7 @@ where F: Fn(T, T) -> T, S: Fn(T, usize) -> T
             let nrange = Self::h_range_of(node, self.nleafs);
 
             if nrange == trange {
-                if let Some(some_value) = value {
-                    if let Some(v) = self.vec[node] {
-                        value = Some(
-                            (self.assoc_op)(v, some_value)
-                        );
-                    }
-                }
-                else {
-                    value = self.vec[node];
-                }
+                value = self.assoc_op_opt(value, self.vec[node]);
             }
             else {
                 let half = (nrange.0 + nrange.1) / 2;
@@ -197,26 +192,28 @@ where F: Fn(T, T) -> T, S: Fn(T, usize) -> T
             }
         }
 
-        Ok(value)
+        value
     }
 }
+
+// TODO: iterator
 
 //#############################################################################
 
 #[test]
 fn test_seg_tree() {
     let mut t = SegTree::new(6,
-        |a: i32, b| a + b,
+        |a, b| a + b,
         |b, l| b * l as i32
     );
 
-    t.update(1..=4, 1).unwrap();
+    t.update(1..=4, 1);
 
-    assert_eq!(t.eval(..).unwrap(), Some(4));
-    assert_eq!(t.eval(1..=3).unwrap(), Some(3));
-    //assert_eq!(t.eval(3..=4).unwrap(), Some(2)); // TODO: lazy evaluation
-    //assert_eq!(t.eval(2..=2).unwrap(), Some(1)); // TODO: lazy evaluation
-    assert_eq!(t.eval(0..=0).unwrap(), None);
+    assert_eq!(t.eval(..), Some(4));
+    assert_eq!(t.eval(1..=3), Some(3));
+    //assert_eq!(t.eval(3..=4), Some(2)); // TODO: lazy evaluation
+    //assert_eq!(t.eval(2..=2), Some(1)); // TODO: lazy evaluation
+    assert_eq!(t.eval(0..=0), None);
 
     dbg!(t);
 }
