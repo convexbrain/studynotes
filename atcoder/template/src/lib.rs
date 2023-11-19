@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(unused_macros)]
 
 mod gcd;
 mod mod_pow;
@@ -10,3 +11,4 @@ mod prod_iter;
 mod cross_iter;
 mod an_ord;
 mod stree;
+mod debug_iter;
