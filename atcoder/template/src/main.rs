@@ -53,7 +53,7 @@ fn main() {
         let d = String::from_utf8(d).unwrap(); // Vec<u8> -> String
     
         debug!(c0, c, d);
-    }
     
-    println!("{buf}");
+        println!("{buf}");
+    }
 }
