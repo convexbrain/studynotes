@@ -4,7 +4,7 @@ use std::io::prelude::*;
 #[allow(unused_imports)]
 use std::{
     collections::*, ops::{*, Bound::*}, cmp::*,
-    str, rc::*, cell::*,
+    rc::*, cell::*,
 };
 
 #[cfg(not(debug_assertions))]
@@ -31,29 +31,61 @@ macro_rules! debug {
     };
 }
 
+struct Tokens<'a>(std::str::SplitWhitespace<'a>);
+
+#[allow(dead_code)]
+impl<'a> Tokens<'a> {
+    fn new(buf: &'a mut String) -> Self {
+        std::io::stdin().read_to_string(buf).unwrap();
+        Tokens(buf.split_whitespace())
+    }
+    fn release(self) -> std::str::SplitWhitespace<'a> {
+        self.0
+    }
+    fn next_string(&mut self) -> String {
+        self.0.next().unwrap().to_string()
+    }
+    fn next_bytes(&mut self) -> Vec<u8> {
+        self.0.next().unwrap().as_bytes().to_vec()
+    }
+    fn next<T>(&mut self) -> T
+    where T: std::str::FromStr, T::Err: std::fmt::Debug {
+        self.0.next().unwrap().parse().unwrap()
+    }
+    fn collect<T, C>(&mut self, n: usize) -> C
+    where T: std::str::FromStr, T::Err: std::fmt::Debug, C: FromIterator<T> {
+        (0..n).map(|_| self.0.next().unwrap().parse().unwrap()).collect()
+    }
+    fn collect_index<T, C>(&mut self, n: usize) -> C
+    where T: std::str::FromStr, T::Err: std::fmt::Debug, C: FromIterator<(usize, T)> {
+        (0..n).map(|i| (i, self.0.next().unwrap().parse().unwrap())).collect()
+    }
+}
+
 //#############################################################################
 
 fn main() {
-    let mut buf = String::new();
-    std::io::stdin().read_to_string(&mut buf).unwrap();
-    let mut token = buf.split_whitespace();
+    let mut tokens_buf = String::new();
+    let mut tokens = Tokens::new(&mut tokens_buf);
 
     #[cfg(feature = "template")]
     {
-        let a = token.next().unwrap(); // &str
-        let b = token.next().unwrap().to_string(); // String
-        let c = token.next().unwrap().as_bytes(); // &[u8]
-        let d = token.next().unwrap().as_bytes().to_vec(); // Vec<u8>
-        let n: usize = token.next().unwrap().parse().unwrap();
+        let a = tokens.next_string(); // String
+        let b = tokens.next_bytes(); // Vec<u8>
+        let n: usize = tokens.next();
+        let v: Vec<u32> = tokens.collect(n);
+        let i: Vec<(usize, u32)> = tokens.collect_index(n);
     
-        debug!(a, b, c, d, n);
+        debug!(a, b, n, v, i);
     
-        let c0 = char::from_u32(c[0] as u32).unwrap(); // u8 -> char
-        let c = str::from_utf8(c).unwrap(); // &[u8] -> &str
-        let d = String::from_utf8(d).unwrap(); // Vec<u8> -> String
+        let b0 = char::from_u32(b[0] as u32).unwrap(); // u8 -> char
+        let bs = String::from_utf8(b).unwrap(); // Vec<u8> -> String
     
-        debug!(c0, c, d);
+        debug!(b0, bs);
+
+        let split = tokens.release();
+        let r = split.count();
     
-        println!("{buf}");
+        println!("{r}");
     }
 }
