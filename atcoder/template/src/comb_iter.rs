@@ -40,6 +40,9 @@ impl<'a> Iterator for IterComb<'a>
     fn next(&mut self) -> Option<Self::Item> {
         if self.first {
             self.first = false;
+            if self.comb.k == 0 {
+                self.end = true;
+            }
         }
         else if self.end {
             return None;
