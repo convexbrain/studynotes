@@ -54,11 +54,11 @@ impl<'a> Tokens<'a> {
     }
     fn collect<T, C>(&mut self, n: usize) -> C
     where T: std::str::FromStr, T::Err: std::fmt::Debug, C: FromIterator<T> {
-        (0..n).map(|_| self.0.next().unwrap().parse().unwrap()).collect()
+        (0..n).map(|_| self.next()).collect()
     }
     fn collect_index<T, C>(&mut self, n: usize) -> C
     where T: std::str::FromStr, T::Err: std::fmt::Debug, C: FromIterator<(usize, T)> {
-        (0..n).map(|i| (i, self.0.next().unwrap().parse().unwrap())).collect()
+        (0..n).map(|i| (i, self.next())).collect()
     }
 }
 
