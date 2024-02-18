@@ -264,9 +264,9 @@ fn test_graph_dfs_dijkstra() {
     g.add_edge(4, 5, 10);
 
     g.dijkstra(Some(0), None,
-        |_u, _p, v, w| {
-            if *v > w {
-                *v = w;
+        |_u, _p, v, ws| {
+            if *v > ws {
+                *v = ws;
                 true
             }
             else {
