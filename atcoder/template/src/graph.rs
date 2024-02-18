@@ -23,6 +23,13 @@ impl<W: Copy> Edge<W> {
 }
 
 #[derive(Debug, Clone)]
+enum NodeSt {
+    Visiting,
+    Returned,
+    Visited,
+}
+
+#[derive(Debug, Clone)]
 struct Graph<V, W> {
     node_values: Vec<V>,
     node_edges: Vec<BTreeSet<usize>>,
@@ -81,7 +88,7 @@ impl<V, W: Copy> Graph<V, W> {
         unvisited: Option<BTreeSet<usize>>,
         bfs: bool,
         mut func: F) -> BTreeSet<usize>
-    where F: FnMut(usize, &mut V, W, T) -> T, T: Copy {
+    where F: FnMut(NodeSt, &mut V, W, T) -> T, T: Copy {
 
         let n = self.node_values.len();
         let mut unvis = unvisited.unwrap_or((0..n).collect());
@@ -95,7 +102,7 @@ impl<V, W: Copy> Graph<V, W> {
             if unvis.contains(&u) {
                 unvis.remove(&u);
 
-                let nt = func(u, &mut self.node_values[u], w, t);
+                let nt = func(NodeSt::Visiting, &mut self.node_values[u], w, t);
 
                 for &e in self.node_edges[u].iter() {
                     let (nu, nw) = self.edges[e].node_from(u);
@@ -108,6 +115,9 @@ impl<V, W: Copy> Graph<V, W> {
                     }
                 }
             }
+            else {
+                func(NodeSt::Visited, &mut self.node_values[u], w, t);
+            }
         }
 
         unvis
@@ -117,7 +127,7 @@ impl<V, W: Copy> Graph<V, W> {
         first_node: Option<usize>, first_weight: W, first_travel: T,
         unvisited: Option<BTreeSet<usize>>,
         func: F) -> BTreeSet<usize>
-    where F: FnMut(usize, &mut V, W, T) -> T, T: Copy {
+    where F: FnMut(NodeSt, &mut V, W, T) -> T, T: Copy {
 
         self._traverse(first_node, first_weight, first_travel, unvisited, false, func)
     }
@@ -126,7 +136,7 @@ impl<V, W: Copy> Graph<V, W> {
         first_node: Option<usize>, first_weight: W, first_travel: T,
         unvisited: Option<BTreeSet<usize>>,
         func: F) -> BTreeSet<usize>
-    where F: FnMut(usize, &mut V, W, T) -> T, T: Copy {
+    where F: FnMut(NodeSt, &mut V, W, T) -> T, T: Copy {
 
         self._traverse(first_node, first_weight, first_travel, unvisited, true, func)
     }
@@ -135,7 +145,7 @@ impl<V, W: Copy> Graph<V, W> {
         first_node: Option<usize>,
         unvisited: Option<BTreeSet<usize>>,
         mut update: U) -> BTreeSet<usize>
-    where U: FnMut(usize, usize, &mut V, W) -> bool, W: Ord + Add<Output=W> + Default {
+    where U: FnMut(&mut V, W, usize) -> bool, W: Ord + Add<Output=W> + Default {
 
         let n = self.node_values.len();
         let mut unvis = unvisited.unwrap_or((0..n).collect());
@@ -148,7 +158,7 @@ impl<V, W: Copy> Graph<V, W> {
         while let Some((ws, u, prev_u)) = que.pop() {
             unvis.remove(&u);
 
-            if update(u, prev_u, &mut self.node_values[u], ws.0) {
+            if update(&mut self.node_values[u], ws.0, prev_u) {
 
                 for &e in self.node_edges[u].iter() {
                     let (nu, nw) = self.edges[e].node_from(u);
@@ -166,21 +176,24 @@ impl<V, W: Copy> Graph<V, W> {
         node_values: &mut[V], node_edges: &[BTreeSet<usize>], edges: &[Edge<W>],
         u: usize, w: W, t: T,
         unvis: &mut BTreeSet<usize>,
-        func_pre_post: &mut F)
-    where F: FnMut(usize, &mut V, Option<(W, T)>) -> T, T: Copy {
+        func: &mut F)
+    where F: FnMut(NodeSt, &mut V, W, T) -> T, T: Copy {
 
         if unvis.contains(&u) {
             unvis.remove(&u);
 
-            let nt = func_pre_post(u, &mut node_values[u], Some((w, t)));
+            let nt = func(NodeSt::Visiting, &mut node_values[u], w, t);
 
             for &e in node_edges[u].iter() {
                 let (nu, nw) = edges[e].node_from(u);
 
-                Self::_dfs_rec(node_values, node_edges, edges, nu, nw, nt, unvis, func_pre_post);
+                Self::_dfs_rec(node_values, node_edges, edges, nu, nw, nt, unvis, func);
             }
 
-            func_pre_post(u, &mut node_values[u], None);
+            func(NodeSt::Returned, &mut node_values[u], w, t);
+        }
+        else {
+            func(NodeSt::Visited, &mut node_values[u], w, t);
         }
     }
 
@@ -188,7 +201,7 @@ impl<V, W: Copy> Graph<V, W> {
         first_node: Option<usize>, first_weight: W, first_travel: T,
         unvisited: Option<BTreeSet<usize>>,
         mut func_pre_post: F) -> BTreeSet<usize>
-    where F: FnMut(usize, &mut V, Option<(W, T)>) -> T, T: Copy {
+    where F: FnMut(NodeSt, &mut V, W, T) -> T, T: Copy {
 
         let n = self.node_values.len();
         let mut unvis = unvisited.unwrap_or((0..n).collect());
@@ -219,32 +232,45 @@ fn test_graph_dfs_bfs() {
 
     let mut cnt = 0;
     g.dfs(None, (), (), None,
-        |_u, v, _w, _t| {
-            *v = cnt;
-            cnt += 1;
+        |st, v, _w, _t| {
+            match st {
+                NodeSt::Visiting => {
+                    *v = cnt;
+                    cnt += 1;
+                },
+                NodeSt::Returned => {panic!();},
+                NodeSt::Visited => {},
+            }
         });
     
     assert_eq!(g.node_values(), [0, 4, 1, 6, 5, 3, 2]);
 
     let mut cnt = 0;
     g.bfs(None, (), (), None,
-        |_u, v, _w, _t| {
-            *v = cnt;
-            cnt += 1;
+        |st, v, _w, _t| {
+            match st {
+                NodeSt::Visiting => {
+                    *v = cnt;
+                    cnt += 1;
+                },
+                NodeSt::Returned => {panic!();},
+                NodeSt::Visited => {},
+            }
         });
     
     assert_eq!(g.node_values(), [0, 1, 2, 3, 4, 5, 6]);
 
     let mut cnt = 0;
     g.dfs_rec(None, (), (), None,
-        |_u, v, wt| {
-            if let Some((_w, _t)) = wt {
+        |st, v, _w, _t| {
+            match st {
+                NodeSt::Visiting => {},
+                NodeSt::Returned => {
+                    *v = cnt;
+                    cnt += 1;
+                },
+                NodeSt::Visited => {},
             }
-            else {
-                *v = cnt;
-                cnt += 1;
-            }
-            ()
         },
     );
     
@@ -264,7 +290,7 @@ fn test_graph_dfs_dijkstra() {
     g.add_edge(4, 5, 10);
 
     g.dijkstra(Some(0), None,
-        |_u, _p, v, ws| {
+        |v, ws, _p| {
             if *v > ws {
                 *v = ws;
                 true
