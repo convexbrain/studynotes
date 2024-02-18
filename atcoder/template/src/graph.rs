@@ -85,13 +85,11 @@ impl<V, W: Copy> Graph<V, W> {
 
     fn _traverse<T, F>(&mut self,
         first_node: Option<usize>, first_weight: W, first_travel: T,
-        unvisited: Option<BTreeSet<usize>>,
+        mut unvis: BTreeSet<usize>,
         bfs: bool,
         mut func: F) -> BTreeSet<usize>
     where F: FnMut(NodeSt, &mut V, W, T) -> T, T: Copy {
 
-        let n = self.node_values.len();
-        let mut unvis = unvisited.unwrap_or((0..n).collect());
         let mut que = VecDeque::new();
 
         let first_node = first_node.unwrap_or(*unvis.first().unwrap());
@@ -125,30 +123,28 @@ impl<V, W: Copy> Graph<V, W> {
 
     fn dfs<T, F>(&mut self,
         first_node: Option<usize>, first_weight: W, first_travel: T,
-        unvisited: Option<BTreeSet<usize>>,
+        unvis: BTreeSet<usize>,
         func: F) -> BTreeSet<usize>
     where F: FnMut(NodeSt, &mut V, W, T) -> T, T: Copy {
 
-        self._traverse(first_node, first_weight, first_travel, unvisited, false, func)
+        self._traverse(first_node, first_weight, first_travel, unvis, false, func)
     }
     
     fn bfs<T, F>(&mut self,
         first_node: Option<usize>, first_weight: W, first_travel: T,
-        unvisited: Option<BTreeSet<usize>>,
+        unvis: BTreeSet<usize>,
         func: F) -> BTreeSet<usize>
     where F: FnMut(NodeSt, &mut V, W, T) -> T, T: Copy {
 
-        self._traverse(first_node, first_weight, first_travel, unvisited, true, func)
+        self._traverse(first_node, first_weight, first_travel, unvis, true, func)
     }
     
     fn dijkstra<U>(&mut self,
         first_node: Option<usize>,
-        unvisited: Option<BTreeSet<usize>>,
+        mut unvis: BTreeSet<usize>,
         mut update: U) -> BTreeSet<usize>
     where U: FnMut(&mut V, W, usize) -> bool, W: Ord + Add<Output=W> + Default {
 
-        let n = self.node_values.len();
-        let mut unvis = unvisited.unwrap_or((0..n).collect());
         let mut que = BinaryHeap::new();
 
         let first_node = first_node.unwrap_or(*unvis.first().unwrap());
@@ -199,12 +195,9 @@ impl<V, W: Copy> Graph<V, W> {
 
     fn dfs_rec<T, F>(&mut self,
         first_node: Option<usize>, first_weight: W, first_travel: T,
-        unvisited: Option<BTreeSet<usize>>,
-        mut func_pre_post: F) -> BTreeSet<usize>
+        mut unvis: BTreeSet<usize>,
+        mut func: F) -> BTreeSet<usize>
     where F: FnMut(NodeSt, &mut V, W, T) -> T, T: Copy {
-
-        let n = self.node_values.len();
-        let mut unvis = unvisited.unwrap_or((0..n).collect());
 
         let first_node = first_node.unwrap_or(*unvis.first().unwrap());
 
@@ -212,7 +205,7 @@ impl<V, W: Copy> Graph<V, W> {
             &mut self.node_values, &self.node_edges, &self.edges,
             first_node, first_weight, first_travel,
             &mut unvis,
-            &mut func_pre_post);
+            &mut func);
 
         unvis
     }
@@ -231,7 +224,7 @@ fn test_graph_dfs_bfs() {
     g.add_edge(2, 6, ());
 
     let mut cnt = 0;
-    g.dfs(None, (), (), None,
+    g.dfs(None, (), (), (0..7).collect(),
         |st, v, _w, _t| {
             match st {
                 NodeSt::Visiting => {
@@ -246,7 +239,7 @@ fn test_graph_dfs_bfs() {
     assert_eq!(g.node_values(), [0, 4, 1, 6, 5, 3, 2]);
 
     let mut cnt = 0;
-    g.bfs(None, (), (), None,
+    g.bfs(None, (), (), (0..7).collect(),
         |st, v, _w, _t| {
             match st {
                 NodeSt::Visiting => {
@@ -261,7 +254,7 @@ fn test_graph_dfs_bfs() {
     assert_eq!(g.node_values(), [0, 1, 2, 3, 4, 5, 6]);
 
     let mut cnt = 0;
-    g.dfs_rec(None, (), (), None,
+    g.dfs_rec(None, (), (), (0..7).collect(),
         |st, v, _w, _t| {
             match st {
                 NodeSt::Visiting => {},
@@ -289,7 +282,7 @@ fn test_graph_dfs_dijkstra() {
     g.add_edge(3, 5, 20);
     g.add_edge(4, 5, 10);
 
-    g.dijkstra(Some(0), None,
+    g.dijkstra(Some(0), (0..6).collect(),
         |v, ws, _p| {
             if *v > ws {
                 *v = ws;
