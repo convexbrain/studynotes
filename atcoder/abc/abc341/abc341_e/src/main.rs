@@ -76,14 +76,12 @@ fn main() {
 
     let mut set = BTreeSet::new();
 
-    let mut pc = 0;
+    let mut pc = s[0];
     for (i, c) in s.iter().enumerate() {
         if i > 0 && pc == *c {
             set.insert(i);
         }
-        else {
-            pc = *c;
-        }
+        pc = *c;
     }
 
     for _ in 0..q {
@@ -113,7 +111,7 @@ fn main() {
                 }    
             },
             2 => {
-                if let Some(_) = set.range(l..=r).next() {
+                if let Some(_) = set.range(l..r).next() {
                     println!("No");
                 }
                 else {
