@@ -62,6 +62,209 @@ impl<'a> Tokens<'a> {
     }
 }
 
+#[derive(Debug, Clone)]
+struct Edge<W> {
+    weight: W,
+    from: usize,
+    to: usize,
+}
+
+impl<W: Copy> Edge<W> {
+    fn node_from(&self, u: usize) -> (usize, W) {
+        let nu = if u != self.to {
+            self.to
+        }
+        else {
+            self.from
+        };
+
+        (nu, self.weight)
+    }
+}
+
+#[derive(Debug, Clone)]
+struct Graph<V, W> {
+    node_values: Vec<V>,
+    node_edges: Vec<BTreeSet<usize>>,
+    edges: Vec<Edge<W>>,
+    undir: bool,
+}
+
+impl<V, W: Copy> Graph<V, W> {
+    fn new(undir: bool) -> Self {
+        Graph {
+            node_values: Vec::new(),
+            node_edges: Vec::new(),
+            edges: Vec::new(),
+            undir,
+        }
+    }
+
+    fn new_nodes(n: usize, value: V, undir: bool) -> Self
+    where V: Clone {
+        Graph {
+            node_values: vec![value; n],
+            node_edges: vec![BTreeSet::new(); n],
+            edges: Vec::new(),
+            undir,
+        }
+    }
+
+    fn add_node(&mut self, value: V) {
+        self.node_values.push(value);
+        self.node_edges.push(BTreeSet::new());
+    }
+
+    fn add_edge(&mut self, from: usize, to: usize, weight: W) {
+        let edge = Edge {
+            weight,
+            from,
+            to,
+        };
+
+        let edge_idx = self.edges.len();
+
+        self.edges.push(edge);
+
+        self.node_edges[from].insert(edge_idx);
+        if self.undir {
+            self.node_edges[to].insert(edge_idx);
+        }
+    }
+
+    fn node_values(&self) -> &[V] {
+        &self.node_values
+    }
+
+    fn _traverse<T, F>(&mut self,
+        first_node: Option<usize>, first_weight: W, first_travel: T,
+        unvisited: Option<BTreeSet<usize>>,
+        bfs: bool,
+        mut func: F) -> BTreeSet<usize>
+    where F: FnMut(usize, &mut V, W, T) -> T, T: Copy {
+
+        let n = self.node_values.len();
+        let mut unvis = unvisited.unwrap_or((0..n).collect());
+        let mut que = VecDeque::new();
+
+        let first_node = first_node.unwrap_or(*unvis.first().unwrap());
+
+        que.push_front((first_node, first_weight, first_travel));
+
+        while let Some((u, w, t)) = que.pop_front() {
+            if unvis.contains(&u) {
+                unvis.remove(&u);
+
+                let nt = func(u, &mut self.node_values[u], w, t);
+
+                for &e in self.node_edges[u].iter() {
+                    let (nu, nw) = self.edges[e].node_from(u);
+
+                    if bfs {
+                        que.push_back((nu, nw, nt));
+                    }
+                    else {
+                        que.push_front((nu, nw, nt));
+                    }
+                }
+            }
+        }
+
+        unvis
+    }
+
+    fn dfs<T, F>(&mut self,
+        first_node: Option<usize>, first_weight: W, first_travel: T,
+        unvisited: Option<BTreeSet<usize>>,
+        func: F) -> BTreeSet<usize>
+    where F: FnMut(usize, &mut V, W, T) -> T, T: Copy {
+
+        self._traverse(first_node, first_weight, first_travel, unvisited, false, func)
+    }
+    
+    fn bfs<T, F>(&mut self,
+        first_node: Option<usize>, first_weight: W, first_travel: T,
+        unvisited: Option<BTreeSet<usize>>,
+        func: F) -> BTreeSet<usize>
+    where F: FnMut(usize, &mut V, W, T) -> T, T: Copy {
+
+        self._traverse(first_node, first_weight, first_travel, unvisited, true, func)
+    }
+    
+    fn dijkstra<U>(&mut self,
+        first_node: Option<usize>,
+        unvisited: Option<BTreeSet<usize>>,
+        mut update: U) -> BTreeSet<usize>
+    where U: FnMut(usize, usize, &mut V, W) -> bool, W: Ord + Add<Output=W> + Default {
+
+        let n = self.node_values.len();
+        let mut unvis = unvisited.unwrap_or((0..n).collect());
+        let mut que = BinaryHeap::new();
+
+        let first_node = first_node.unwrap_or(*unvis.first().unwrap());
+
+        que.push((Reverse(W::default()), first_node, first_node));
+
+        while let Some((ws, u, prev_u)) = que.pop() {
+            unvis.remove(&u);
+
+            if update(u, prev_u, &mut self.node_values[u], ws.0) {
+
+                for &e in self.node_edges[u].iter() {
+                    let (nu, nw) = self.edges[e].node_from(u);
+                    let nws = ws.0 + nw;
+
+                    que.push((Reverse(nws), nu, u));
+                }
+            }
+        }
+
+        unvis
+    }
+    
+    fn _dfs_rec<T, F>(
+        node_values: &mut[V], node_edges: &[BTreeSet<usize>], edges: &[Edge<W>],
+        u: usize, w: W, t: T,
+        unvis: &mut BTreeSet<usize>,
+        func_pre_post: &mut F)
+    where F: FnMut(usize, &mut V, Option<(W, T)>) -> T, T: Copy {
+
+        if unvis.contains(&u) {
+            unvis.remove(&u);
+
+            let nt = func_pre_post(u, &mut node_values[u], Some((w, t)));
+
+            for &e in node_edges[u].iter() {
+                let (nu, nw) = edges[e].node_from(u);
+
+                Self::_dfs_rec(node_values, node_edges, edges, nu, nw, nt, unvis, func_pre_post);
+            }
+
+            func_pre_post(u, &mut node_values[u], None);
+        }
+    }
+
+    fn dfs_rec<T, F>(&mut self,
+        first_node: Option<usize>, first_weight: W, first_travel: T,
+        unvisited: Option<BTreeSet<usize>>,
+        mut func_pre_post: F) -> BTreeSet<usize>
+    where F: FnMut(usize, &mut V, Option<(W, T)>) -> T, T: Copy {
+
+        let n = self.node_values.len();
+        let mut unvis = unvisited.unwrap_or((0..n).collect());
+
+        let first_node = first_node.unwrap_or(*unvis.first().unwrap());
+
+        Self::_dfs_rec(
+            &mut self.node_values, &self.node_edges, &self.edges,
+            first_node, first_weight, first_travel,
+            &mut unvis,
+            &mut func_pre_post);
+
+        unvis
+    }
+}
+
 //#############################################################################
 
 fn main() {
@@ -70,30 +273,29 @@ fn main() {
 
     let n: usize = tokens.next();
 
-    let abx: Vec<(u64, u64, usize)> = (0..(n - 1)).map(|_| (tokens.next(), tokens.next(), tokens.next())).collect();
-    debug!(abx);
+    let mut g = Graph::new_nodes(n, u64::MAX, false);
 
-    let mut v = vec![u64::MAX; n];
+    for i in 0..(n - 1) {
+        let a: u64 = tokens.next();
+        let b: u64 = tokens.next();
+        let x: usize = tokens.next();
 
-    let mut que = VecDeque::new();
-    que.push_front((0, 0));
-
-    while let Some((s, m)) = que.pop_front() {
-        //debug!(s, m, v[s]);
-        if v[s] > m && v[n - 1] > m {
-            v[s] = m;
-            if s < n - 1 {
-                if m + abx[s].0 < m + abx[s].1 {
-                    que.push_front((s + 1, m + abx[s].0));
-                    que.push_back((abx[s].2 - 1, m + abx[s].1));
-                }
-                else {
-                    que.push_front((abx[s].2 - 1, m + abx[s].1));
-                    que.push_back((s + 1, m + abx[s].0));
-                }
-            }
-        }
+        g.add_edge(i, i + 1, a);
+        g.add_edge(i, x - 1, b);
     }
+
+    g.dijkstra(Some(0), None,
+        |_u, _p, v, ws| {
+            if *v > ws {
+                *v = ws;
+                true
+            }
+            else {
+                false
+            }
+        });
+    
+    let v = g.node_values();
 
     println!("{}", v[n - 1]);
 }
