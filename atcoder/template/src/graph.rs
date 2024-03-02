@@ -24,7 +24,7 @@ impl<W: Copy> Edge<W> {
 
 #[derive(Debug, Clone)]
 enum NodeSt {
-    Visiting,
+    Unvisited,
     Returned,
     Visited,
 }
@@ -100,7 +100,7 @@ impl<V, W: Copy> Graph<V, W> {
             if unvis.contains(&u) {
                 unvis.remove(&u);
 
-                let nt = func(NodeSt::Visiting, &mut self.node_values[u], w, t);
+                let nt = func(NodeSt::Unvisited, &mut self.node_values[u], w, t);
 
                 for &e in self.node_edges[u].iter() {
                     let (nu, nw) = self.edges[e].node_from(u);
@@ -178,7 +178,7 @@ impl<V, W: Copy> Graph<V, W> {
         if unvis.contains(&u) {
             unvis.remove(&u);
 
-            let nt = func(NodeSt::Visiting, &mut node_values[u], w, t);
+            let nt = func(NodeSt::Unvisited, &mut node_values[u], w, t);
 
             for &e in node_edges[u].iter() {
                 let (nu, nw) = edges[e].node_from(u);
@@ -227,7 +227,7 @@ fn test_graph_dfs_bfs() {
     g.dfs(None, (), (), (0..7).collect(),
         |st, v, _w, _t| {
             match st {
-                NodeSt::Visiting => {
+                NodeSt::Unvisited => {
                     *v = cnt;
                     cnt += 1;
                 },
@@ -242,7 +242,7 @@ fn test_graph_dfs_bfs() {
     g.bfs(None, (), (), (0..7).collect(),
         |st, v, _w, _t| {
             match st {
-                NodeSt::Visiting => {
+                NodeSt::Unvisited => {
                     *v = cnt;
                     cnt += 1;
                 },
@@ -257,7 +257,7 @@ fn test_graph_dfs_bfs() {
     g.dfs_rec(None, (), (), (0..7).collect(),
         |st, v, _w, _t| {
             match st {
-                NodeSt::Visiting => {},
+                NodeSt::Unvisited => {},
                 NodeSt::Returned => {
                     *v = cnt;
                     cnt += 1;
