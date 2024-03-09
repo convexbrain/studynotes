@@ -86,6 +86,8 @@ fn main() {
     m[0] = 0;
 
     for i in 0..n {
+        let mut mm = m.clone();
+
         for j in 0..t.len() {
             if m[j] >= 0 {
                 let st = t.split_at(j).1;
@@ -95,13 +97,15 @@ fn main() {
                     //debug!(s);
                     if st.starts_with(s) {
                         //debug!(m[j + s.len()], m[j]);
-                        if m[j + s.len()] < 0 || m[j + s.len()] > m[j] + 1 {
-                            m[j + s.len()] = m[j] + 1;
+                        if mm[j + s.len()] < 0 || mm[j + s.len()] > m[j] + 1 {
+                            mm[j + s.len()] = m[j] + 1;
                         }
                     }
                 }
             }
         }
+        
+        m = mm;
     }
 
     debug!(m);

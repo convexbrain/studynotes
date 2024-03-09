@@ -74,15 +74,9 @@ fn main() {
     let mut m = BTreeMap::new();
 
     for i in 0..n {
-        if i == 0 {
-            m.insert(a[i], (None, Some(a[i + 1])));
-        }
-        else if i == n - 1 {
-            m.insert(a[i], (Some(a[i - 1]), None));
-        }
-        else {
-            m.insert(a[i], (Some(a[i - 1]), Some(a[i + 1])));
-        }
+        let prev = if i > 0 {Some(a[i - 1])} else {None};
+        let next = if i < n - 1 {Some(a[i + 1])} else {None};
+        m.insert(a[i], (prev, next));
     }
 
     let mut head = a[0];
@@ -103,7 +97,6 @@ fn main() {
                     let mx1 = m[&x1];
                     m.insert(x1, (Some(y), mx1.1));
                 }
-
             },
             2 => {
                 let x: u32 = tokens.next();
