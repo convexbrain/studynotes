@@ -82,20 +82,12 @@ fn main() {
             c += a[i] * a[j];
         }
     }
-    let c = c.max(1);
-    println!("{c}");
-
-    return;
-
-    let n = s.len();
-    let mut c = (n * (n - 1)) / 2;
-    for &i in a.iter() {
-        if i >= 2 {
-            let ci = (i * (i - 1)) / 2;
-            c -= ci;
+    for i in 0..26 {
+        if a[i]>= 2 {
+            c += 1;
+            break;
         }
     }
-
     let c = c.max(1);
     println!("{c}");
 }
