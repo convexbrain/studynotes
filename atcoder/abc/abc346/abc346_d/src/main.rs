@@ -89,7 +89,7 @@ fn main() {
     let mut min_cost = i64::MAX;
     let mut psum = 0;
 
-    for i in 0..n {
+    for i in 0..(n - 1) {
         if f[i] {
             psum -= c[i];
         }
