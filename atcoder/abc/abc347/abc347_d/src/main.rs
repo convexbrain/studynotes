@@ -95,17 +95,16 @@ fn main() {
         return;
     }
 
-    let mut k = k2 / 2;
-
     let mut x = 0;
     let mut y = 0;
     {
+        let mut k = k2 / 2;
         let mut ak = a - k;
         let mut bk = b - k;
-        let mut cc = c;
-        let mut bit = 1_u64;
-        while cc > 0 || k > 0 {
-            if cc & 1 != 0 {
+
+        for pos in 0..60 {
+            let bit = 1 << pos;
+            if c & bit != 0 {
                 if ak > 0 {
                     x |= bit;
                     ak -= 1;
@@ -115,7 +114,6 @@ fn main() {
                     bk -= 1;
                 }
                 else {
-                    debug!(x, y);
                     println!("-1");
                     return;
                 }
@@ -125,8 +123,11 @@ fn main() {
                 y |= bit;
                 k -= 1;
             }
-            cc >>= 1;
-            bit <<= 1;
+        }
+
+        if k > 0 || ak > 0 || bk > 0 {
+            println!("-1");
+            return;
         }
     }
     println!("{x} {y}");
