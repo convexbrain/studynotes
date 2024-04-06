@@ -249,12 +249,28 @@ fn main() {
     }
     debug!(d2);
 
+    //
+
+    let mut que = VecDeque::new();
     let mut vis = BTreeSet::new();
-    let ans = ssub(n, &d2, &ene, snode, ene[snode], &mut vis);
-    if ans {
-        println!("Yes");
+
+    que.push_front(snode);
+    while let Some(node) = que.pop_front() {
+        if !vis.contains(&node) {
+            vis.insert(node);
+
+            for nnode in 0..(n + 1) {
+                if node != nnode && d2[node][nnode] <= ene[node] {
+                    if nnode == n {
+                        println!("Yes");
+                        return;
+                    }
+                    else {
+                        que.push_front(nnode);
+                    }
+                }
+            }
+        }
     }
-    else {
-        println!("No");
-    }
+    println!("No");
 }
