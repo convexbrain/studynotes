@@ -69,75 +69,19 @@ fn main() {
     let mut tokens = Tokens::new(&mut tokens_buf);
 
     let n: usize = tokens.next();
-    let m: usize = tokens.next();
+    let mut m: usize = tokens.next();
+    let h: Vec<usize> = tokens.collect(n);
 
-    let mut e = Vec::new();
-
-    for _ in 0..m {
-        let k: usize = tokens.next();
-        let c: u64 = tokens.next();
-        let mut a: Vec<usize> = tokens.collect(k);
-
-        a.sort();
-
-        for ai in a.iter().skip(1) {
-            e.push((c, a[0], *ai));
+    for (i, &hi) in h.iter().enumerate() {
+        if hi == m {
+            println!("{}", i + 1);
+            return;
         }
+        else if hi > m {
+            println!("{}", i);
+            return;
+        }
+        m -= hi;
     }
-
-    debug!(e);
-
-    let mut map = BTreeMap::new();
-    let mut score = 0;
-    let mut cnt = 0;
-
-    for ei in e.iter() {
-        let ei1 = map.contains_key(&ei.1);
-        let ei2 = map.contains_key(&ei.2);
-        if !ei1 && !ei2 {
-            map.insert(ei.1, ei.1.min());
-            map.insert(ei.2, ei.1);
-            score += ei.0;
-            cnt += 1;
-        }
-        else if ei1 {
-            map.insert(ei.2, ei.1);
-            score += ei.0;
-            cnt += 1;
-        }
-        else if ei2 {
-            map.insert(ei.1, ei.2);
-            score += ei.0;
-            cnt += 1;
-        }
-        else {
-            let mut root1 = ei.1;
-            let mut pos = ei.1;
-            while let Some(&npos) = map.get(&pos) {
-                pos = npos;
-                root1 = root1.min(npos);
-            }
-            let mut root2 = ei.2;
-            let mut pos = ei.2;
-            while let Some(&npos) = map.get(&pos) {
-                pos = npos;
-                root2 = root2.min(npos);
-            }
-
-            if root1 != root2 {
-                map.insert(root2.max(root1), root2.min(root1));
-                score += ei.0;
-                cnt += 1;
-            }
-        }
-    }
-
-    debug!(map);
-
-    if cnt < n - 1 {
-        println!("-1");
-    }
-    else {
-        println!("{score}");
-    }
+    println!("{}", n);
 }

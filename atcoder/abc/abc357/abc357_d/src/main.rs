@@ -64,80 +64,60 @@ impl<'a> Tokens<'a> {
 
 //#############################################################################
 
+fn sub2(p: u64, n: u64) -> u64 {
+    let q = 998244353;
+
+    if n == 1 {
+        p % q
+    }
+    else if n % 2 == 0 {
+        sub2((p * p) % q, n / 2) % q
+    }
+    else {
+        (sub2(p, n - 1) * p) % q
+    }
+}
+
+fn sub(memo: &mut BTreeMap<u64, u64>, n: u64, l: u64) -> u64 {
+    let q = 998244353;
+
+    if n == 1 {
+        1
+    }
+    else if(memo.contains_key(&n)) {
+        memo[&n]
+    }
+    else {
+        let n1 = n / 2;
+        let n2 = n - n1;
+
+        let s1 = sub(memo, n1, l);
+        let mut s2 = sub(memo, n2, l);
+        //debug!(n1, s1, n2, s2);
+        s2 *= sub2(sub2(10, l), n1);
+        s2 %= q;
+        //debug!(n1, s1, n2, s2);
+
+        let s = (s1 + s2) % q;
+        memo.insert(n, s);
+        s
+    }
+}
+
 fn main() {
     let mut tokens_buf = String::new();
     let mut tokens = Tokens::new(&mut tokens_buf);
 
-    let n: usize = tokens.next();
-    let m: usize = tokens.next();
+    let n: u64 = tokens.next();
+    let l = format!("{n}").chars().count() as u64;
+    debug!(n, l);
 
-    let mut e = Vec::new();
+    let q = 998244353;
 
-    for _ in 0..m {
-        let k: usize = tokens.next();
-        let c: u64 = tokens.next();
-        let mut a: Vec<usize> = tokens.collect(k);
+    let mut memo = BTreeMap::new();
+    let s = sub(&mut memo, n, l);
+    let nq = n % q;
+    let a = (s * nq) % q;
 
-        a.sort();
-
-        for ai in a.iter().skip(1) {
-            e.push((c, a[0], *ai));
-        }
-    }
-
-    debug!(e);
-
-    let mut map = BTreeMap::new();
-    let mut score = 0;
-    let mut cnt = 0;
-
-    for ei in e.iter() {
-        let ei1 = map.contains_key(&ei.1);
-        let ei2 = map.contains_key(&ei.2);
-        if !ei1 && !ei2 {
-            map.insert(ei.1, ei.1.min());
-            map.insert(ei.2, ei.1);
-            score += ei.0;
-            cnt += 1;
-        }
-        else if ei1 {
-            map.insert(ei.2, ei.1);
-            score += ei.0;
-            cnt += 1;
-        }
-        else if ei2 {
-            map.insert(ei.1, ei.2);
-            score += ei.0;
-            cnt += 1;
-        }
-        else {
-            let mut root1 = ei.1;
-            let mut pos = ei.1;
-            while let Some(&npos) = map.get(&pos) {
-                pos = npos;
-                root1 = root1.min(npos);
-            }
-            let mut root2 = ei.2;
-            let mut pos = ei.2;
-            while let Some(&npos) = map.get(&pos) {
-                pos = npos;
-                root2 = root2.min(npos);
-            }
-
-            if root1 != root2 {
-                map.insert(root2.max(root1), root2.min(root1));
-                score += ei.0;
-                cnt += 1;
-            }
-        }
-    }
-
-    debug!(map);
-
-    if cnt < n - 1 {
-        println!("-1");
-    }
-    else {
-        println!("{score}");
-    }
+    println!("{a}");
 }
