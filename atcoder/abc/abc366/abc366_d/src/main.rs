@@ -132,7 +132,7 @@ fn main() {
         let sss = sss - if ly > 0 {s[rx][ly - 1][rz]} else {0};
         let sss = sss - if lz > 0 {s[rx][ry][lz - 1]} else {0};
 
-        let sss = sss - if lx > 0 && ly > 0 && lz > 0 {s[lx][ly][lz]} else {0};
+        let sss = sss - if lx > 0 && ly > 0 && lz > 0 {s[lx - 1][ly - 1][lz - 1]} else {0};
 
         println!("{sss}");
     }
