@@ -94,17 +94,10 @@ fn sub(map: &Vec<Vec<u64>>, x: u64, die: &mut BTreeSet<(usize, usize)>, nei: &mu
         nei.insert((map[vi.0][vi.1], vi.0, vi.1));
     }
 
-    let mut l = Vec::new();
-    for ni in nei.iter() {
+    if let Some(ni) = nei.first() {
         if ni.0 < (score + x - 1) / x {
-            l.push((ni.1, ni.2));
+            sub(map, x, die, nei, ni.1, ni.2, score, ans);
         }
-        else {
-            break;
-        }
-    }
-    for li in l.iter() {
-        sub(map, x, die, nei, li.0, li.1, score, ans);
     }
 
     for vi in v.iter() {
