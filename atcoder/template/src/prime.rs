@@ -1,16 +1,21 @@
+use std::ops::*;
 
 //#############################################################################
 
-fn isqrt(n: usize) -> usize
+fn isqrt<N>(n: N) -> N
+where N: Default + Copy + Add<Output=N> + Div<Output=N> + Mul<Output=N> + PartialOrd<N>
 {
-    if n < 2 {
-        n
+    let zero = N::default();
+    if n == zero {
+        zero
     }
     else {
-        let mut l = 1;
+        let one = n / n;
+        let two = one + one;
+        let mut l = one;
         let mut r = n;
-        while l + 1 < r {
-            let c = (l + r) / 2;
+        while l + one < r {
+            let c = (l + r) / two;
             if c * c > n {
                 r = c;
             }
@@ -61,9 +66,9 @@ where N: TryInto<usize> + TryFrom<usize>,
 
 #[test]
 fn test_prime() {
-    assert_eq!(isqrt(35), 5);
-    assert_eq!(isqrt(36), 6);
-    assert_eq!(isqrt(37), 6);
+    assert_eq!(isqrt(35_u32), 5);
+    assert_eq!(isqrt(36_u32), 6);
+    assert_eq!(isqrt(37_u32), 6);
 
     let ps: std::collections::BTreeSet<u32> = prime(30);
     let ps: Vec<u32> = ps.iter().copied().collect();
