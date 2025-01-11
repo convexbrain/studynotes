@@ -15,3 +15,4 @@ mod an_ord;
 mod stree;
 mod debug_iter;
 mod graph;
+mod prime;
