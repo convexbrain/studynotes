@@ -23,10 +23,11 @@ fn isqrt(n: usize) -> usize
     }
 }
 
-fn prime<N>(n: N) -> Vec<N>
+fn prime<N, V>(n: N) -> V
 where N: TryInto<usize> + TryFrom<usize>,
       <N as TryInto<usize>>::Error: std::fmt::Debug,
-      <N as TryFrom<usize>>::Error: std::fmt::Debug
+      <N as TryFrom<usize>>::Error: std::fmt::Debug,
+      V: Extend<N> + Default
 {
     let n: usize = n.try_into().unwrap();
     let n_isqrt = isqrt(n);
@@ -46,11 +47,11 @@ where N: TryInto<usize> + TryFrom<usize>,
         }
     }
 
-    let mut ps: Vec<N> = Vec::new();
+    let mut ps = V::default();
     for (i, f) in pf.iter().enumerate() {
         let p = i + 2;
         if *f {
-            ps.push(p.try_into().unwrap());
+            ps.extend([p.try_into().unwrap()]);
         }
     }
     ps
@@ -64,6 +65,7 @@ fn test_prime() {
     assert_eq!(isqrt(36), 6);
     assert_eq!(isqrt(37), 6);
 
-    let ps = prime(30);
+    let ps: std::collections::BTreeSet<u32> = prime(30);
+    let ps: Vec<u32> = ps.iter().copied().collect();
     assert_eq!(ps, &[2, 3, 5, 7, 11, 13, 17, 19, 23, 29]);
 }
