@@ -23,8 +23,12 @@ fn isqrt(n: usize) -> usize
     }
 }
 
-fn prime(n: usize) -> Vec<usize>
+fn prime<N>(n: N) -> Vec<N>
+where N: TryInto<usize> + TryFrom<usize>,
+      <N as TryInto<usize>>::Error: std::fmt::Debug,
+      <N as TryFrom<usize>>::Error: std::fmt::Debug
 {
+    let n: usize = n.try_into().unwrap();
     let n_isqrt = isqrt(n);
 
     let mut pf = vec![true; n - 1]; // 0..n-1 == 0..=n-2 == 2..=n
@@ -42,11 +46,11 @@ fn prime(n: usize) -> Vec<usize>
         }
     }
 
-    let mut ps = Vec::new();
+    let mut ps: Vec<N> = Vec::new();
     for (i, f) in pf.iter().enumerate() {
         let p = i + 2;
         if *f {
-            ps.push(p);
+            ps.push(p.try_into().unwrap());
         }
     }
     ps
