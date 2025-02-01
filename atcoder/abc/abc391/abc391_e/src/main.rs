@@ -96,13 +96,13 @@ fn main() {
                 m.push(aa[i2].0);
                 m.sort();
                 let mut c = usize::MAX;
-                if m[1] != aa[i0].0 {
+                if m[1] == aa[i0].0 {
                     c = c.min(aa[i0].1);
                 }
-                if m[1] != aa[i1].0 {
+                if m[1] == aa[i1].0 {
                     c = c.min(aa[i1].1);
                 }
-                if m[1] != aa[i2].0 {
+                if m[1] == aa[i2].0 {
                     c = c.min(aa[i2].1);
                 }
                 aaa.push((m[1], c));
