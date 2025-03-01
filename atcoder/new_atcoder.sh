@@ -12,7 +12,7 @@ mkdir $p
     do
         pp=`echo "$p"_"$i"`
         #echo $pp
-        cargo new $pp && cp -v ../template/src/main.rs $pp/src/
+        cargo new $pp && cp -v ../template/src/main.rs $pp/src/ && cp -v ../template/rust-toolchain.toml $pp/
     done
 )
 
