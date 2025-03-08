@@ -71,59 +71,51 @@ fn main() {
     let n: usize = tokens.next();
     let m: usize = tokens.next();
 
-    let mut x = Vec::new();
-    let mut y = Vec::new();
-    let mut z = Vec::new();
+    let mut g = vec![BTreeSet::new(); n];
+
     for _ in 0..m {
-        let xx: usize = tokens.next();
-        let yy: usize = tokens.next();
-        let zz: u32 = tokens.next();
-        x.push(xx - 1);
-        y.push(yy - 1);
-        z.push(zz);
+        let x: usize = tokens.next();
+        let y: usize = tokens.next();
+        let z: u32 = tokens.next();
+        let x = x - 1;
+        let y = y - 1;
+        g[x].insert((y, z));
+        g[y].insert((x, z));
     }
 
     let mut a = vec![0_u32; n];
 
-    for b in (0..32).rev() {
-        let mut g = vec![(BTreeSet::new(), None); n];
-        for i in 0..m {
-            if z[i] & (1 << b) == 0 {
-                g[x[i]].0.insert((y[i], false));
-                g[y[i]].0.insert((x[i], false));
-            }
-            else {
-                g[x[i]].0.insert((y[i], true));
-                g[y[i]].0.insert((x[i], true));
-            }
-        }
-
+    for b in 0..32 {
         let mut u = BTreeSet::from_iter(0..n);
         while let Some(s) = u.first() {
+            let mut sf = BTreeSet::new();
+            let mut st = BTreeSet::new();
+    
             let mut q = VecDeque::new();
-            q.push_back((*s, 0));
-            while let Some(node) = q.pop_back() {
-                if let Some(p) = g[node.0].1 {
-                    if p != node.1 {
-                        println!("-1");
-                        return;
-                    }
+            q.push_back((*s, false));
+            while let Some(p) = q.pop_back() {
+                if p.1 && !sf.contains(&p.0) {
+                    st.insert(p.0);
+                }
+                else if !p.1 && !st.contains(&p.0) {
+                    sf.insert(p.0);
                 }
                 else {
-                    g[node.0].1 = Some(node.1);
+                    println!("-1");
+                    return;
                 }
 
-                if u.contains(&node.0) {
-                    u.remove(&node.0);
-                    for e in g[node.0].0.iter() {
-                        q.push_back((e.0, if e.1 {1 - node.1} else {node.1}));
+                if u.contains(&p.0) {
+                    u.remove(&p.0);
+                    for e in g[p.0].iter() {
+                        let ft = if e.1 & (1 << b) == 0 {p.1} else {!p.1};
+                        q.push_back((e.0, ft));
                     }
                 }
             }
-        }
 
-        for j in 0..n {
-            if g[j].1.unwrap() == 1 {
+            let s1 = if sf.len() > st.len() {st} else {sf};
+            for &j in s1.iter() {
                 a[j] |= 1 << b;
             }
         }
