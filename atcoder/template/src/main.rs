@@ -35,12 +35,15 @@ struct Tokens<'a>(std::str::SplitWhitespace<'a>);
 
 #[allow(dead_code)]
 impl<'a> Tokens<'a> {
-    fn new(buf: &'a mut String) -> Self {
-        std::io::stdin().read_to_string(buf).unwrap();
-        Tokens(buf.split_whitespace())
+    fn new(placeholder: &'a mut String) -> Self {
+        placeholder.clear();
+        std::io::stdin().read_to_string(placeholder).unwrap();
+        Tokens(placeholder.split_whitespace())
     }
-    fn release(self) -> std::str::SplitWhitespace<'a> {
-        self.0
+    fn new_line(placeholder: &'a mut String) -> Self {
+        placeholder.clear();
+        std::io::stdin().read_line(placeholder).unwrap();
+        Tokens(placeholder.split_whitespace())
     }
     fn next_string(&mut self) -> String {
         self.0.next().unwrap().to_string()
@@ -56,36 +59,29 @@ impl<'a> Tokens<'a> {
     where T: std::str::FromStr, T::Err: std::fmt::Debug, C: FromIterator<T> {
         (0..n).map(|_| self.next()).collect()
     }
-    fn collect_index<T, C>(&mut self, n: usize) -> C
-    where T: std::str::FromStr, T::Err: std::fmt::Debug, C: FromIterator<(usize, T)> {
-        (0..n).map(|i| (i, self.next())).collect()
-    }
 }
 
 //#############################################################################
 
 fn main() {
-    let mut tokens_buf = String::new();
-    let mut tokens = Tokens::new(&mut tokens_buf);
+    let mut placeholder = String::new();
+    let mut tokens = Tokens::new(&mut placeholder);
 
     #[cfg(feature = "template")]
     {
-        let a = tokens.next_string(); // String
+        let s = tokens.next_string(); // String
         let b = tokens.next_bytes(); // Vec<u8>
         let n: usize = tokens.next();
-        let v: Vec<u32> = tokens.collect(n);
-        let i: Vec<(usize, u32)> = tokens.collect_index(n);
+        let a: Vec<u32> = tokens.collect(n);
+        let i: BTreeSet<(usize, u32)> = (0..n).map(|i|
+            (i, tokens.next())
+        ).collect();
     
-        debug!(a, b, n, v, i);
+        debug!(s, b, n, a, i);
     
         let b0 = char::from_u32(b[0] as u32).unwrap(); // u8 -> char
         let bs = String::from_utf8(b).unwrap(); // Vec<u8> -> String
     
         debug!(b0, bs);
-
-        let split = tokens.release();
-        let r = split.count();
-    
-        println!("{r}");
     }
 }
