@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_macros)]
 
-// todo: union-find, fenwick tree
+// todo: union-find, fenwick tree, skip list
 
 mod gcd;
 mod mod_pow;
