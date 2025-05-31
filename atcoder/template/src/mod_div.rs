@@ -1,10 +1,26 @@
 use std::ops::*;
 
+trait Int: std::fmt::Debug + Copy + Default + Ord + Eq + ShrAssign + SubAssign +
+    Add<Output=Self> + Sub<Output=Self> + Mul<Output=Self> + Div<Output=Self> + Rem<Output=Self> + BitAnd<Output=Self> +
+    TryInto<usize> + TryFrom<usize>
+{ fn chk_mul(self, rhs: Self) -> Option<Self>; }
+impl Int for u8 { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for u16 { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for u32 { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for u64 { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for u128 { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for usize { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for i8 { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for i16 { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for i32 { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for i64 { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for i128 { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for isize { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+
 //#############################################################################
 
 // (g, x, y) s.t. a x + b y = gcd(a, b) = g
-fn ext_euclid<N>(a: N, b: N) -> (N, N, N)
-where N: Default + Div<Output=N> + Mul<Output=N> + Sub<Output=N> + Eq + Copy
+fn ext_euclid<N: Int>(a: N, b: N) -> (N, N, N)
 {
     let zero = N::default();
     let one = b / b;
@@ -19,12 +35,13 @@ where N: Default + Div<Output=N> + Mul<Output=N> + Sub<Output=N> + Eq + Copy
     loop {
         let q1 = r0 / r1;
         let r2 = r0 - q1 * r1;
-        let s2 = s0 - q1 * s1;
-        let t2 = t0 - q1 * t1;
 
         if r2 == zero {
             return (r1, s1, t1);
         }
+
+        let s2 = s0 - q1 * s1;
+        let t2 = t0 - q1 * t1;
 
         (r0, r1) = (r1, r2);
         (s0, s1) = (s1, s2);
@@ -32,8 +49,7 @@ where N: Default + Div<Output=N> + Mul<Output=N> + Sub<Output=N> + Eq + Copy
     }
 }
 
-fn mod_div<N>(x: N, y: N, m: N) -> N
-where N: Default + Div<Output=N> + Mul<Output=N> + Sub<Output=N> + Ord + Copy + Rem<Output=N> + Add<Output=N>
+fn mod_div<N: Int>(x: N, y: N, m: N) -> N
 {
     let zero = N::default();
     let one = m / m;

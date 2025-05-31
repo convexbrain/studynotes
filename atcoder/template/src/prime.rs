@@ -1,10 +1,25 @@
 use std::ops::*;
 
+trait Int: std::fmt::Debug + Copy + Default + Ord + Eq + ShrAssign + SubAssign +
+    Add<Output=Self> + Sub<Output=Self> + Mul<Output=Self> + Div<Output=Self> + Rem<Output=Self> + BitAnd<Output=Self> +
+    TryInto<usize> + TryFrom<usize>
+{ fn chk_mul(self, rhs: Self) -> Option<Self>; }
+impl Int for u8 { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for u16 { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for u32 { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for u64 { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for u128 { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for usize { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for i8 { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for i16 { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for i32 { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for i64 { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for i128 { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+impl Int for isize { fn chk_mul(self, rhs: Self) -> Option<Self> {self.checked_mul(rhs)} }
+
 //#############################################################################
 
-fn isqrt<N, F>(n: N, checked_square: F) -> N
-where N: Default + Copy + Add<Output=N> + Div<Output=N> + PartialOrd<N>,
-      F: FnOnce(N) -> Option<N> + Copy
+fn isqrt<N: Int>(n: N) -> N
 {
     let zero = N::default();
     if n == zero {
@@ -17,7 +32,7 @@ where N: Default + Copy + Add<Output=N> + Div<Output=N> + PartialOrd<N>,
         let mut r = n;
         while l + one < r {
             let c = (l + r) / two;
-            if let Some(cc) = checked_square(c) {
+            if let Some(cc) = c.chk_mul(c) {
                 if cc > n {
                     r = c;
                 }
@@ -34,14 +49,10 @@ where N: Default + Copy + Add<Output=N> + Div<Output=N> + PartialOrd<N>,
     }
 }
 
-fn prime<N, V>(n: N) -> V
-where N: TryInto<usize> + TryFrom<usize>,
-      <N as TryInto<usize>>::Error: std::fmt::Debug,
-      <N as TryFrom<usize>>::Error: std::fmt::Debug,
-      V: Extend<N> + Default
+fn prime<V>(n: usize) -> V
+where V: Extend<usize> + Default
 {
-    let n: usize = n.try_into().unwrap();
-    let n_isqrt = isqrt(n, |x| x.checked_mul(x));
+    let n_isqrt = isqrt(n);
 
     let mut pf = vec![true; n - 1]; // 0..n-1 == 0..=n-2 == 2..=n
     for p in 2..=n_isqrt {
@@ -62,7 +73,7 @@ where N: TryInto<usize> + TryFrom<usize>,
     for (i, f) in pf.iter().enumerate() {
         let p = i + 2;
         if *f {
-            ps.extend([p.try_into().unwrap()]);
+            ps.extend([p.try_into().unwrap_or_default()]);
         }
     }
     ps
@@ -72,11 +83,11 @@ where N: TryInto<usize> + TryFrom<usize>,
 
 #[test]
 fn test_prime() {
-    assert_eq!(isqrt(35_u32, |x| x.checked_mul(x)), 5);
-    assert_eq!(isqrt(36_u32, |x| x.checked_mul(x)), 6);
-    assert_eq!(isqrt(37_u32, |x| x.checked_mul(x)), 6);
+    assert_eq!(isqrt(35), 5);
+    assert_eq!(isqrt(36), 6);
+    assert_eq!(isqrt(37), 6);
 
-    let ps: std::collections::BTreeSet<u32> = prime(30);
-    let ps: Vec<u32> = ps.iter().copied().collect();
+    let ps: std::collections::BTreeSet<_> = prime(30);
+    let ps: Vec<_> = ps.iter().copied().collect();
     assert_eq!(ps, &[2, 3, 5, 7, 11, 13, 17, 19, 23, 29]);
 }
